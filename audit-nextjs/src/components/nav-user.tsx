@@ -6,7 +6,9 @@ import {
   ChevronsUpDown,
   CreditCard,
   LogOut,
+  Moon,
   Sparkles,
+  Sun,
 } from "lucide-react"
 
 import {
@@ -29,9 +31,9 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { signOut } from "next-auth/react"
 import { logout } from "@/lib/auth/logout"
 import { getSession } from "next-auth/react"
+import { useTheme } from "next-themes"
 
 export function NavUser({
   user,
@@ -43,6 +45,8 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const { theme, setTheme } = useTheme()
+  
   const handleLogout = async () => {
     try {
       const session = await getSession();
@@ -94,6 +98,13 @@ export function NavUser({
               <DropdownMenuItem>
                 <Sparkles />
                 Upgrade to Pro
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+                {theme === "dark" ? <Sun /> : <Moon />}
+                {theme === "dark" ? "Light Mode" : "Dark Mode"}
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

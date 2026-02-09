@@ -14,7 +14,7 @@ export async function proxy(request: NextRequest) {
     req: request,
     secret: process.env.NEXTAUTH_SECRET,
   });
-  console.log("Middleware - Token:", token);
+  // console.log("Middleware - Token:", token);
   const isAuthenticated = !!token;
 
   // ตรวจสอบว่าเป็น public path หรือไม่

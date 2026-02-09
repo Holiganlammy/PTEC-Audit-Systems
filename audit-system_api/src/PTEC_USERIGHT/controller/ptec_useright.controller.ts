@@ -36,7 +36,9 @@ import {
 } from '../domain/model/ptec_useright.entity';
 import { Redis } from 'ioredis';
 import * as crypto from 'crypto';
-import { GetWelfareDto } from '../dto/ptec_useright.dto';
+import { Department } from '../domain/model/ptec_useright.entity';
+import { Section } from '../domain/model/ptec_useright.entity';
+import { Position } from '../domain/model/ptec_useright.entity';
 
 @Controller('')
 export class AppController {
@@ -613,57 +615,77 @@ export class AppController {
       });
     }
   }
-
-  @Get('/getsUserForAssetsControl')
-  async getsUserForAssetsControl(@Res() res: express.Response) {
+  @Get('/branch')
+  async getBranch(@Res() res: express.Response) {
     try {
-      const users = await this.appService.getsUserForAssetsControl();
+      const branches = await this.appService.getBranch();
       res.status(200).send({
         success: true,
-        data: users,
+        data: branches,
       });
     } catch (error) {
-      console.error('Error fetching users for assets control:', error);
+      console.error('Error fetching branches:', error);
       res.status(500).send({
         success: false,
-        message: 'Error fetching users for assets control',
+        message: 'Error fetching branches',
       });
     }
   }
 
-  @Get('/Provinces_List')
-  async getProvincesList(@Res() res: express.Response) {
+  @Get('/department')
+  async getDepartment(@Res() res: express.Response) {
     try {
-      const provinces = await this.appService.getProvincesList();
+      const departments = await this.appService.getDepartment();
+      const filterDepartments = departments.filter(
+        (dept: Department) => dept.branchid !== 0,
+      );
       res.status(200).send({
         success: true,
-        data: provinces,
+        data: filterDepartments,
       });
     } catch (error) {
-      console.error('Error fetching provinces list:', error);
+      console.error('Error fetching departments:', error);
       res.status(500).send({
         success: false,
-        message: 'Error fetching provinces list',
+        message: 'Error fetching departments',
       });
     }
   }
 
-  @Post('/useright_getWelfare')
-  async useright_getWelfare(
-    @Body() req: GetWelfareDto,
-    @Res() res: express.Response,
-  ) {
+  @Get('/section')
+  async getSection(@Res() res: express.Response) {
     try {
-      const welfare = await this.appService.useright_getWelfare(req);
+      const sections = await this.appService.getSection();
+      const filterSections = sections.filter((sec: Section) => sec.secid !== 0);
       res.status(200).send({
         success: true,
-        data: welfare,
+        data: filterSections,
       });
     } catch (error) {
-      console.error('Error fetching welfare data:', error);
+      console.error('Error fetching sections:', error);
       res.status(500).send({
         success: false,
-        message: 'Error fetching welfare data',
+        message: 'Error fetching sections',
+      });
+    }
+  }
+
+  @Get('/position')
+  async getPosition(@Res() res: express.Response) {
+    try {
+      const positions = await this.appService.getPosition();
+      const filterPositions = positions.filter(
+        (pos: Position) => pos.positionid !== 0,
+      );
+      res.status(200).send({
+        success: true,
+        data: filterPositions,
+      });
+    } catch (error) {
+      console.error('Error fetching positions:', error);
+      res.status(500).send({
+        success: false,
+        message: 'Error fetching positions',
       });
     }
   }

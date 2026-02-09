@@ -326,4 +326,15 @@ export class AppService {
       ],
     );
   }
+
+  async running_number(type: string) {
+    return this.dbManager.executeStoredProcedure(
+      `${databaseConfig.database}.dbo.RunningNo`,
+      [
+        { name: 'code', type: sql.NVarChar(50), value: type },
+        { name: 'date', type: sql.DateTime(), value: new Date() },
+        { name: 'docno', type: sql.VarChar(100), value: '' },
+      ],
+    );
+  }
 }
