@@ -13,6 +13,7 @@ declare module "next-auth" {
       role_id?: number;
       branchid?: number;
       depid?: number;
+      loginMethod?: string;
     };
   }
   interface User {
@@ -27,6 +28,7 @@ declare module "next-auth" {
     branchid?: number;
     accessTokenExpires?: number;
     depid?:number;
+    loginMethod?: string;
   }
 
   interface JWT { 

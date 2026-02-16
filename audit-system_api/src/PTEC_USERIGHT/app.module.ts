@@ -16,6 +16,7 @@ import { DatabaseManagerModule } from 'src/database/database-manager.module';
   imports: [DatabaseManagerModule],
   controllers: [AppController],
   providers: [AppService, redisProvider],
+  exports: [AppService],
 })
 export class PTEC_USERRIGHT_Module implements NestModule {
   configure(consumer: MiddlewareConsumer) {

@@ -1,0 +1,73 @@
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+  status?: number;
+  branchId?: number;
+  auditorUserId?: number;
+  active?: boolean;
+}
+
+export interface PaginationMeta {
+  page: string;
+  limit: string;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+// Interface for user info
+export interface UserInfo {
+  role_id: number;
+  is_admin: boolean;
+  user_id?: number;
+  username?: string;
+}
+
+// Interface for simplified user data in response
+export interface UserData {
+  userCode: string;
+  fullname: string;
+  email: string;
+  position: string;
+  branchId: number;
+}
+
+// Interface for audit item with user data
+export interface AuditItemWithUsers {
+  itemId: number;
+  jobId: number;
+  categoryItemId: number;
+  inspectionDate: Date;
+  itemStatus: number;
+  remarks: string;
+  createdAt: Date;
+  updatedAt: Date;
+  active: boolean;
+  createdByUser?: UserData;
+  updatedByUser?: UserData;
+  categoryItem?: any;
+  amDetail?: any;
+  auditDetail?: any;
+  relatedAgencies?: any[];
+  taggedUsers?: any[];
+}
+
+// Interface for audit job with user data
+export interface AuditJobWithUsers {
+  auditor?: UserData;
+  districtManager?: UserData;
+  branchManager?: UserData;
+  createdByUser?: UserData;
+  updatedByUser?: UserData;
+  items?: AuditItemWithUsers[];
+}
+
+// Interface for paginated response
+export interface PaginatedResponse {
+  code: number;
+  data: AuditJobWithUsers[];
+  message: string;
+  pagination: PaginationMeta;
+  user: UserInfo;
+}

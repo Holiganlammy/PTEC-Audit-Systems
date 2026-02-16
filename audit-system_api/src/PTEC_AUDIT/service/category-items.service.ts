@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AuditCategoryItem } from '../domain/audit-category-item.entity';
+import { AuditCategoryItem } from '../domain/model/audit-category-item.entity';
 import { CreateCategoryItemDto } from '../dto/create-category-item.dto';
 import { UpdateCategoryItemDto } from '../dto/update-category-item.dto';
 

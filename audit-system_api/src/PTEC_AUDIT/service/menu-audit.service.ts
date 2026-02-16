@@ -2,8 +2,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { MenuAudit } from '../domain/menu-audit.entity';
-import { MenuAuditPermission } from '../domain/menu-audit-permission.entity';
+import { MenuAudit } from '../domain/model/menu-audit.entity';
+import { MenuAuditPermission } from '../domain/model/menu-audit-permission.entity';
 import { MenuAuditResponseDto } from '../dto/menu-audit.dto';
 
 @Injectable()
@@ -80,8 +80,6 @@ export class AppService {
    */
   async getMenuTreeByRole(roleId: number): Promise<MenuAuditResponseDto[]> {
     const flatMenus = await this.getMenusByRole(roleId);
-
-    // สร้าง tree structure
     const menuMap = new Map<number, MenuAuditResponseDto>();
     const rootMenus: MenuAuditResponseDto[] = [];
 

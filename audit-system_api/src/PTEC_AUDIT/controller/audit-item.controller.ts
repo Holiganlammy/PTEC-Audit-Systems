@@ -16,7 +16,7 @@ import express from 'express';
 import { AuditItemsService } from '../service/audit-item.service';
 import { CreateAuditItemDto } from '../dto/create-audit-item.dto';
 import { UpdateAuditItemDto } from '../dto/update-audit-item.dto';
-import { AuditItem } from '../domain/audit-item.entity';
+import { AuditItem } from '../domain/model/audit-item.entity';
 
 @Controller('audit-items')
 export class AuditItemsController {

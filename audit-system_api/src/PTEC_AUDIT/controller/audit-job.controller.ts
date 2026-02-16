@@ -10,20 +10,22 @@ import {
   ParseIntPipe,
   HttpStatus,
   Res,
+  Req,
 } from '@nestjs/common';
 import express from 'express';
 import { AuditJobsService } from '../service/audit-job.service';
+import { PaginatedResponse } from '../domain/type/audit-job.interface';
 import { CreateAuditJobDto } from '../dto/create-audit-job.dto';
 import { UpdateAuditJobDto } from '../dto/update-audit-job.dto';
-import { AuditJobsHeader } from '../domain/audit.jobs-header.entity';
+// import { AuditJobsHeader } from '../domain/audit.jobs-header.entity';
 
 @Controller('audit-jobs')
 // @UseGuards(JwtAuthGuard) // Uncomment when auth is ready
 export class AuditJobsController {
   constructor(private readonly auditJobsService: AuditJobsService) {}
 
-  // POST /audit-jobs - Create new audit job
-  @Post()
+  // POST /audit-jobs/create - Create new audit job
+  @Post('/create')
   async create(
     @Body() createAuditJobDto: CreateAuditJobDto,
     @Res() res: express.Response,
@@ -45,53 +47,34 @@ export class AuditJobsController {
   }
 
   // GET /audit-jobs - Get all audit jobs with optional filters or single job by job_id
-  @Get()
+  @Get('/list')
   async findAll(
-    @Query('job_id') jobId?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
     @Query('status') status?: string,
     @Query('branchId') branchId?: string,
     @Query('auditorUserId') auditorUserId?: string,
     @Query('active') active?: string,
-    @Res() res?: express.Response,
-  ) {
-    try {
-      // If job_id is provided, get single job
-      if (jobId !== undefined) {
-        const id = Number(jobId);
-        const auditJob = await this.auditJobsService.findOne(id);
-        if (!auditJob) {
-          return res?.status(HttpStatus.NOT_FOUND).json({
-            success: false,
-            message: `Audit job with ID ${id} not found`,
-          });
-        }
-        return res?.status(HttpStatus.OK).json({
-          success: true,
-          data: auditJob,
-        });
-      }
+    @Req() req?: express.Request,
+  ): Promise<PaginatedResponse> {
+    // Parse query params
+    const params = {
+      page: page ? parseInt(page, 10) : 1,
+      limit: limit ? parseInt(limit, 10) : 20,
+      status: status ? parseInt(status, 10) : undefined,
+      branchId: branchId ? parseInt(branchId, 10) : undefined,
+      auditorUserId: auditorUserId ? parseInt(auditorUserId, 10) : undefined,
+      active: active ? active === 'true' : undefined,
+    };
 
-      // Otherwise, get all jobs with filters
-      const filters: Partial<AuditJobsHeader> = {};
+    const user = (typeof req?.user === 'object' ? req.user : null) || {
+      role_id: 1,
+      is_admin: true,
+      user_id: 0,
+      username: 'system',
+    };
 
-      if (status !== undefined) filters.status = Number(status);
-      if (branchId !== undefined) filters.branchId = Number(branchId);
-      if (auditorUserId !== undefined)
-        filters.auditorUserId = Number(auditorUserId);
-      if (active !== undefined) filters.active = active === 'true';
-
-      const auditJobs = await this.auditJobsService.findAll(filters);
-      return res?.status(HttpStatus.OK).json({
-        success: true,
-        data: auditJobs,
-      });
-    } catch (error) {
-      console.error('Error fetching audit jobs:', error);
-      return res?.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: 'Error fetching audit jobs',
-      });
-    }
+    return await this.auditJobsService.findAll(params, user);
   }
 
   // GET /audit-jobs/status/:status - Get jobs by status

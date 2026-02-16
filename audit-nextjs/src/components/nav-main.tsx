@@ -1,6 +1,7 @@
 // components/nav-main.tsx
 "use client";
 
+import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import {
   Collapsible,
@@ -38,58 +39,65 @@ export function NavMain({ items }: { items: MenuItem[] }) {
     <SidebarGroup>
       <SidebarGroupLabel>เมนูหลัก</SidebarGroupLabel>
       <SidebarMenu>
-        {items.map((item) => {
-          const Icon = getIcon(item.icon);
-          const hasChildren = item.children && item.children.length > 0;
-
-          return (
-            <Collapsible key={item.menuId} asChild defaultOpen={false}>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip={item.name}>
-                  {item.path ? (
-                    <Link href={item.path}>
-                      <Icon />
-                      <span>{item.name}</span>
-                    </Link>
-                  ) : (
-                    <div className="flex items-center gap-2 w-full">
-                      <Icon />
-                      <span>{item.name}</span>
-                    </div>
-                  )}
-                </SidebarMenuButton>
-
-                {hasChildren && (
-                  <>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuAction className="data-[state=open]:rotate-90 cursor-pointer">
-                        <ChevronRight />
-                      </SidebarMenuAction>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        {item.children?.map((subItem) => (
-                          <SidebarMenuSubItem key={subItem.menuId}>
-                            <SidebarMenuSubButton asChild>
-                              {subItem.path ? (
-                                <Link href={subItem.path}>
-                                  <span>{subItem.name}</span>
-                                </Link>
-                              ) : (
-                                <span>{subItem.name}</span>
-                              )}
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </>
-                )}
-              </SidebarMenuItem>
-            </Collapsible>
-          );
-        })}
+        {items.map((item) => <NavMenuItem key={item.menuId} item={item} />)}
       </SidebarMenu>
     </SidebarGroup>
+  );
+}
+
+function NavMenuItem({ item }: { item: MenuItem }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const hasChildren = !!item.children?.length;
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} asChild>
+      <SidebarMenuItem>
+        {/* ✅ ถ้าไม่มี path และมี children: ให้คลิกทั้งแถบเพื่อเปิด/ปิด */}
+        {!item.path && hasChildren ? (
+          <CollapsibleTrigger asChild>
+            <SidebarMenuButton tooltip={item.name} className="w-full">
+              <span className="flex-1 text-left">{item.name}</span>
+              <ChevronRight className={`ml-auto transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+            </SidebarMenuButton>
+          </CollapsibleTrigger>
+        ) : (
+          <>
+            <SidebarMenuButton asChild tooltip={item.name}>
+              <Link href={item.path ?? "#"}>
+                <span className="flex-1">{item.name}</span>
+              </Link>
+            </SidebarMenuButton>
+
+            {hasChildren && (
+              <CollapsibleTrigger asChild>
+                <SidebarMenuAction className="cursor-pointer">
+                  <ChevronRight className={`transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+                </SidebarMenuAction>
+              </CollapsibleTrigger>
+            )}
+          </>
+        )}
+
+        {hasChildren && (
+          <CollapsibleContent>
+            <SidebarMenuSub>
+              {item.children?.map((subItem) => (
+                <SidebarMenuSubItem key={subItem.menuId}>
+                  <SidebarMenuSubButton asChild>
+                    {subItem.path ? (
+                      <Link href={subItem.path}>
+                        <span>{subItem.name}</span>
+                      </Link>
+                    ) : (
+                      <span>{subItem.name}</span>
+                    )}
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              ))}
+            </SidebarMenuSub>
+          </CollapsibleContent>
+        )}
+      </SidebarMenuItem>
+    </Collapsible>
   );
 }

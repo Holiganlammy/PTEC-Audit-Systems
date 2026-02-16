@@ -1,12 +1,18 @@
 // src/lib/auth/logout.ts
-import client from "@/lib/axios/interceptors";
 import { signOut } from "next-auth/react";
 
 export async function logout(accessToken?: string) {
   try {
     if (accessToken) {
-      await client.post('/logout', {
-        access_token: accessToken
+      await fetch(`https://localhost:7777/api/logout`, 
+      {
+        method: 'POST',
+        body: JSON.stringify({access_token: accessToken}),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        cache: "no-store",
       });
       
       console.log('✅ Token revoked from backend');

@@ -63,7 +63,7 @@ export class AppService {
     UserID?: number | null,
   ): Promise<User[]> {
     return this.dbManager.executeStoredProcedure(
-      `${databaseConfig.database}.dbo.User_List_II`,
+      `${databaseConfig.database}.dbo.User_Infomation`,
       [
         { name: 'usercode', type: sql.NVarChar(20), value: usercode },
         { name: 'UserID', type: sql.Int(), value: UserID },

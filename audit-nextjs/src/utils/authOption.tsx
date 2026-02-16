@@ -1,4 +1,4 @@
-// utils/authOptions.ts
+// utils/authOptions.ts - with Portal SSO support
 import type { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import type { User } from "next-auth";
@@ -14,10 +14,67 @@ export const authOptions: AuthOptions = {
         response: { label: "Response", type: "json" },
         responseLogin: { label: "Response Login", type: "json" },
         responseCondition: { label: "Response Condition", type: "text" },
+        // เพิ่ม SSO credential
+        ssoToken: { label: "SSO Token", type: "text" },
       },
 
       async authorize(credentials): Promise<User | null> {
         try {
+          // ============================================
+          // SSO Login from Portal
+          // ============================================
+          if (credentials?.ssoToken) {
+            try {
+              // Validate Portal token
+              const validateRes = await fetch(`${process.env.PORTAL_API_URL}/validate-token`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${credentials.ssoToken}`,
+                },
+                body: JSON.stringify({ source: 'audit' }),
+              });
+
+              if (!validateRes.ok) {
+                console.log('[SSO] Portal token validation failed');
+                return null;
+              }
+
+              const data = await validateRes.json();
+              const portalUser = data.user;
+
+              if (!portalUser) {
+                console.log('[SSO] No user data from Portal');
+                return null;
+              }
+
+              console.log('[SSO] Portal token validated, creating Audit session for:', portalUser.UserCode);
+
+              isTokenExpired = false;
+
+              return {
+                id: portalUser.UserID.toString(),
+                UserID: portalUser.UserID,
+                UserCode: portalUser.UserCode,
+                fristName: portalUser.Fullname?.split(' ')[0] || portalUser.UserCode,
+                lastName: portalUser.Fullname?.split(' ').slice(1).join(' ') || '',
+                Email: portalUser.Email,
+                access_token: credentials.ssoToken,
+                img_profile: portalUser.img_profile || '',
+                role_id: portalUser.role_id,
+                branchid: portalUser.BranchID || 0,
+                depid: portalUser.depid || 0,
+                loginMethod: 'sso',
+              };
+            } catch (error) {
+              console.error('[SSO] Error during SSO login:', error);
+              return null;
+            }
+          }
+
+          // ============================================
+          // OTP Login (existing)
+          // ============================================
           if (credentials?.response) {
             type OTPResponse = {
               access_token: string;
@@ -34,8 +91,6 @@ export const authOptions: AuthOptions = {
                 depid: number;
               };
             };
-            
-            if (!credentials?.response) return null;
             
             const parsedResponse = JSON.parse(credentials.response) as OTPResponse;
             const user = parsedResponse.user;
@@ -55,9 +110,13 @@ export const authOptions: AuthOptions = {
               role_id: user.role_id,
               branchid: user.branchid,
               depid: user.depid,
+              loginMethod: 'otp',
             };
           }
 
+          // ============================================
+          // Normal Login (existing)
+          // ============================================
           if (credentials?.responseCondition === 'pass' && credentials?.responseLogin) {
             type ResponseLogin = {
               access_token: string;
@@ -92,6 +151,7 @@ export const authOptions: AuthOptions = {
               role_id: user.role_id,
               branchid: user.branchid,
               depid: user.depid,
+              loginMethod: 'password',
             };
           }
 
@@ -117,6 +177,7 @@ export const authOptions: AuthOptions = {
         token.role_id = user.role_id;
         token.branchid = user.branchid;
         token.depid = user.depid;
+        token.loginMethod = user.loginMethod;
         token.accessTokenExpires = Date.now() + 240 * 60 * 1000; // 4 ชั่วโมง
       }
 
@@ -132,17 +193,16 @@ export const authOptions: AuthOptions = {
         return {};
       }
 
-      if (trigger === "update" && token.UserCode) { //update trigger จาก useSession().update() (NEXTAUTH Module)
+      if (trigger === "update" && token.UserCode) {
         const lastRefresh = token.lastRefresh as number | undefined;
         const now = Date.now();
         
         if (lastRefresh && (now - lastRefresh) < 30000) {
-          console.log("⏭️ Skip refresh (too soon)");
+          console.log("Skip refresh (too soon)");
           return token;
         }
 
         try {
-          console.log("🔄 Refreshing user data from backend...");
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -162,7 +222,7 @@ export const authOptions: AuthOptions = {
           clearTimeout(timeoutId);
           
           if (response.status === 401) {
-            console.log("❌ Token invalid (401)");
+            console.log("Token invalid (401)");
             isTokenExpired = true;
             return {};
           }
@@ -182,11 +242,11 @@ export const authOptions: AuthOptions = {
               token.depid = userData.depid;
               token.lastRefresh = now;
               
-              console.log(" User data refreshed successfully");
+              console.log("User data refreshed successfully");
             }
           }
         } catch (error) {
-          console.error("❌ Error refreshing user data:", error);
+          console.error("Error refreshing user data:", error);
         }
       }
       
@@ -195,7 +255,7 @@ export const authOptions: AuthOptions = {
 
     async session({ session, token }) {
       if (!token || Object.keys(token).length === 0) {
-        console.log("⚠️ Empty token in session callback");
+        console.log("Empty token in session callback");
         return {
           ...session,
           user: undefined,
@@ -216,6 +276,7 @@ export const authOptions: AuthOptions = {
           role_id: token.role_id as number,
           branchid: token.branchid as number,
           depid: token.depid as number,
+          loginMethod: token.loginMethod as string,
         };
       }
       

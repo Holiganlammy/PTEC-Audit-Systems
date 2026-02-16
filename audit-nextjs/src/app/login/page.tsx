@@ -5,7 +5,7 @@ import { Controller ,useForm } from "react-hook-form";
 import * as z from "zod";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { useState, useEffect, type FormEvent } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { MFADialog } from "./components/MFAConfirm";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
+import PageLoading from "@/components/PageLoading";
 
 const formSchema = z.object({
   username: z
@@ -40,6 +41,7 @@ const formSchema = z.object({
 });
 
 export default function LoginPage() {
+  const { data: session, status } = useSession();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -76,6 +78,14 @@ export default function LoginPage() {
       });
     }
   }, [searchParams]);
+
+  // Redirect if already authenticated (SSO)
+  useEffect(() => {
+    if (status === "authenticated" && session) {
+      router.push(redirectPath);
+      router.refresh();
+    }
+  }, [status, session, router, redirectPath]);
 
   // Countdown timer for OTP tab
   useEffect(() => {
@@ -221,6 +231,11 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
+
+  // Show loading while checking session or redirecting
+  if (status === "loading" || status === "authenticated") {
+    return <PageLoading />;
+  }
 
   return (
     <>

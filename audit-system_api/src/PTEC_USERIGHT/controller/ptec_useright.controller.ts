@@ -1,4 +1,5 @@
 import {
+  //ptecuseright audit
   Get,
   Post,
   Res,
@@ -8,8 +9,6 @@ import {
   Inject,
   // HttpException,
   HttpStatus,
-  Put,
-  Param,
   Req,
   // Req,
 } from '@nestjs/common';
@@ -25,7 +24,6 @@ import {
   VerifyOtpDto,
   // VerifyOtpDto,
 } from '../dto/Login.dto';
-import { EditUserDto } from '../dto/EditUser.dto';
 import axios, { AxiosError, AxiosResponse } from 'axios';
 import {
   // User,
@@ -83,7 +81,6 @@ export class AppController {
           },
         );
 
-      // ✅ Destructure with proper typing
       const data: PortalLoginResponse = response.data;
       const {
         success,
@@ -95,7 +92,6 @@ export class AppController {
         expiresAt,
       } = data;
 
-      // Handle OTP case
       if (request_Mfa === true) {
         return res.status(HttpStatus.OK).json({
           success: true,
@@ -124,7 +120,6 @@ export class AppController {
     } catch (error: unknown) {
       console.error('Login error:', error);
 
-      // ✅ Type guard for AxiosError
       if (error && typeof error === 'object' && 'isAxiosError' in error) {
         const axiosError = error as AxiosError<PortalLoginResponse>;
 
@@ -139,15 +134,12 @@ export class AppController {
           });
         }
 
-        // Network error
         if (axiosError.code === 'ECONNREFUSED') {
           return res.status(HttpStatus.SERVICE_UNAVAILABLE).json({
             success: false,
             message: 'Authentication service is unavailable',
           });
         }
-
-        // Timeout
         if (axiosError.code === 'ECONNABORTED') {
           return res.status(HttpStatus.REQUEST_TIMEOUT).json({
             success: false,
@@ -156,7 +148,6 @@ export class AppController {
         }
       }
 
-      // Unknown error
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: 'Login failed',
@@ -172,7 +163,6 @@ export class AppController {
     try {
       const { usercode } = body;
 
-      // Validate input
       if (!usercode) {
         return res.status(HttpStatus.BAD_REQUEST).json({
           success: false,
@@ -180,9 +170,6 @@ export class AppController {
         });
       }
 
-      console.log('🔄 Resending OTP for user:', usercode);
-
-      // Forward to Portal Backend
       const response: AxiosResponse<PortalResendOtpResponse> =
         await axios.post<PortalResendOtpResponse>(
           `${process.env.PORTAL_API_URL}/resend-otp`,
@@ -271,7 +258,6 @@ export class AppController {
         });
       }
 
-      // ✅ Forward to Portal Backend
       const response: AxiosResponse<PortalLoginResponse> =
         await axios.post<PortalLoginResponse>(
           `${process.env.PORTAL_API_URL}/verify-otp`,
@@ -289,7 +275,7 @@ export class AppController {
 
       const data = response.data;
 
-      // ✅ Success - OTP ถูกต้อง
+      //  Success - OTP ถูกต้อง
       if (data.success && data.access_token) {
         console.log('✅ OTP verified successfully for user:', usercode);
         return res.status(HttpStatus.OK).json({
@@ -300,7 +286,7 @@ export class AppController {
         });
       }
 
-      // ✅ OTP ผิด
+      //  Failed - OTP ผิด
       return res.status(HttpStatus.UNAUTHORIZED).json({
         success: false,
         // error: data.error ?? 'OTP_INVALID',
@@ -349,34 +335,6 @@ export class AppController {
     }
   }
 
-  @Put('/user/:id')
-  async getUserById(
-    @Param('id') id: string,
-    @Body() editUserDto: EditUserDto,
-    @Res() res: express.Response,
-  ) {
-    try {
-      const user = await this.appService.editUser(id, editUserDto);
-      if (user) {
-        res.status(200).send({
-          success: true,
-          user,
-        });
-      } else {
-        res.status(404).send({
-          success: false,
-          message: 'User not found',
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching user by ID:', error);
-      res.status(500).send({
-        success: false,
-        message: 'Error fetching user by ID',
-      });
-    }
-  }
-
   @Post('/user/change-password')
   async changePassword(
     @Body() req: ChangPasswordDto,
@@ -400,27 +358,6 @@ export class AppController {
       res.status(500).send({
         success: false,
         message: 'Error changing password',
-      });
-    }
-  }
-
-  @Put('/user/activate/:UserID')
-  async activateUser(
-    @Param('UserID') UserID: string,
-    @Body('actived') actived: string,
-    @Res() res: express.Response,
-  ) {
-    try {
-      await this.appService.changeStatus(UserID, actived);
-      res.status(200).send({
-        success: true,
-        message: 'User status updated successfully',
-      });
-    } catch (error) {
-      console.error('Error updating user status:', error);
-      res.status(500).send({
-        success: false,
-        message: 'Error updating user status',
       });
     }
   }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { dataConfig } from "@/config/config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,7 @@ import {
   Loader2,
   Check,
   ChevronsUpDown,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -44,8 +45,7 @@ import {
   FieldLegend,
   FieldSet,
 } from "@/components/ui/field";
-import { getSession } from "next-auth/react";
-import Branch from "./components/Branch"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 // Types
 interface Branch {
@@ -65,9 +65,25 @@ interface User {
   Email: string;
 }
 
+interface AuditJobData {
+  jobId: number;
+  jobNo: string;
+  branchId: number;
+  branchName: string;
+  auditDate: string;
+  address: string;
+  pmCode: string;
+  auditorUserId: number;
+  districtManagerUserId: number;
+  branchManagerUserId: number;
+  additionalNotes: string;
+  status: number;
+  active: boolean;
+}
+
 const formSchema = z.object({
   Branch: z.string().nonempty("กรุณาเลือกสาขา"),
-  Date: z.date().refine((date) => date instanceof Date && !isNaN(date.getTime()), { message: "กรุณาเลือกวันที่" }),
+  Date: z.date("กรุณาเลือกวันที่"),
   PMCode: z.string().optional(),
   Address: z.string().optional(),
   Auditor: z.string().nonempty("กรุณาเลือกผู้ตรวจสอบ"),
@@ -76,11 +92,16 @@ const formSchema = z.object({
   AdditionalNotes: z.string().optional(),
 });
 
-export default function CreateAuditJobPage() {
+export default function EditAuditJobPage() {
   const router = useRouter();
+  const params = useParams();
+  const jobId = params.id as string;
+
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingBranches, setIsLoadingBranches] = useState(true);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Popover states
   const [openBranch, setOpenBranch] = useState(false);
@@ -92,8 +113,15 @@ export default function CreateAuditJobPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [excelFile, setExcelFile] = useState<File | null>(null);
+  const [jobData, setJobData] = useState<AuditJobData | null>(null);
 
   // Form state
+  const [formData, setFormData] = useState({
+    branchId: "",
+    branchName: "",
+    address: "",
+  });
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -107,6 +135,56 @@ export default function CreateAuditJobPage() {
       AdditionalNotes: "",
     },
   });
+
+  // Fetch existing job data
+  useEffect(() => {
+    const fetchJobData = async () => {
+      try {
+        setIsLoadingData(true);
+        setLoadError(null);
+        const response = await client.get(`/audit-jobs/${jobId}`, {
+          headers: dataConfig().headers,
+        });
+
+        const data: AuditJobData = response.data;
+        setJobData(data);
+
+        // Set form values
+        form.setValue("Branch", data.branchId.toString());
+        form.setValue("Date", new Date(data.auditDate));
+        form.setValue("PMCode", data.pmCode || "");
+        form.setValue("Address", data.address || "");
+        form.setValue("Auditor", data.auditorUserId.toString());
+        form.setValue("DistrictManager", data.districtManagerUserId.toString());
+        form.setValue("BranchManager", data.branchManagerUserId.toString());
+        form.setValue("AdditionalNotes", data.additionalNotes || "");
+
+        // Set formData
+        setFormData({
+          branchId: data.branchId.toString(),
+          branchName: data.branchName,
+          address: data.address || "",
+        });
+      } catch (error: unknown) {
+        console.error("Error fetching job data:", error);
+        const errorMessage =
+          error instanceof Error && "response" in error
+            ? (error as { response?: { data?: { message?: string } } })
+                .response?.data?.message
+            : undefined;
+        setLoadError(errorMessage || "ไม่สามารถโหลดข้อมูลงานได้");
+        toast.error("ไม่สามารถโหลดข้อมูลงานได้", {
+          description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
+        });
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    if (jobId) {
+      fetchJobData();
+    }
+  }, [jobId]);
 
   // Fetch branches from API
   useEffect(() => {
@@ -122,14 +200,7 @@ export default function CreateAuditJobPage() {
         }
       } catch (error: unknown) {
         console.error("Error fetching branches:", error);
-        const errorMessage =
-          error instanceof Error && "response" in error
-            ? (error as { response?: { data?: { message?: string } } })
-                .response?.data?.message
-            : undefined;
-        toast.error("ไม่สามารถโหลดข้อมูลสาขาได้", {
-          description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
-        });
+        toast.error("ไม่สามารถโหลดข้อมูลสาขาได้");
       } finally {
         setIsLoadingBranches(false);
       }
@@ -152,14 +223,7 @@ export default function CreateAuditJobPage() {
         }
       } catch (error: unknown) {
         console.error("Error fetching users:", error);
-        const errorMessage =
-          error instanceof Error && "response" in error
-            ? (error as { response?: { data?: { message?: string } } })
-                .response?.data?.message
-            : undefined;
-        toast.error("ไม่สามารถโหลดข้อมูลผู้ใช้ได้", {
-          description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
-        });
+        toast.error("ไม่สามารถโหลดข้อมูลผู้ใช้ได้");
       } finally {
         setIsLoadingUsers(false);
       }
@@ -189,9 +253,15 @@ export default function CreateAuditJobPage() {
     if (branch) {
       form.setValue("Branch", value);
       form.setValue("Address", branch.address || "");
+      setFormData({
+        ...formData,
+        branchId: value,
+        branchName: `${branch.code || branch.branchid} / ${branch.name}`,
+        address: branch.address || "",
+      });
     }
     setOpenBranch(false);
-  }; 
+  };
 
   // Get display text for selected values
   const getSelectedBranchText = () => {
@@ -213,13 +283,11 @@ export default function CreateAuditJobPage() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
-    const session = await getSession();
+
     try {
-      console.log("Form Values:", session?.user?.UserID);
-      const selectedBranch = branches.find((b) => b.branchid.toString() === values.Branch);
       const payload = {
         branchId: parseInt(values.Branch),
-        branchName: selectedBranch?.name || "",
+        branchName: formData.branchName,
         auditDate: format(values.Date, "yyyy-MM-dd"),
         address: values.Address || "",
         pmCode: values.PMCode || "",
@@ -227,32 +295,33 @@ export default function CreateAuditJobPage() {
         districtManagerUserId: parseInt(values.DistrictManager),
         branchManagerUserId: parseInt(values.BranchManager),
         additionalNotes: values.AdditionalNotes || "",
-        status: 1,
-        createdBy: session?.user?.UserID,
+        updatedBy: "current_user", // TODO: Get from auth context
       };
 
-      const result = await client.post("/audit-jobs/create", payload, {
+      // Call API
+      await client.put(`/audit-jobs/${jobId}`, payload, {
         headers: dataConfig().headers,
       });
 
+      // TODO: Upload excel file if exists
       if (excelFile) {
         console.log("File to upload:", excelFile.name);
       }
 
-      toast.success("สร้างงานสำเร็จ", {
-        description: `งาน ${result.data.jobNo} ถูกสร้างเรียบร้อยแล้ว`,
+      toast.success("อัพเดทงานสำเร็จ", {
+        description: "ข้อมูลงานถูกอัพเดทเรียบร้อยแล้ว",
       });
 
-      router.push("/audit-jobs/list");
+      router.push("/audit-jobs");
     } catch (error: unknown) {
-      console.error("Error creating audit job:", error);
+      console.error("Error updating audit job:", error);
       const errorMessage =
         error instanceof Error && "response" in error
           ? (error as { response?: { data?: { message?: string } } }).response
               ?.data?.message
           : undefined;
       toast.error("เกิดข้อผิดพลาด", {
-        description: errorMessage || "ไม่สามารถสร้างงานได้",
+        description: errorMessage || "ไม่สามารถอัพเดทงานได้",
       });
     } finally {
       setIsSubmitting(false);
@@ -265,9 +334,58 @@ export default function CreateAuditJobPage() {
     }
   };
 
+  // Show loading state
+  if (isLoadingData) {
+    return (
+      <div className="min-h-screen py-8">
+        <div className="container mx-auto px-4 max-w-7xl">
+          <div className="flex items-center justify-center py-32">
+            <div className="text-center">
+              <Loader2 className="h-12 w-12 animate-spin text-muted-foreground mx-auto mb-4" />
+              <h2 className="text-xl font-semibold mb-2">Loading Job Data...</h2>
+              <p className="text-sm text-muted-foreground">
+                กำลังโหลดข้อมูลงาน กรุณารอสักครู่
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (loadError || !jobData) {
+    return (
+      <div className="min-h-screen py-8">
+        <div className="container mx-auto px-4 max-w-7xl">
+          <Button
+            variant="ghost"
+            onClick={() => router.back()}
+            className="mb-6"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            ย้อนกลับ
+          </Button>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>
+              {loadError || "ไม่พบข้อมูลงาน"}
+            </AlertDescription>
+          </Alert>
+          <div className="mt-4">
+            <Button onClick={() => router.push("/audit-jobs")}>
+              กลับไปหน้ารายการ
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="">
-      <div className="max-w-7xl mx-auto px-4">
+    <div className="min-h-screen py-8">
+      <div className="container mx-auto px-4 max-w-7xl">
         {/* Header */}
         <div className="mb-6">
           <Button variant="ghost" onClick={() => router.back()} className="mb-4">
@@ -276,9 +394,9 @@ export default function CreateAuditJobPage() {
           </Button>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold">Create JOB - Audit Report</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                สร้างงานตรวจสอบใหม่
+              <h1 className="text-3xl font-bold">Edit Audit Job</h1>
+              <p className="text-muted-foreground mt-2">
+                แก้ไขข้อมูลงานตรวจสอบ: {jobData.jobNo}
               </p>
             </div>
             <div className="flex gap-3">
@@ -292,10 +410,10 @@ export default function CreateAuditJobPage() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    กำลังบันทึก...
+                    กำลังอัพเดท...
                   </>
                 ) : (
-                  "บันทึก"
+                  "อัพเดทงาน"
                 )}
               </Button>
             </div>
@@ -307,12 +425,27 @@ export default function CreateAuditJobPage() {
           <Card>
             <CardContent className="pt-6">
               <FieldSet>
-                <FieldLegend>สร้าง Audit Report</FieldLegend>
+                <FieldLegend>แก้ไข Audit Report</FieldLegend>
                 <FieldDescription>
-                  กรุณากรอกข้อมูลให้ครบถ้วนเพื่อสร้างงานตรวจสอบ
+                  แก้ไขข้อมูลงานตรวจสอบตามต้องการ
                 </FieldDescription>
 
                 <div className="space-y-6 mt-6">
+                  {/* Job No (Read Only) */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Field>
+                      <FieldLabel>Job No</FieldLabel>
+                      <Input
+                        value={jobData.jobNo}
+                        disabled
+                        className="bg-muted"
+                      />
+                      <FieldDescription>
+                        หมายเลขงานไม่สามารถแก้ไขได้
+                      </FieldDescription>
+                    </Field>
+                  </div>
+
                   {/* Row 1: Branch, Date, PM Code */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* Branch */}
@@ -329,15 +462,54 @@ export default function CreateAuditJobPage() {
                               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                             </div>
                           ) : (
-                            <Branch
-                              openBranch={openBranch}
-                              setOpenBranch={setOpenBranch}
-                              branches={branches}
-                              fieldState={fieldState}
-                              field={field}
-                              handleBranchChange={handleBranchChange}
-                              getSelectedBranchText={getSelectedBranchText}
-                            />
+                            <Popover open={openBranch} onOpenChange={setOpenBranch}>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  aria-expanded={openBranch}
+                                  className={cn(
+                                    "w-full justify-between",
+                                    fieldState.error && "border-red-500"
+                                  )}
+                                >
+                                  {getSelectedBranchText()}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-full p-0" align="start">
+                                <Command>
+                                  <CommandInput placeholder="ค้นหาสาขา..." />
+                                  <CommandList>
+                                    <CommandEmpty>ไม่พบข้อมูลสาขา</CommandEmpty>
+                                    <CommandGroup>
+                                      {branches.map((branch) => (
+                                        <CommandItem
+                                          key={branch.branchid}
+                                          value={`${branch.code || branch.branchid} ${branch.name}`}
+                                          onSelect={() =>
+                                            handleBranchChange(
+                                              branch.branchid.toString()
+                                            )
+                                          }
+                                        >
+                                          <Check
+                                            className={cn(
+                                              "mr-2 h-4 w-4",
+                                              field.value ===
+                                                branch.branchid.toString()
+                                                ? "opacity-100"
+                                                : "opacity-0"
+                                            )}
+                                          />
+                                          {branch.name}
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
                           )}
                           {fieldState.error && (
                             <p className="text-sm text-red-500 mt-1">
@@ -430,7 +602,7 @@ export default function CreateAuditJobPage() {
                     />
                   </div>
 
-                  {/* Row 3: Auditor, District Manager, Branch Manager */}
+                  {/* Row 3: Personnel (Same as create) */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* Auditor */}
                     <Controller
@@ -707,7 +879,7 @@ export default function CreateAuditJobPage() {
                         )}
                       </div>
                       <FieldDescription>
-                        รองรับไฟล์ .xlsx หรือ .xls เท่านั้น
+                        อัพโหลดไฟล์ใหม่เพื่อแทนที่ไฟล์เดิม (ถ้ามี)
                       </FieldDescription>
                     </Field>
                   </div>
@@ -730,10 +902,10 @@ export default function CreateAuditJobPage() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  กำลังบันทึก...
+                  กำลังอัพเดท...
                 </>
               ) : (
-                "บันทึก"
+                "อัพเดทงาน"
               )}
             </Button>
           </div>
