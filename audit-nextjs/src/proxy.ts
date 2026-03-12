@@ -91,7 +91,7 @@ async function fetchUserAccessiblePaths(
   try {
     console.log(`[RBAC] Fetching menu for user ${userId}...`);
 
-    const res = await fetch(`${process.env.PORTAL_API_URL}/Apps_List_Menu`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu_audit/check-permission`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -99,11 +99,10 @@ async function fetchUserAccessiblePaths(
       },
       body: JSON.stringify({ 
         UserID: userId,
-        source: 'audit'
       }),
       cache: "no-store",
     });
-
+    console.log(res)
     if (!res.ok) {
       console.error(`[RBAC] Fetch menu fail for user ${userId}, status: ${res.status}`);
       
@@ -116,13 +115,14 @@ async function fetchUserAccessiblePaths(
     }
 
     const menus = await res.json();
+    console.log(menus.data)
     
     interface MenuItem {
       path: string;
       [key: string]: unknown;
     }
     
-    const accessiblePaths = (menus || [])
+    const accessiblePaths = (menus.data || [])
       .filter((m: MenuItem) => m.path !== null && m.path !== undefined && m.path !== "")
       .map((m: MenuItem) => m.path);
 
@@ -143,10 +143,10 @@ async function fetchUserAccessiblePaths(
  * Check if requested path is in allowed paths
  */
 function isPathAllowed(requestPath: string, allowedPaths: string[]): boolean {
-  const cleanRequestPath = requestPath.split("?")[0];
+  const cleanRequestPath = requestPath.split("?")[0].toLowerCase();
 
   for (const allowedPath of allowedPaths) {
-    const cleanAllowedPath = allowedPath.split("?")[0];
+    const cleanAllowedPath = allowedPath.split("?")[0].toLowerCase();
 
     if (cleanRequestPath === cleanAllowedPath) {
       return true;
@@ -176,6 +176,7 @@ function getPortalTokenFromCookies(req: NextRequest): string | null {
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const normalizedPathname = pathname.toLowerCase();
 
   // Skip static files
   if (
@@ -203,11 +204,24 @@ export async function proxy(req: NextRequest) {
   ];
   
   // Home page
-  if (pathname === "/home" || pathname === "/") {
+  // NOTE: allow optional trailing slash (e.g. /home/)
+  // and any nested route under /home without RBAC menu checks.
+  if (
+    normalizedPathname === "/" ||
+    normalizedPathname === "/home" ||
+    normalizedPathname.startsWith("/home/")
+  ) {
+    // Canonicalize mixed-case paths (e.g. /Home -> /home) to avoid 404s
+    // and ensure consistent routing.
+    if (pathname !== normalizedPathname) {
+      const url = req.nextUrl.clone();
+      url.pathname = normalizedPathname;
+      return NextResponse.redirect(url);
+    }
     return NextResponse.next();
   }
   
-  if (publicPaths.some(path => pathname.startsWith(path))) {
+  if (publicPaths.some((path) => normalizedPathname.startsWith(path))) {
     return NextResponse.next();
   }
 
@@ -236,7 +250,7 @@ export async function proxy(req: NextRequest) {
     // No valid token at all -> redirect to login
     console.log(`[AUTH]  No valid token for path: ${pathname}`);
     const loginUrl = new URL("/login", req.url);
-    loginUrl.searchParams.set("redirect", pathname);
+    loginUrl.searchParams.set("redirect", normalizedPathname);
     return NextResponse.redirect(loginUrl);
   }
 
@@ -262,7 +276,7 @@ export async function proxy(req: NextRequest) {
     menuCache.clear();
     
     const loginUrl = new URL("/login", req.url);
-    loginUrl.searchParams.set("redirect", pathname);
+    loginUrl.searchParams.set("redirect", normalizedPathname);
     loginUrl.searchParams.set("reason", "session_expired");
     return NextResponse.redirect(loginUrl);
   }
@@ -272,7 +286,7 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL("/unauthorized", req.url));
   }
 
-  const isAllowed = isPathAllowed(pathname, allowedPaths);
+  const isAllowed = isPathAllowed(normalizedPathname, allowedPaths);
 
   if (!isAllowed) {
     console.warn(`[RBAC] ❌ User ${userId} (role ${roleId}) DENIED access to ${pathname}`);

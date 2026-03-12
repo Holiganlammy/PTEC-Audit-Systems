@@ -81,7 +81,7 @@ export class AuditJobsService {
       categoryItem: item.categoryItem,
       amDetail: item.amDetail,
       auditDetail: item.auditDetail,
-      relatedAgencies: item.relatedAgencies,
+      otherDetails: item.otherDetails,
       taggedUsers: item.taggedUsers,
     };
   }
@@ -275,6 +275,26 @@ export class AuditJobsService {
 
     if (!auditJob) {
       throw new NotFoundException(`Audit Job with ID ${id} not found`);
+    }
+
+    return await this.transformAuditJobWithUsers(auditJob);
+  }
+
+  async findByJobNo(jobNo: string): Promise<AuditJobWithUsers> {
+    const auditJob = await this.auditJobsRepository.findOne({
+      where: { jobNo },
+      relations: [
+        'items',
+        'items.categoryItem',
+        'items.amDetail',
+        'items.auditDetail',
+        'items.relatedAgencies',
+        'items.taggedUsers',
+      ],
+    });
+
+    if (!auditJob) {
+      throw new NotFoundException(`Audit Job with JobNo ${jobNo} not found`);
     }
 
     return await this.transformAuditJobWithUsers(auditJob);

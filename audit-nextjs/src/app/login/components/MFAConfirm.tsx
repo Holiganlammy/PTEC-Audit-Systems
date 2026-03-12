@@ -197,11 +197,6 @@ export function MFADialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-black dark:bg-white rounded-full flex items-center justify-center">
-              <Shield className="w-6 h-6 text-white dark:text-black" />
-            </div>
-          </div>
           <DialogTitle className="text-center text-2xl">ยืนยันตัวตน</DialogTitle>
           <DialogDescription className="text-center">
             กรุณากรอกรหัส OTP ที่ส่งไปยังอีเมลของคุณ

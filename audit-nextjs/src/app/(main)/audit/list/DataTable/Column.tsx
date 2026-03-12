@@ -2,7 +2,8 @@
 
 import { ColumnDef } from "@tanstack/react-table"
 import { Button } from "@/components/ui/button"
-import { ArrowUpDown, MoreHorizontal, Trash2 } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import Link from "next/link"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
@@ -54,7 +55,7 @@ export const AuditListColumn: ColumnDef<AuditList>[] = [
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="font-semibold"
+          className="font-semibold text-sm"
         >
           Job No
           <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -111,7 +112,6 @@ export const AuditListColumn: ColumnDef<AuditList>[] = [
           className="font-semibold"
         >
           Status
-          <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       )
     },
@@ -134,10 +134,9 @@ export const AuditListColumn: ColumnDef<AuditList>[] = [
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="font-semibold"
+          className="font-semibold text-sm"
         >
           Auditor
-          <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       )
     },
@@ -171,7 +170,6 @@ export const AuditListColumn: ColumnDef<AuditList>[] = [
           className="font-semibold"
         >
           ผู้จัดการเขต
-          <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       )
     },
@@ -205,7 +203,6 @@ export const AuditListColumn: ColumnDef<AuditList>[] = [
           className="font-semibold"
         >
           ผู้จัดการสาขา
-          <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       )
     },
@@ -239,7 +236,6 @@ export const AuditListColumn: ColumnDef<AuditList>[] = [
           className="font-semibold"
         >
           ผู้ทำรายการ
-          <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       )
     },
@@ -303,6 +299,12 @@ export const AuditListColumn: ColumnDef<AuditList>[] = [
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href={`/audit/edit_document?jobNo=${AuditList.jobNo}`}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem className="text-red-600">
               <Trash2 className="mr-2 h-4 w-4" />
               Delete Asset

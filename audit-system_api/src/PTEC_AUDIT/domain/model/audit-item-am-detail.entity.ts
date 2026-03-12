@@ -4,7 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  OneToOne,
+  ManyToOne,
   JoinColumn,
 } from 'typeorm';
 import { AuditItem } from './audit-item.entity';
@@ -44,8 +44,11 @@ export class AuditItemAMDetail {
   @Column({ name: 'active', type: 'bit', default: 1 })
   active: boolean;
 
+  @Column({ name: 'user_id', type: 'int', nullable: true })
+  userId: number;
+
   // Relations
-  @OneToOne(() => AuditItem, (item) => item.amDetail)
+  @ManyToOne(() => AuditItem, (item) => item.amDetail)
   @JoinColumn({ name: 'item_id' })
   item: AuditItem;
 }

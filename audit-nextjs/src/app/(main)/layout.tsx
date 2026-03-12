@@ -19,7 +19,7 @@ export default function MainLayOut({ children }: { children: React.ReactNode }) 
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="min-w-0 overflow-x-hidden">
         <header className="flex h-16 shrink-0 items-center gap-2 justify-between">
           <div className="flex items-center gap-2 px-4">
             <SidebarTrigger className="-ml-1" />
@@ -45,7 +45,7 @@ export default function MainLayOut({ children }: { children: React.ReactNode }) 
             <ThemeToggle />
           </div>
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+        <div className="flex flex-1 flex-col gap-4 p-4 pt-0 min-w-0 overflow-x-hidden">
           <div className="grid auto-rows-min gap-4 md:grid-cols-3">
           </div>
           {children}

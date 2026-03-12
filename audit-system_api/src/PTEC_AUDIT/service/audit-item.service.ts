@@ -68,9 +68,9 @@ export class AuditItemsService {
       relations: [
         'job',
         'categoryItem',
-        'amDetail',
-        'auditDetail',
-        'relatedAgencies',
+        'amDetails',
+        'auditDetails',
+        'otherDetails',
         'taggedUsers',
       ],
     });
@@ -82,11 +82,12 @@ export class AuditItemsService {
     return auditItem;
   }
 
-  // Get all items for a specific job
+  // Get all items for a specific job with comments
   async findByJobId(jobId: number): Promise<AuditItem[]> {
     return await this.auditItemsRepository.find({
       where: { jobId, active: true },
-      relations: ['categoryItem', 'amDetail', 'auditDetail'],
+      relations: ['categoryItem', 'amDetails', 'auditDetails', 'otherDetails'],
+      order: { inspectionDate: 'DESC' },
     });
   }
 
@@ -130,5 +131,52 @@ export class AuditItemsService {
     const auditItem = await this.findOne(id);
     auditItem.itemStatus = status;
     return await this.auditItemsRepository.save(auditItem);
+  }
+
+  //Get items with comment counts
+  async findByJobIdWithCounts(jobId: number): Promise<any[]> {
+    const items = await this.auditItemsRepository
+      .createQueryBuilder('item')
+      .leftJoinAndSelect('item.categoryItem', 'category')
+      .leftJoin('item.amDetails', 'am')
+      .leftJoin('item.auditDetails', 'audit')
+      .leftJoin('item.otherDetails', 'other')
+      .where('item.jobId = :jobId', { jobId })
+      .andWhere('item.active = :active', { active: true })
+      .select(['item', 'category'])
+      .addSelect('COUNT(DISTINCT am.amDetailId)', 'amCommentCount')
+      .addSelect('COUNT(DISTINCT audit.auditDetailId)', 'auditCommentCount')
+      .addSelect('COUNT(DISTINCT other.otherDetailId)', 'otherCommentCount')
+      .groupBy('item.itemId')
+      .addGroupBy('category.categoryItemId')
+      .getRawAndEntities();
+
+    return items.entities.map((item, index) => {
+      const rawData = items.raw[index] as Record<string, string>;
+      return {
+        ...item,
+        commentCounts: {
+          am: parseInt(rawData.amCommentCount) || 0,
+          audit: parseInt(rawData.auditCommentCount) || 0,
+          other: parseInt(rawData.otherCommentCount) || 0,
+        },
+      };
+    });
+  }
+
+  // Get pending approval count for a job
+  async getPendingApprovalCount(jobId: number): Promise<number> {
+    const result = await this.auditItemsRepository
+      .createQueryBuilder('item')
+      .leftJoin('item.amDetails', 'am')
+      .leftJoin('item.auditDetails', 'audit')
+      .leftJoin('item.otherDetails', 'other')
+      .where('item.jobId = :jobId', { jobId })
+      .andWhere('item.active = :active', { active: true })
+      .andWhere(
+        '(am.approverStatus = 0 OR audit.approverStatus = 0 OR other.approverStatus = 0)',
+      )
+      .getCount();
+    return result;
   }
 }

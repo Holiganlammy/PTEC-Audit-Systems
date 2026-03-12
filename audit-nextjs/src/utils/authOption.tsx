@@ -26,15 +26,15 @@ export const authOptions: AuthOptions = {
           if (credentials?.ssoToken) {
             try {
               // Validate Portal token
-              const validateRes = await fetch(`${process.env.PORTAL_API_URL}/validate-token`, {
+              const validateRes = await fetch(`${process.env.PORTAL_API_URL}/api/validate`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                   Authorization: `Bearer ${credentials.ssoToken}`,
                 },
-                body: JSON.stringify({ source: 'audit' }),
+                body: JSON.stringify({ access_token: credentials.ssoToken }),
               });
-
+              console.log('[SSO] Validating Portal token...');
               if (!validateRes.ok) {
                 console.log('[SSO] Portal token validation failed');
                 return null;

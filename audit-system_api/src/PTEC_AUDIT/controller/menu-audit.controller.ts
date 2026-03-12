@@ -1,15 +1,53 @@
+// src/PTEC_AUDIT/controller/menu-audit.controller.ts
 import { AppService } from '../service/menu-audit.service';
-import { Controller, Get, HttpStatus, Query, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpStatus,
+  Post,
+  Req,
+  Res,
+  UnauthorizedException,
+} from '@nestjs/common';
 import express from 'express';
+import { MenuAuditDto } from '../domain/dto/menu.dto';
+
 @Controller('')
 export class AppController {
   constructor(private readonly appService: AppService) {}
+
+  /**
+   * ดึง role_id จาก JWT token ที่ decode แล้วอยู่ใน req.user
+   */
+  private getRoleIdFromRequest(req: express.Request): number {
+    const extendedReq = req as express.Request & {
+      user?: unknown;
+      token?: string;
+      role_id?: number;
+    };
+
+    const token = extendedReq.token;
+    if (!token) {
+      throw new UnauthorizedException('No token in request');
+    }
+    const payload = JSON.parse(
+      Buffer.from(token.split('.')[1], 'base64').toString('utf-8'),
+    ) as Record<string, unknown>;
+
+    const roleId = payload.role_id ?? payload.roleId ?? payload.role;
+
+    if (roleId === undefined || roleId === null) {
+      throw new UnauthorizedException('No role in token payload');
+    }
+
+    return Number(roleId);
+  }
 
   @Get('/menu_audit')
   async getAuditMenu() {
     try {
       const menus = await this.appService.getAllMenus();
-
       return {
         success: true,
         data: menus,
@@ -23,113 +61,139 @@ export class AppController {
     }
   }
 
-  @Get('/menu_audit/by-role')
-  async getMenuByRole(
-    @Query('roleId') roleId: string,
+  // @Get('/menu_audit/by-role')
+  // async getMenuByRole(
+  //   @Body() body: MenuAuditDto,
+  //   @Res() res: express.Response,
+  // ) {
+  //   try {
+  //     const userId = Number(body.UserID);
+  //     const menuId = Number(body.menuId);
+
+  //     if (!Number.isFinite(userId) || userId <= 0) {
+  //       return res.status(HttpStatus.BAD_REQUEST).json({
+  //         success: false,
+  //         message: 'UserID is required',
+  //       });
+  //     }
+
+  //     if (!Number.isFinite(menuId) || menuId <= 0) {
+  //       return res.status(HttpStatus.BAD_REQUEST).json({
+  //         success: false,
+  //         message: 'menuId is required',
+  //       });
+  //     }
+
+  //     const hasPermission = await this.appService.checkMenuPermission(
+  //       userId,
+  //       menuId,
+  //     );
+
+  //     return res.status(HttpStatus.OK).json({
+  //       success: true,
+  //       hasPermission,
+  //     });
+  //   } catch (error) {
+  //     if (error instanceof UnauthorizedException) {
+  //       return res.status(HttpStatus.UNAUTHORIZED).json({
+  //         success: false,
+  //         message: error.message,
+  //       });
+  //     }
+  //     console.error('Error checking permission:', error);
+  //     return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+  //       success: false,
+  //       message: 'Error checking permission',
+  //     });
+  //   }
+  // }
+
+  // my-menus = tree โดยใช้ role จาก token
+  @Get('/menu_audit/my-menus')
+  async getMyMenus(@Req() req: express.Request, @Res() res: express.Response) {
+    try {
+      const roleId = this.getRoleIdFromRequest(req);
+      const menuTree = await this.appService.getMenuTreeByRole(roleId);
+
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        roleId, // บอก frontend ว่า role ที่ใช้คืออะไร
+        data: menuTree,
+      });
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        return res.status(HttpStatus.UNAUTHORIZED).json({
+          success: false,
+          message: error.message,
+        });
+      }
+      console.error('Error fetching my menus:', error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Error fetching my menus',
+      });
+    }
+  }
+
+  @Post('/menu_audit/check-permission')
+  async checkPermission(
+    @Body() body: MenuAuditDto | undefined,
+    @Req() req: express.Request,
     @Res() res: express.Response,
   ) {
     try {
-      if (!roleId) {
+      const requestBody = ((body as unknown) ??
+        (req as unknown as { body?: unknown }).body ??
+        {}) as Record<string, unknown>;
+      const userId = Number(requestBody.UserID);
+      const menuIdRaw = requestBody.menuId;
+
+      if (!Number.isFinite(userId) || userId <= 0) {
         return res.status(HttpStatus.BAD_REQUEST).json({
           success: false,
-          message: 'roleId is required',
+          message:
+            'UserID is required. Send JSON body เช่น {"UserID":410,"menuId":123} พร้อม header Content-Type: application/json',
         });
       }
 
-      const menus = await this.appService.getMenusByRole(Number(roleId));
+      // ถ้าส่ง menuId มาด้วย = เช็คสิทธิ์เมนูนั้น
+      if (menuIdRaw !== undefined && menuIdRaw !== null && menuIdRaw !== '') {
+        const menuId = Number(menuIdRaw);
+        if (!Number.isFinite(menuId) || menuId <= 0) {
+          return res.status(HttpStatus.BAD_REQUEST).json({
+            success: false,
+            message: 'menuId ต้องเป็นตัวเลขมากกว่า 0',
+          });
+        }
 
+        const hasPermission = await this.appService.checkMenuPermission(
+          userId,
+          menuId,
+        );
+
+        return res.status(HttpStatus.OK).json({
+          success: true,
+          hasPermission,
+        });
+      }
+
+      // ถ้าไม่ส่ง menuId = ขอรายการเมนูที่ user เข้าได้ (ตาม fields ที่ต้องการ)
+      const menus = await this.appService.getPermittedMenusByUserId(userId);
       return res.status(HttpStatus.OK).json({
         success: true,
         data: menus,
       });
     } catch (error) {
-      console.error('Error fetching menus by role:', error);
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: 'Error fetching menus by role',
-      });
-    }
-  }
-
-  @Get('/menu_audit/tree')
-  async getMenuTree(
-    @Req() req: express.Request,
-    @Query('roleId') roleId: string,
-    @Res() res: express.Response,
-  ) {
-    try {
-      if (!roleId) {
-        return res.status(HttpStatus.BAD_REQUEST).json({
+      if (error instanceof UnauthorizedException) {
+        return res.status(HttpStatus.UNAUTHORIZED).json({
           success: false,
-          message: 'roleId is required',
+          message: error.message,
         });
       }
-
-      const menuTree = await this.appService.getMenuTreeByRole(Number(roleId));
-
-      return res.status(HttpStatus.OK).json({
-        success: true,
-        data: menuTree,
-      });
-    } catch (error) {
-      console.error('Error fetching menu tree:', error);
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: 'Error fetching menu tree',
-      });
-    }
-  }
-
-  @Get('/menu_audit/check-permission')
-  async checkPermission(
-    @Req() req: express.Request,
-    @Query('roleId') roleId: string,
-    @Query('menuId') menuId: string,
-    @Res() res: express.Response,
-  ) {
-    try {
-      if (!roleId || !menuId) {
-        return res.status(HttpStatus.BAD_REQUEST).json({
-          success: false,
-          message: 'roleId and menuId are required',
-        });
-      }
-
-      const hasPermission = await this.appService.checkMenuPermission(
-        Number(roleId),
-        Number(menuId),
-      );
-
-      return res.status(HttpStatus.OK).json({
-        success: true,
-        hasPermission,
-      });
-    } catch (error) {
       console.error('Error checking permission:', error);
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: 'Error checking permission',
-      });
-    }
-  }
-
-  @Get('/menu_audit/my-menus')
-  async getMyMenus(
-    @Query('roleId') roleId: string,
-    @Res() res: express.Response,
-  ) {
-    try {
-      const menuTree = await this.appService.getMenuTreeByRole(Number(roleId));
-
-      return res.status(HttpStatus.OK).json({
-        success: true,
-        data: menuTree,
-      });
-    } catch (error) {
-      console.error('Error fetching my menus:', error);
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: 'Error fetching my menus',
       });
     }
   }

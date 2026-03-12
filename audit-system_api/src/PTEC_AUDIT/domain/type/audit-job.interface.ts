@@ -49,7 +49,7 @@ export interface AuditItemWithUsers {
   categoryItem?: any;
   amDetail?: any;
   auditDetail?: any;
-  relatedAgencies?: any[];
+  otherDetails?: any[];
   taggedUsers?: any[];
 }
 
@@ -70,4 +70,12 @@ export interface PaginatedResponse {
   message: string;
   pagination: PaginationMeta;
   user: UserInfo;
+}
+
+export interface MenuAuditType {
+  d: number;
+  menuName: string;
+  parentId?: number;
+  roleId?: number;
+  permissions?: string[];
 }

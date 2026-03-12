@@ -12,18 +12,26 @@ import { AuditCategoryItem } from './domain/model/audit-category-item.entity';
 import { AuditStatus } from './domain/model/audit-status.entity';
 import { AuditItemAMDetail } from './domain/model/audit-item-am-detail.entity';
 import { AuditItemAuditDetail } from './domain/model/audit-item-audit-detail.entity';
-import { AuditItemRelatedAgency } from './domain/model/audit-related-agency.entity';
-import { AuditItemRelatedAgencyUser } from './domain/model/audit-related-agency-user.entity';
+import { AuditItemOtherDetails } from './domain/model/audit-item-other-details.entity';
+import { AuditItemOtherDetailsUser } from './domain/model/audit-item-other-details-users.entity';
 import { DatabaseManagerModule } from 'src/database/database-manager.module';
 // Services
 import { AuditJobsService } from './service/audit-job.service';
 import { AuditItemsService } from './service/audit-item.service';
 import { CategoryItemsService } from './service/category-items.service';
+import { AuditItemAMDetailsService } from './service/audit-item-am-detail.service';
+import { AuditItemAuditDetailsService } from './service/audit-item-audit-detail.service';
+import { AuditItemOtherDetailsService } from './service/audit-item-other-detail.service';
+import { AuditCategoryService } from './service/audit-category.service';
 
 // Controllers
 import { AuditJobsController } from './controller/audit-job.controller';
 import { AuditItemsController } from './controller/audit-item.controller';
 import { CategoryItemsController } from './controller/category-items.controller';
+import { AuditItemAMDetailsController } from './controller/audit-item-am-detail.controller';
+import { AuditItemAuditDetailsController } from './controller/audit-item-audit-detail.controller';
+import { AuditItemOtherDetailsController } from './controller/audit-item-other-detail.controller';
+import { AuditCategoryController } from './controller/audit-category.controller';
 import { PTEC_USERRIGHT_Module } from '../PTEC_USERIGHT/app.module';
 
 @Module({
@@ -32,6 +40,10 @@ import { PTEC_USERRIGHT_Module } from '../PTEC_USERIGHT/app.module';
     AuditJobsController,
     AuditItemsController,
     CategoryItemsController,
+    AuditItemAMDetailsController,
+    AuditItemAuditDetailsController,
+    AuditItemOtherDetailsController,
+    AuditCategoryController,
   ],
   imports: [
     TypeOrmModule.forFeature([
@@ -43,13 +55,17 @@ import { PTEC_USERRIGHT_Module } from '../PTEC_USERIGHT/app.module';
       AuditStatus,
       AuditItemAMDetail,
       AuditItemAuditDetail,
-      AuditItemRelatedAgency,
-      AuditItemRelatedAgencyUser,
+      AuditItemOtherDetails,
+      AuditItemOtherDetailsUser,
     ]),
     DatabaseManagerModule,
     PTEC_USERRIGHT_Module,
   ],
   providers: [
+    AuditItemAMDetailsService,
+    AuditItemAuditDetailsService,
+    AuditItemOtherDetailsService,
+    AuditCategoryService,
     AppService,
     AuditJobsService,
     AuditItemsService,

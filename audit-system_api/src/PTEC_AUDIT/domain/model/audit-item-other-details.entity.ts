@@ -9,10 +9,10 @@ import {
 } from 'typeorm';
 import { AuditItem } from './audit-item.entity';
 
-@Entity('AuditItemsRelated_agency')
-export class AuditItemRelatedAgency {
-  @PrimaryGeneratedColumn({ name: 'related_agency_id' })
-  relatedAgencyId: number;
+@Entity('AuditItems_OtherDetails')
+export class AuditItemOtherDetails {
+  @PrimaryGeneratedColumn({ name: 'other_detail_id' })
+  otherDetailId: number;
 
   @Column({ name: 'item_id', type: 'int', nullable: true })
   itemId: number;
@@ -44,8 +44,11 @@ export class AuditItemRelatedAgency {
   @Column({ name: 'active', type: 'bit', default: 1 })
   active: boolean;
 
+  @Column({ name: 'approver_by', type: 'int', nullable: true })
+  approverBy: number;
+
   // Relations
-  @ManyToOne(() => AuditItem, (item) => item.relatedAgencies)
+  @ManyToOne(() => AuditItem, (item) => item.otherDetails)
   @JoinColumn({ name: 'item_id' })
   item: AuditItem;
 }

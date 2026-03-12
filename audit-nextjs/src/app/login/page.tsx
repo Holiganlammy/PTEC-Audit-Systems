@@ -82,10 +82,9 @@ export default function LoginPage() {
   // Redirect if already authenticated (SSO)
   useEffect(() => {
     if (status === "authenticated" && session) {
-      router.push(redirectPath);
-      router.refresh();
+      window.location.href = redirectPath;
     }
-  }, [status, session, router, redirectPath]);
+  }, [status, session, redirectPath]);
 
   // Countdown timer for OTP tab
   useEffect(() => {
@@ -155,8 +154,7 @@ export default function LoginPage() {
       }
 
       toast.success("เข้าสู่ระบบสำเร็จ");
-      router.push(redirectPath);
-      router.refresh();
+      window.location.href = redirectPath;
     } catch (err) {
       console.error("Sign in error:", err);
       toast.error("เข้าสู่ระบบไม่สำเร็จ");
@@ -223,8 +221,7 @@ export default function LoginPage() {
       if (result?.error) throw new Error("เข้าสู่ระบบไม่สำเร็จ");
 
       toast.success("เข้าสู่ระบบสำเร็จ");
-      router.push(redirectPath);
-      router.refresh();
+      window.location.href = redirectPath;
     } catch (err) {
       setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
     } finally {

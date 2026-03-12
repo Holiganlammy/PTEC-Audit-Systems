@@ -7,14 +7,13 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
-  OneToOne,
 } from 'typeorm';
 import { AuditJobsHeader } from './audit.jobs-header.entity';
 import { AuditCategoryItem } from './audit-category-item.entity';
 import { AuditItemAMDetail } from './audit-item-am-detail.entity';
 import { AuditItemAuditDetail } from './audit-item-audit-detail.entity';
-import { AuditItemRelatedAgency } from './audit-related-agency.entity';
-import { AuditItemRelatedAgencyUser } from './audit-related-agency-user.entity';
+import { AuditItemOtherDetails } from './audit-item-other-details.entity';
+import { AuditItemOtherDetailsUser } from './audit-item-other-details-users.entity';
 
 @Entity('AuditItems')
 export class AuditItem {
@@ -60,15 +59,15 @@ export class AuditItem {
   @JoinColumn({ name: 'category_item_id' })
   categoryItem: AuditCategoryItem;
 
-  @OneToOne(() => AuditItemAMDetail, (detail) => detail.item)
-  amDetail: AuditItemAMDetail;
+  @OneToMany(() => AuditItemAMDetail, (detail) => detail.item)
+  amDetail: AuditItemAMDetail[];
 
-  @OneToOne(() => AuditItemAuditDetail, (detail) => detail.item)
-  auditDetail: AuditItemAuditDetail;
+  @OneToMany(() => AuditItemAuditDetail, (detail) => detail.item)
+  auditDetail: AuditItemAuditDetail[];
 
-  @OneToMany(() => AuditItemRelatedAgency, (agency) => agency.item)
-  relatedAgencies: AuditItemRelatedAgency[];
+  @OneToMany(() => AuditItemOtherDetails, (otherDetail) => otherDetail.item)
+  otherDetails: AuditItemOtherDetails[];
 
-  @OneToMany(() => AuditItemRelatedAgencyUser, (user) => user.item)
-  taggedUsers: AuditItemRelatedAgencyUser[];
+  @OneToMany(() => AuditItemOtherDetailsUser, (user) => user.item)
+  taggedUsers: AuditItemOtherDetailsUser[];
 }

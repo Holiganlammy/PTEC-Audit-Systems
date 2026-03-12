@@ -229,7 +229,7 @@ export function DataTable<TData, TValue>({
       : table.getFilteredRowModel().rows.length
 
    return (
-      <div className="w-full">
+      <div className="w-full min-w-0">
          <div className="flex justify-between items-center py-4">
             {shouldShowSearch && (
                <Input
@@ -276,7 +276,7 @@ export function DataTable<TData, TValue>({
             </div>
          </div>
 
-         <div className="relative">
+         <div className="relative overflow-x-auto">
             <Table>
                <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (

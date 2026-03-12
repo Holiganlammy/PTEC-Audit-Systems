@@ -312,8 +312,8 @@ export default function AuditJobsListPage() {
         </div>
 
         {/* DataTable Card */}
-        <Card>
-          <CardContent className="p-6">
+        {/* <Card>
+          <CardContent className="p-6"> */}
             {isLoading ? (
               <div className="flex items-center justify-center py-16">
                 <div className="text-center">
@@ -361,8 +361,8 @@ export default function AuditJobsListPage() {
                 }}
               />
             )}
-          </CardContent>
-        </Card>
+          {/* </CardContent>
+        </Card> */}
 
         {/* Delete Confirmation Dialog */}
         <AlertDialog

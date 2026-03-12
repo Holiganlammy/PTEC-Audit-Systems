@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { dataConfig } from "@/config/config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +46,8 @@ import {
   FieldSet,
 } from "@/components/ui/field";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import DataTableItemList from "./components/DataTableItemList/DataTable";
+import { AuditItem } from "./components/DataTableItemList/Column/Column";
 
 // Types
 interface Branch {
@@ -66,7 +68,7 @@ interface User {
 }
 
 interface AuditJobData {
-  jobId: number;
+  jobid: number;
   jobNo: string;
   branchId: number;
   branchName: string;
@@ -94,8 +96,8 @@ const formSchema = z.object({
 
 export default function EditAuditJobPage() {
   const router = useRouter();
-  const params = useParams();
-  const jobId = params.id as string;
+  const searchParams = useSearchParams();
+  const jobNo = searchParams.get("jobNo") ?? "";
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -142,37 +144,82 @@ export default function EditAuditJobPage() {
       try {
         setIsLoadingData(true);
         setLoadError(null);
-        const response = await client.get(`/audit-jobs/${jobId}`, {
+        
+        console.log('🔍 Fetching audit job with jobNo:', jobNo); // jobNo ในที่นี้คือ jobNo จาก URL
+        
+        // เรียก API ด้วย query parameter
+        const response = await client.get('/audit-jobs/detail', {
+          params: { jobNo: jobNo },
           headers: dataConfig().headers,
         });
 
-        const data: AuditJobData = response.data;
-        setJobData(data);
+
+        // ดึง data ออกมา
+        const jobData = response.data.data;
+        
+
+        setJobData(jobData);
 
         // Set form values
-        form.setValue("Branch", data.branchId.toString());
-        form.setValue("Date", new Date(data.auditDate));
-        form.setValue("PMCode", data.pmCode || "");
-        form.setValue("Address", data.address || "");
-        form.setValue("Auditor", data.auditorUserId.toString());
-        form.setValue("DistrictManager", data.districtManagerUserId.toString());
-        form.setValue("BranchManager", data.branchManagerUserId.toString());
-        form.setValue("AdditionalNotes", data.additionalNotes || "");
+        if (jobData.branchId) {
+          form.setValue("Branch", jobData.branchId.toString());
+        }
+        
+        if (jobData.auditDate) {
+          form.setValue("Date", new Date(jobData.auditDate));
+        }
+        
+        form.setValue("PMCode", jobData.pmCode || "");
+        form.setValue("Address", jobData.address || "");
+        
+        // ใช้ userCode แทน userId
+        if (jobData.auditor?.userCode) {
+          // ต้องหา UserID จาก users list ด้วย userCode
+          const auditorUser = users.find(u => u.UserCode === jobData.auditor.userCode);
+          if (auditorUser) {
+            form.setValue("Auditor", auditorUser.UserID);
+          }
+        }
+        
+        if (jobData.districtManager?.userCode) {
+          const dmUser = users.find(u => u.UserCode === jobData.districtManager.userCode);
+          if (dmUser) {
+            form.setValue("DistrictManager", dmUser.UserID);
+          }
+        }
+        
+        if (jobData.branchManager?.userCode) {
+          const bmUser = users.find(u => u.UserCode === jobData.branchManager.userCode);
+          if (bmUser) {
+            form.setValue("BranchManager", bmUser.UserID);
+          }
+        }
+        
+        form.setValue("AdditionalNotes", jobData.additionalNotes || "");
 
         // Set formData
         setFormData({
-          branchId: data.branchId.toString(),
-          branchName: data.branchName,
-          address: data.address || "",
-        });
+          branchId: jobData.branchId?.toString() || "",
+          branchName: jobData.branchName || "",
+          address: jobData.address || "",
+        })
+
       } catch (error: unknown) {
-        console.error("Error fetching job data:", error);
+        console.error("❌ Error fetching job data:", error);
+        
+        if (error && typeof error === 'object' && 'response' in error) {
+          const axiosError = error as { response?: { data?: { message?: string; code?: number } } };
+          console.error('Response error:', axiosError.response?.data);
+        }
+        
         const errorMessage =
           error instanceof Error && "response" in error
             ? (error as { response?: { data?: { message?: string } } })
                 .response?.data?.message
             : undefined;
+            
         setLoadError(errorMessage || "ไม่สามารถโหลดข้อมูลงานได้");
+        
         toast.error("ไม่สามารถโหลดข้อมูลงานได้", {
           description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
         });
@@ -181,10 +228,11 @@ export default function EditAuditJobPage() {
       }
     };
 
-    if (jobId) {
+    // ⚠️ เรียก fetchJobData หลังจากโหลด users เสร็จแล้ว
+    if (jobNo && !isLoadingUsers && users.length > 0) {
       fetchJobData();
     }
-  }, [jobId]);
+  }, [jobNo, form, users, isLoadingUsers]);
 
   // Fetch branches from API
   useEffect(() => {
@@ -200,7 +248,14 @@ export default function EditAuditJobPage() {
         }
       } catch (error: unknown) {
         console.error("Error fetching branches:", error);
-        toast.error("ไม่สามารถโหลดข้อมูลสาขาได้");
+        const errorMessage =
+          error instanceof Error && "response" in error
+            ? (error as { response?: { data?: { message?: string } } })
+                .response?.data?.message
+            : undefined;
+        toast.error("ไม่สามารถโหลดข้อมูลสาขาได้", {
+          description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
+        });
       } finally {
         setIsLoadingBranches(false);
       }
@@ -298,14 +353,17 @@ export default function EditAuditJobPage() {
         updatedBy: "current_user", // TODO: Get from auth context
       };
 
-      // Call API
-      await client.put(`/audit-jobs/${jobId}`, payload, {
+      console.log('📤 Updating audit job:', jobData?.jobNo, payload);
+
+      // ใช้ jobNo ใน URL แทน jobcode
+      await client.put(`/audit-jobs/${jobData?.jobNo}`, payload, {
         headers: dataConfig().headers,
       });
 
-      // TODO: Upload excel file if exists
+      // Upload excel file if exists
       if (excelFile) {
         console.log("File to upload:", excelFile.name);
+        // TODO: Upload file API
       }
 
       toast.success("อัพเดทงานสำเร็จ", {
@@ -335,57 +393,57 @@ export default function EditAuditJobPage() {
   };
 
   // Show loading state
-  if (isLoadingData) {
-    return (
-      <div className="min-h-screen py-8">
-        <div className="container mx-auto px-4 max-w-7xl">
-          <div className="flex items-center justify-center py-32">
-            <div className="text-center">
-              <Loader2 className="h-12 w-12 animate-spin text-muted-foreground mx-auto mb-4" />
-              <h2 className="text-xl font-semibold mb-2">Loading Job Data...</h2>
-              <p className="text-sm text-muted-foreground">
-                กำลังโหลดข้อมูลงาน กรุณารอสักครู่
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // if (isLoadingData) {
+  //   return (
+  //     <div className="min-h-screen py-8">
+  //       <div className="container mx-auto px-4 max-w-7xl">
+  //         <div className="flex items-center justify-center py-32">
+  //           <div className="text-center">
+  //             <Loader2 className="h-12 w-12 animate-spin text-muted-foreground mx-auto mb-4" />
+  //             <h2 className="text-xl font-semibold mb-2">Loading Job Data...</h2>
+  //             <p className="text-sm text-muted-foreground">
+  //               กำลังโหลดข้อมูลงาน กรุณารอสักครู่
+  //             </p>
+  //           </div>
+  //         </div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   // Show error state
-  if (loadError || !jobData) {
-    return (
-      <div className="min-h-screen py-8">
-        <div className="container mx-auto px-4 max-w-7xl">
-          <Button
-            variant="ghost"
-            onClick={() => router.back()}
-            className="mb-6"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            ย้อนกลับ
-          </Button>
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>
-              {loadError || "ไม่พบข้อมูลงาน"}
-            </AlertDescription>
-          </Alert>
-          <div className="mt-4">
-            <Button onClick={() => router.push("/audit-jobs")}>
-              กลับไปหน้ารายการ
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // if (loadError || !jobData) {
+  //   return (
+  //     <div className="min-h-screen py-8">
+  //       <div className="container mx-auto px-4 max-w-7xl">
+  //         <Button
+  //           variant="ghost"
+  //           onClick={() => router.back()}
+  //           className="mb-6"
+  //         >
+  //           <ArrowLeft className="mr-2 h-4 w-4" />
+  //           ย้อนกลับ
+  //         </Button>
+  //         <Alert variant="destructive">
+  //           <AlertCircle className="h-4 w-4" />
+  //           <AlertTitle>Error</AlertTitle>
+  //           <AlertDescription>
+  //             {loadError || "ไม่พบข้อมูลงาน"}
+  //           </AlertDescription>
+  //         </Alert>
+  //         <div className="mt-4">
+  //           <Button onClick={() => router.push("/audit-jobs")}>
+  //             กลับไปหน้ารายการ
+  //           </Button>
+  //         </div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   return (
-    <div className="min-h-screen py-8">
-      <div className="container mx-auto px-4 max-w-7xl">
+    <div className="">
+      <div className="max-w-[1400px] mx-auto px-4">
         {/* Header */}
         <div className="mb-6">
           <Button variant="ghost" onClick={() => router.back()} className="mb-4">
@@ -396,7 +454,7 @@ export default function EditAuditJobPage() {
             <div>
               <h1 className="text-3xl font-bold">Edit Audit Job</h1>
               <p className="text-muted-foreground mt-2">
-                แก้ไขข้อมูลงานตรวจสอบ: {jobData.jobNo}
+                {/* แก้ไขข้อมูลงานตรวจสอบ: {jobData.jobNo} */}
               </p>
             </div>
             <div className="flex gap-3">
@@ -436,7 +494,7 @@ export default function EditAuditJobPage() {
                     <Field>
                       <FieldLabel>Job No</FieldLabel>
                       <Input
-                        value={jobData.jobNo}
+                        value={jobData?.jobNo || ""}
                         disabled
                         className="bg-muted"
                       />
@@ -910,7 +968,81 @@ export default function EditAuditJobPage() {
             </Button>
           </div>
         </form>
+
+        {/* Audit Items */}
+        <div className="mt-6">
+          <DataTableItemList
+            items={MOCK_ITEMS}
+            jobNo={jobNo}
+            isLoading={false}
+            onItemsChange={() => {}}
+          />
+        </div>
       </div>
     </div>
   );
 }
+
+// ── Mock data (ลบออกเมื่อต่อ API จริง) ──────────────────────────────────────
+const MOCK_ITEMS: AuditItem[] = [
+  {
+    item_id: 1,
+    job_id: 1,
+    category_item_id: 101,
+    category_name: "ความสะอาดและความเป็นระเบียบ",
+    inspection_date: "2026-03-01T00:00:00.000Z",
+    item_status: 1,
+    remarks: "ผ่านการตรวจสอบ",
+    created_at: "2026-03-01T08:00:00.000Z",
+    updated_at: "2026-03-01T08:00:00.000Z",
+    active: true,
+  },
+  {
+    item_id: 2,
+    job_id: 1,
+    category_item_id: 102,
+    category_name: "ระบบความปลอดภัยและอัคคีภัย",
+    inspection_date: "2026-03-01T00:00:00.000Z",
+    item_status: 2,
+    remarks: "พบข้อบกพร่อง ต้องแก้ไข",
+    created_at: "2026-03-01T08:00:00.000Z",
+    updated_at: "2026-03-01T08:00:00.000Z",
+    active: true,
+  },
+  {
+    item_id: 3,
+    job_id: 1,
+    category_item_id: 103,
+    category_name: "การจัดเก็บสินค้าและวัสดุ",
+    inspection_date: "2026-03-01T00:00:00.000Z",
+    item_status: 3,
+    remarks: "",
+    created_at: "2026-03-01T08:00:00.000Z",
+    updated_at: "2026-03-01T08:00:00.000Z",
+    active: true,
+  },
+  {
+    item_id: 4,
+    job_id: 1,
+    category_item_id: 104,
+    category_name: "อุปกรณ์และเครื่องมือ",
+    inspection_date: "2026-03-01T00:00:00.000Z",
+    item_status: 1,
+    remarks: "",
+    created_at: "2026-03-01T08:00:00.000Z",
+    updated_at: "2026-03-01T08:00:00.000Z",
+    active: true,
+  },
+  {
+    item_id: 5,
+    job_id: 1,
+    category_item_id: 105,
+    category_name: "การบริการลูกค้า",
+    inspection_date: "2026-03-01T00:00:00.000Z",
+    item_status: 1,
+    remarks: "ดีเยี่ยม",
+    created_at: "2026-03-01T08:00:00.000Z",
+    updated_at: "2026-03-01T08:00:00.000Z",
+    active: true,
+  },
+];

@@ -11,6 +11,8 @@ import {
   HttpStatus,
   Res,
   Req,
+  BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import express from 'express';
 import { AuditJobsService } from '../service/audit-job.service';
@@ -77,6 +79,102 @@ export class AuditJobsController {
     return await this.auditJobsService.findAll(params, user);
   }
 
+  // POST /audit-jobs/edit - Get job data for edit screen (by jobcode/jobNo)
+  @Post('edit')
+  async findOneByJobCode(
+    @Body('jobcode') jobcode: string,
+    @Res() res: express.Response,
+  ) {
+    try {
+      const normalizedJobCode =
+        typeof jobcode === 'string' ? jobcode.trim() : '';
+      if (!normalizedJobCode) {
+        throw new BadRequestException('jobcode is required');
+      }
+
+      const auditJob =
+        await this.auditJobsService.findByJobNo(normalizedJobCode);
+
+      return res.status(HttpStatus.OK).json({
+        code: 200,
+        success: true,
+        data: auditJob,
+        message: 'Success',
+      });
+    } catch (error) {
+      console.error('❌ Error fetching audit job by jobcode:', error);
+
+      if (error instanceof BadRequestException) {
+        return res.status(HttpStatus.BAD_REQUEST).json({
+          code: 400,
+          success: false,
+          message: error.message,
+        });
+      }
+
+      if (error instanceof NotFoundException) {
+        return res.status(HttpStatus.NOT_FOUND).json({
+          code: 404,
+          success: false,
+          message: error.message,
+        });
+      }
+
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        code: 500,
+        success: false,
+        message: 'Error fetching audit job',
+      });
+    }
+  }
+
+  // GET /audit-jobs/detail?jobcode=AJB... - Get job detail for edit screen (preferred)
+  @Get('detail')
+  async findOneByJobCodeQuery(
+    @Query('jobNo') jobNo: string,
+    @Res() res: express.Response,
+  ) {
+    try {
+      const normalizedJobNo = typeof jobNo === 'string' ? jobNo.trim() : '';
+      if (!normalizedJobNo) {
+        throw new BadRequestException('jobNo is required');
+      }
+
+      const auditJob = await this.auditJobsService.findByJobNo(normalizedJobNo);
+
+      return res.status(HttpStatus.OK).json({
+        code: 200,
+        success: true,
+        data: auditJob,
+        message: 'Detail fetched successfully',
+      });
+    } catch (error) {
+      console.error('❌ Error fetching audit job by jobNo:', error);
+
+      if (error instanceof BadRequestException) {
+        return res.status(HttpStatus.BAD_REQUEST).json({
+          code: 400,
+          success: false,
+          message: error.message,
+        });
+      }
+
+      if (error instanceof NotFoundException) {
+        return res.status(HttpStatus.NOT_FOUND).json({
+          code: 404,
+          success: false,
+          message: error.message,
+        });
+      }
+
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        code: 500,
+        success: false,
+        message: 'Error fetching audit job',
+      });
+    }
+  }
+
   // GET /audit-jobs/status/:status - Get jobs by status
   @Get('status/:status')
   async findByStatus(
@@ -98,23 +196,44 @@ export class AuditJobsController {
     }
   }
 
-  // GET /audit-jobs/auditor/:auditorId - Get jobs by auditor
-  @Get('auditor/:auditorId')
-  async findByAuditor(
-    @Param('auditorId', ParseIntPipe) auditorId: number,
+  // GET /audit-jobs/:id - Get job by jobId
+  @Get(':id')
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
     @Res() res: express.Response,
   ) {
     try {
-      const auditJobs = await this.auditJobsService.findByAuditor(auditorId);
+      console.log('🔍 Fetching audit job:', id);
+
+      const auditJob = await this.auditJobsService.findOne(id);
+
+      // console.log('✅ Found audit job:', {
+      //   jobId: auditJob.jobId,
+      //   jobNo: auditJob.jobNo,
+      //   branchId: auditJob.branchId,
+      // });
+
       return res.status(HttpStatus.OK).json({
+        code: 200,
         success: true,
-        data: auditJobs,
+        data: auditJob,
+        message: 'Success',
       });
     } catch (error) {
-      console.error('Error fetching audit jobs by auditor:', error);
+      console.error('❌ Error fetching audit job:', error);
+
+      if (error instanceof NotFoundException) {
+        return res.status(HttpStatus.NOT_FOUND).json({
+          code: 404,
+          success: false,
+          message: error.message,
+        });
+      }
+
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        code: 500,
         success: false,
-        message: 'Error fetching audit jobs by auditor',
+        message: 'Error fetching audit job',
       });
     }
   }
