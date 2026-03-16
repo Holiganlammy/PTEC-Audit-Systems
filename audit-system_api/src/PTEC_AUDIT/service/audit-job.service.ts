@@ -79,8 +79,8 @@ export class AuditJobsService {
       createdByUser,
       updatedByUser,
       categoryItem: item.categoryItem,
-      amDetail: item.amDetail,
-      auditDetail: item.auditDetail,
+      amDetails: item.amDetails,
+      auditDetails: item.auditDetails,
       otherDetails: item.otherDetails,
       taggedUsers: item.taggedUsers,
     };
@@ -266,9 +266,9 @@ export class AuditJobsService {
       relations: [
         'items',
         'items.categoryItem',
-        'items.amDetail',
-        'items.auditDetail',
-        'items.relatedAgencies',
+        'items.amDetails',
+        'items.auditDetails',
+        'items.otherDetails',
         'items.taggedUsers',
       ],
     });
@@ -286,9 +286,9 @@ export class AuditJobsService {
       relations: [
         'items',
         'items.categoryItem',
-        'items.amDetail',
-        'items.auditDetail',
-        'items.relatedAgencies',
+        'items.amDetails',
+        'items.auditDetails',
+        'items.otherDetails',
         'items.taggedUsers',
       ],
     });

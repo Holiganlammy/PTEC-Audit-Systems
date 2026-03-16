@@ -4,13 +4,41 @@ import { Repository } from 'typeorm';
 import { AuditItem } from '../domain/model/audit-item.entity';
 import { CreateAuditItemDto } from '../dto/create-audit-item.dto';
 import { UpdateAuditItemDto } from '../dto/update-audit-item.dto';
+import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec_useright.service';
+import { UserData } from '../domain/type/audit-job.interface';
 
 @Injectable()
 export class AuditItemsService {
   constructor(
     @InjectRepository(AuditItem)
     private readonly auditItemsRepository: Repository<AuditItem>,
+    private readonly userRightService: UserRightService,
   ) {}
+
+  private async getUserData(
+    userId: number | null,
+  ): Promise<UserData | undefined> {
+    if (!userId) return undefined;
+    try {
+      const users = await this.userRightService.getUsersFromProcedure(
+        null,
+        userId,
+      );
+      if (users && users.length > 0) {
+        const user = users[0];
+        return {
+          userCode: user.UserCode,
+          fullname: user.fristName ? user.fristName + ' ' + user.lastName : '',
+          email: user.Email,
+          position: user.Position,
+          branchId: user.BranchID,
+        };
+      }
+    } catch (error) {
+      console.error(`Error fetching user data for userId ${userId}:`, error);
+    }
+    return undefined;
+  }
 
   // Create new audit item
   async create(createAuditItemDto: CreateAuditItemDto): Promise<AuditItem> {
@@ -83,12 +111,57 @@ export class AuditItemsService {
   }
 
   // Get all items for a specific job with comments
-  async findByJobId(jobId: number): Promise<AuditItem[]> {
-    return await this.auditItemsRepository.find({
+  async findByJobId(jobId: number): Promise<any[]> {
+    const items = await this.auditItemsRepository.find({
       where: { jobId, active: true },
       relations: ['categoryItem', 'amDetails', 'auditDetails', 'otherDetails'],
       order: { inspectionDate: 'DESC' },
     });
+
+    return await Promise.all(
+      items.map(async (item) => {
+        const [amDetailsEnriched, auditDetailsEnriched, otherDetailsEnriched] =
+          await Promise.all([
+            Promise.all(
+              (item.amDetails || []).map(async (detail) => {
+                const { userId, approverBy, ...rest } = detail;
+                const [OwnerCommentUser, approverByUser] = await Promise.all([
+                  this.getUserData(userId),
+                  this.getUserData(approverBy),
+                ]);
+                return { ...rest, OwnerCommentUser, approverByUser };
+              }),
+            ),
+            Promise.all(
+              (item.auditDetails || []).map(async (detail) => {
+                const { userId, approverBy, ...rest } = detail;
+                const [OwnerCommentUser, approverByUser] = await Promise.all([
+                  this.getUserData(userId),
+                  this.getUserData(approverBy),
+                ]);
+                return { ...rest, OwnerCommentUser, approverByUser };
+              }),
+            ),
+            Promise.all(
+              (item.otherDetails || []).map(async (detail) => {
+                const { userId, approverBy, ...rest } = detail;
+                const [OwnerCommentUser, approverByUser] = await Promise.all([
+                  this.getUserData(userId),
+                  this.getUserData(approverBy),
+                ]);
+                return { ...rest, OwnerCommentUser, approverByUser };
+              }),
+            ),
+          ]);
+
+        return {
+          ...item,
+          amDetails: amDetailsEnriched,
+          auditDetails: auditDetailsEnriched,
+          otherDetails: otherDetailsEnriched,
+        };
+      }),
+    );
   }
 
   // Get items by category
