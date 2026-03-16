@@ -60,10 +60,10 @@ export class AuditItem {
   categoryItem: AuditCategoryItem;
 
   @OneToMany(() => AuditItemAMDetail, (detail) => detail.item)
-  amDetail: AuditItemAMDetail[];
+  amDetails: AuditItemAMDetail[];
 
   @OneToMany(() => AuditItemAuditDetail, (detail) => detail.item)
-  auditDetail: AuditItemAuditDetail[];
+  auditDetails: AuditItemAuditDetail[];
 
   @OneToMany(() => AuditItemOtherDetails, (otherDetail) => otherDetail.item)
   otherDetails: AuditItemOtherDetails[];

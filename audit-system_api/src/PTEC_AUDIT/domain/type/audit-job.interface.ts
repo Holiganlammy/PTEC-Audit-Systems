@@ -47,12 +47,62 @@ export interface AuditItemWithUsers {
   createdByUser?: UserData;
   updatedByUser?: UserData;
   categoryItem?: any;
-  amDetail?: any;
-  auditDetail?: any;
-  otherDetails?: any[];
+  amDetails?: amDetails[];
+  auditDetails?: auditDetails[];
+  otherDetails?: OtherDetails[];
   taggedUsers?: any[];
 }
 
+interface auditDetails {
+  auditDetailId: number;
+  itemId: number;
+  userId: number;
+  note: string;
+  approverStatus: number;
+  createdBy: number;
+  createdAt: Date;
+  approverBy?: number;
+  approverDate?: Date;
+  updateBy?: number;
+  updatedAt?: Date;
+  active: boolean;
+  OwnerCommentUser?: UserData;
+  approverByUser?: UserData;
+}
+
+interface amDetails {
+  amDetailId: number;
+  itemId: number;
+  userId: number;
+  note: string;
+  approverStatus: number;
+  createdBy: number;
+  createdAt: Date;
+  approverBy?: number;
+  approverDate?: Date;
+  updateBy?: number;
+  updatedAt?: Date;
+  active: boolean;
+  OwnerCommentUser?: UserData;
+  approverByUser?: UserData;
+}
+
+interface OtherDetails {
+  otherDetailId: number;
+  itemId: number;
+  userId: number;
+  note: string;
+  approverStatus: number;
+  approverBy?: number;
+  approverDate?: Date;
+  createdBy: number;
+  createdAt: Date;
+  updateBy?: number;
+  updatedAt?: Date;
+  active: boolean;
+  OwnerCommentUser?: UserData;
+  approverByUser?: UserData;
+}
 // Interface for audit job with user data
 export interface AuditJobWithUsers {
   auditor?: UserData;

@@ -18,11 +18,36 @@ import {
   UpdateCommentDto,
   ApproveCommentDto,
 } from '../dto/comment.dto';
+import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec_useright.service';
 
 @Controller('audit-items')
 export class AuditItemAMDetailsController {
-  constructor(private readonly amDetailsService: AuditItemAMDetailsService) {}
+  constructor(
+    private readonly amDetailsService: AuditItemAMDetailsService,
+    private readonly userRightService: UserRightService,
+  ) {}
 
+  private async getUserData(userId: number) {
+    try {
+      const users = await this.userRightService.getUsersFromProcedure(
+        null,
+        userId,
+      );
+      if (users && users.length > 0) {
+        const user = users[0];
+        return {
+          userCode: user.UserCode,
+          fullname: user.fristName ? user.fristName + ' ' + user.lastName : '',
+          email: user.Email,
+          position: user.Position,
+          branchId: user.BranchID,
+        };
+      }
+    } catch (error) {
+      console.error(`Error fetching user data for userId ${userId}:`, error);
+      return null;
+    }
+  }
   // POST /audit-items/:itemId/am-details - Create AM comment
   @Post(':itemId/am-details')
   async create(
@@ -55,9 +80,19 @@ export class AuditItemAMDetailsController {
   ) {
     try {
       const amDetails = await this.amDetailsService.findByItemId(itemId);
+      const enriched = await Promise.all(
+        amDetails.map(async (detail) => {
+          const { userId, approverBy, ...rest } = detail;
+          const [OwnerCommentUser, approverByUser] = await Promise.all([
+            this.getUserData(userId),
+            this.getUserData(approverBy),
+          ]);
+          return { ...rest, OwnerCommentUser, approverByUser };
+        }),
+      );
       return res.status(HttpStatus.OK).json({
         success: true,
-        data: amDetails,
+        data: enriched,
       });
     } catch (error) {
       console.error('Error fetching AM comments:', error);

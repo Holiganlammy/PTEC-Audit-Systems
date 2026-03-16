@@ -48,7 +48,7 @@ export class AuditItemAMDetail {
   userId: number;
 
   // Relations
-  @ManyToOne(() => AuditItem, (item) => item.amDetail)
+  @ManyToOne(() => AuditItem, (item) => item.amDetails)
   @JoinColumn({ name: 'item_id' })
   item: AuditItem;
 }

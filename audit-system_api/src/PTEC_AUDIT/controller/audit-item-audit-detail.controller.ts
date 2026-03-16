@@ -18,12 +18,37 @@ import {
   UpdateCommentDto,
   ApproveCommentDto,
 } from '../dto/comment.dto';
+import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec_useright.service';
 
 @Controller('audit-items')
 export class AuditItemAuditDetailsController {
   constructor(
     private readonly auditDetailsService: AuditItemAuditDetailsService,
+    private readonly userRightService: UserRightService,
   ) {}
+
+  private async getUserData(userId: number | null) {
+    if (!userId) return null;
+    try {
+      const users = await this.userRightService.getUsersFromProcedure(
+        null,
+        userId,
+      );
+      if (users && users.length > 0) {
+        const user = users[0];
+        return {
+          userCode: user.UserCode,
+          fullname: user.fristName ? user.fristName + ' ' + user.lastName : '',
+          email: user.Email,
+          position: user.Position,
+          branchId: user.BranchID,
+        };
+      }
+    } catch (error) {
+      console.error(`Error fetching user data for userId ${userId}:`, error);
+      return null;
+    }
+  }
 
   @Post(':itemId/audit-details')
   async create(
@@ -55,9 +80,19 @@ export class AuditItemAuditDetailsController {
   ) {
     try {
       const auditDetails = await this.auditDetailsService.findByItemId(itemId);
+      const enriched = await Promise.all(
+        auditDetails.map(async (detail) => {
+          const { userId, approverBy, ...rest } = detail;
+          const [OwnerCommentUser, approverByUser] = await Promise.all([
+            this.getUserData(userId),
+            this.getUserData(approverBy),
+          ]);
+          return { ...rest, OwnerCommentUser, approverByUser };
+        }),
+      );
       return res.status(HttpStatus.OK).json({
         success: true,
-        data: auditDetails,
+        data: enriched,
       });
     } catch (error) {
       console.error('Error fetching Audit comments:', error);
