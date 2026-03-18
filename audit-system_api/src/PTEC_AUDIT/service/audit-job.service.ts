@@ -160,7 +160,7 @@ export class AuditJobsService {
   async create(createAuditJobDto: CreateAuditJobDto): Promise<AuditJobsHeader> {
     try {
       // Generate running number for jobNo
-      const jobNo = await this.running_number('AJB');
+      const jobNo = await this.running_number('IAO');
       console.log('Generated Job Number:', jobNo);
 
       if (!jobNo) {

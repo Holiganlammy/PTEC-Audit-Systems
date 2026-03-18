@@ -1,4 +1,3 @@
-// components/audit/AddItemModal.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -33,30 +32,31 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+
+const formSchema = z.object({
+  categoryItemId: z.string().min(1, "กรุณาเลือกหมวดหมู่"),
+  inspectionDate: z.date({ error: "กรุณาเลือกวันที่" }),
+  itemStatus: z.string().min(1, "กรุณาเลือกสถานะ"),
+  remarks: z.string().optional(),
+});
 
 interface CategoryItem {
-  category_item_id: number;
-  category_name: string;
-  category_code: string;
+  categoryItemId: number;
+  categoryName: string;
+  categoryCode: number;
   description: string;
   active: boolean;
-}
-
-interface AuditItem {
-  item_id?: number;
-  job_id?: number;
-  category_item_id: number;
-  category_name?: string;
-  inspection_date: Date;
-  item_status: number;
-  remarks: string;
-  jobNo: string;
 }
 
 interface AddItemModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   jobNo: string;
+  jobId: number;
+  jobData?: AuditJobData;
   onItemAdded: () => void;
 }
 
@@ -64,27 +64,30 @@ export default function AddItemModal({
   open,
   onOpenChange,
   jobNo,
+  jobId,
+  jobData,
   onItemAdded,
 }: AddItemModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
 
-  const [formData, setFormData] = useState<AuditItem>({
-    job_id: undefined,
-    jobNo: jobNo,
-    category_item_id: 0,
-    inspection_date: new Date(),
-    item_status: 1,
-    remarks: "",
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      categoryItemId: "",
+      inspectionDate: new Date(),
+      itemStatus: "1",
+      remarks: "",
+    },
   });
 
-  // Fetch categories
   useEffect(() => {
     const fetchCategories = async () => {
       try {
         setIsLoadingCategories(true);
-        const response = await client.get("/audit-category-items", {
+        
+        const response = await client.get("/audit-categories", {
           headers: dataConfig().headers,
         });
 
@@ -101,26 +104,26 @@ export default function AddItemModal({
 
     if (open) {
       fetchCategories();
+      form.reset({
+        categoryItemId: "",
+        inspectionDate: new Date(),
+        itemStatus: "1",
+        remarks: "",
+      });
     }
-  }, [open]);
+  }, [open, form]);
 
-  const handleSubmit = async () => {
-    // Validation
-    if (!formData.category_item_id) {
-      toast.error("กรุณาเลือกหมวดหมู่");
-      return;
-    }
-
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       setIsSubmitting(true);
 
       const payload = {
-        jobNo: jobNo,
-        category_item_id: formData.category_item_id,
-        inspection_date: format(formData.inspection_date, "yyyy-MM-dd"),
-        item_status: formData.item_status,
-        remarks: formData.remarks,
-        created_by: "current_user", // TODO: Get from auth
+        jobId: jobId,
+        categoryItemId: parseInt(values.categoryItemId),
+        inspectionDate: jobData?.auditDate,
+        itemStatus: parseInt(values.itemStatus),
+        remarks: values.remarks || "",
+        createdBy: 1,
       };
 
       await client.post("/audit-items", payload, {
@@ -128,30 +131,28 @@ export default function AddItemModal({
       });
 
       toast.success("เพิ่มรายการสำเร็จ");
-      
-      // Reset form
-      setFormData({
-        jobNo: jobNo,
-        category_item_id: 0,
-        inspection_date: new Date(),
-        item_status: 1,
-        remarks: "",
-      });
-
       onItemAdded();
       onOpenChange(false);
     } catch (error) {
       console.error("Error adding item:", error);
-      toast.error("ไม่สามารถเพิ่มรายการได้");
+      
+      const errorMessage =
+        error instanceof Error && "response" in error
+          ? (error as { response?: { data?: { message?: string } } })
+              .response?.data?.message
+          : undefined;
+          
+      toast.error("ไม่สามารถเพิ่มรายการได้", {
+        description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const statusOptions = [
-    { value: 1, label: "ปกติ" },
-    { value: 2, label: "ผิดปกติ" },
-    { value: 3, label: "ไม่มีข้อมูล" },
+    { value: "1", label: "ปกติ" },
+    { value: "2", label: "ผิดปกติ" },
   ];
 
   return (
@@ -160,116 +161,135 @@ export default function AddItemModal({
         <DialogHeader>
           <DialogTitle>เพิ่มรายการตรวจสอบ</DialogTitle>
           <DialogDescription>
-            เพิ่มรายการตรวจสอบใหม่ในงาน Audit
+            เพิ่มรายการตรวจสอบใหม่ในงาน Audit: {jobNo}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           {/* Category */}
-          <Field>
-            <FieldLabel>
-              หมวดหมู่ <span className="text-red-500">*</span>
-            </FieldLabel>
-            {isLoadingCategories ? (
-              <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
-                <Loader2 className="h-4 w-4 animate-spin" />
-              </div>
-            ) : (
-              <Select
-                value={formData.category_item_id.toString()}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, category_item_id: parseInt(value) })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="เลือกหมวดหมู่" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem
-                      key={cat.category_item_id}
-                      value={cat.category_item_id.toString()}
-                    >
-                      {cat.category_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <Controller
+            name="categoryItemId"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <Field>
+                <FieldLabel>
+                  หมวดหมู่ <span className="text-red-500">*</span>
+                </FieldLabel>
+                {isLoadingCategories ? (
+                  <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  </div>
+                ) : (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className={cn(fieldState.error && "border-red-500")}>
+                      <SelectValue placeholder="เลือกหมวดหมู่" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem
+                          key={cat.categoryItemId}
+                          value={cat.categoryItemId.toString()}
+                        >
+                          {cat.categoryName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {fieldState.error && (
+                  <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                )}
+              </Field>
             )}
-          </Field>
+          />
 
           {/* Inspection Date */}
-          <Field>
-            <FieldLabel>
-              วันที่ตรวจสอบ <span className="text-red-500">*</span>
-            </FieldLabel>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !formData.inspection_date && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {formData.inspection_date ? (
-                    format(formData.inspection_date, "dd/MM/yyyy", { locale: th })
-                  ) : (
-                    <span>เลือกวันที่</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={formData.inspection_date}
-                  onSelect={(date) =>
-                    setFormData({ ...formData, inspection_date: date || new Date() })
-                  }
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </Field>
+          {/* <Controller
+            name="inspectionDate"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <Field>
+                <FieldLabel>
+                  วันที่ตรวจสอบ <span className="text-red-500">*</span>
+                </FieldLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !field.value && "text-muted-foreground",
+                        fieldState.error && "border-red-500"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {field.value ? (
+                        format(field.value, "dd/MM/yyyy", { locale: th })
+                      ) : (
+                        <span>เลือกวันที่</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={field.value}
+                      onSelect={(date) => field.onChange(date || new Date())}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                {fieldState.error && (
+                  <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                )}
+              </Field>
+            )}
+          /> */}
 
           {/* Status */}
-          <Field>
-            <FieldLabel>
-              สถานะ <span className="text-red-500">*</span>
-            </FieldLabel>
-            <Select
-              value={formData.item_status.toString()}
-              onValueChange={(value) =>
-                setFormData({ ...formData, item_status: parseInt(value) })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="เลือกสถานะ" />
-              </SelectTrigger>
-              <SelectContent>
-                {statusOptions.map((status) => (
-                  <SelectItem key={status.value} value={status.value.toString()}>
-                    {status.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
+          <Controller
+            name="itemStatus"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <Field>
+                <FieldLabel>
+                  สถานะ <span className="text-red-500">*</span>
+                </FieldLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger className={cn(fieldState.error && "border-red-500")}>
+                    <SelectValue placeholder="เลือกสถานะ" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map((status) => (
+                      <SelectItem key={status.value} value={status.value}>
+                        {status.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {fieldState.error && (
+                  <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                )}
+              </Field>
+            )}
+          />
 
           {/* Remarks */}
-          <Field>
-            <FieldLabel>หมายเหตุ</FieldLabel>
-            <Textarea
-              value={formData.remarks}
-              onChange={(e) =>
-                setFormData({ ...formData, remarks: e.target.value })
-              }
-              placeholder="กรอกหมายเหตุ..."
-              rows={3}
-              className="resize-none"
-            />
-          </Field>
+          <Controller
+            name="remarks"
+            control={form.control}
+            render={({ field }) => (
+              <Field>
+                <FieldLabel>หมายเหตุ</FieldLabel>
+                <Textarea
+                  {...field}
+                  placeholder="กรอกหมายเหตุ..."
+                  rows={3}
+                  className="resize-none"
+                />
+              </Field>
+            )}
+          />
         </div>
 
         <DialogFooter>
@@ -280,7 +300,10 @@ export default function AddItemModal({
           >
             ยกเลิก
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
+          <Button
+            onClick={form.handleSubmit(onSubmit)}
+            disabled={isSubmitting}
+          >
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

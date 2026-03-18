@@ -25,7 +25,7 @@ export default function Branch({
 }: BranchProps) {
   return (
     <Popover open={openBranch} onOpenChange={setOpenBranch}>
-        <PopoverTrigger asChild>
+        <PopoverTrigger asChild disabled>
             <Button
             variant="outline"
             role="combobox"

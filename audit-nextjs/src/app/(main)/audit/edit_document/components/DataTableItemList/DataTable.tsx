@@ -94,6 +94,8 @@ function SortableTableRow({ row }: { row: Row<AuditItem> }) {
 interface DataTableItemListProps {
   items: AuditItem[];
   jobNo: string;
+  jobId: number;
+  jobData?: AuditJobData;
   isLoading?: boolean;
   onItemsChange: () => void;
 }
@@ -101,6 +103,8 @@ interface DataTableItemListProps {
 export default function DataTableItemList({
   items,
   jobNo,
+  jobId,
+  jobData,
   isLoading = false,
   onItemsChange,
 }: DataTableItemListProps) {
@@ -137,7 +141,7 @@ export default function DataTableItemList({
     }
   };
 
-  const columns = createAuditItemsColumns(handleEdit, handleDelete);
+  const columns = createAuditItemsColumns(handleEdit, handleDelete, onItemsChange);
 
   const table = useReactTable({
     data: orderedItems,
@@ -241,9 +245,7 @@ export default function DataTableItemList({
                     </TableRow>
                   ))
                 ) : rows.length ? (
-                  rows.map((row) => (
-                    <SortableTableRow key={row.id} row={row} />
-                  ))
+                  rows.map((row) => <SortableTableRow key={row.id} row={row} />)
                 ) : (
                   <TableRow>
                     <TableCell
@@ -280,7 +282,9 @@ export default function DataTableItemList({
               </SelectTrigger>
               <SelectContent side="top">
                 {[10, 20, 50, 100].map((s) => (
-                  <SelectItem key={s} value={`${s}`}>{s}</SelectItem>
+                  <SelectItem key={s} value={`${s}`}>
+                    {s}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -334,6 +338,8 @@ export default function DataTableItemList({
         open={openAddModal}
         onOpenChange={setOpenAddModal}
         jobNo={jobNo}
+        jobId={jobId}
+        jobData={jobData || undefined}
         onItemAdded={() => {
           setOpenAddModal(false);
           onItemsChange();

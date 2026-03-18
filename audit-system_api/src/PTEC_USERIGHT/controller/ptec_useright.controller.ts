@@ -61,6 +61,26 @@ export class AppController {
     return filterOutUsers;
   }
 
+  @Get('/users-personal-code')
+  async getUsersPersonalCode(
+    @Req() req: express.Request,
+    @Query('usercode') usercode?: string | null,
+    @Query('UserID') UserID?: string | null,
+  ) {
+    const users = await this.appService.getUsersFromProcedure(
+      usercode ? usercode : null,
+      UserID ? Number(UserID) : null,
+    );
+    const filterOutUsers = users
+      .filter(
+        (user) =>
+          user.PersonalCode?.toUpperCase().startsWith('PM') &&
+          user.Actived == true,
+      )
+      .map(({ ...user }) => user);
+    return filterOutUsers;
+  }
+
   @Post('login')
   async login(
     @Body() LoginDto: LoginDto,

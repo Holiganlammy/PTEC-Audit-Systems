@@ -21,6 +21,7 @@ export interface User {
   EmpUpperID: number;
   password: number;
   role_id: number;
+  PersonalCode: string;
 }
 export interface PortalLoginResponse {
   success: boolean;

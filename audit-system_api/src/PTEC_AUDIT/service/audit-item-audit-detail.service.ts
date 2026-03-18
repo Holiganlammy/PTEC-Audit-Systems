@@ -16,12 +16,14 @@ export class AuditItemAuditDetailsService {
   ) {}
 
   async create(createDto: CreateCommentDto): Promise<AuditItemAuditDetail> {
+    console.log('Creating audit detail with DTO:', createDto);
     const auditDetail = this.auditDetailsRepository.create({
       itemId: createDto.itemId,
       userId: createDto.userId,
       note: createDto.note,
-      approverStatus: 0,
+      approverStatus: createDto.approverStatus,
       createdBy: createDto.createdBy,
+      active: true,
     });
 
     return await this.auditDetailsRepository.save(auditDetail);

@@ -20,8 +20,9 @@ export class AuditItemOtherDetailsService {
       itemId: createDto.itemId,
       userId: createDto.userId,
       note: createDto.note,
-      approverStatus: 0,
+      approverStatus: createDto.approverStatus,
       createdBy: createDto.createdBy,
+      active: true,
     });
 
     return await this.otherDetailsRepository.save(otherDetail);

@@ -30,13 +30,12 @@ import {
   Loader2,
   Check,
   ChevronsUpDown,
-  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, FieldErrors } from "react-hook-form";
 import * as z from "zod";
 import {
   Field,
@@ -45,52 +44,22 @@ import {
   FieldLegend,
   FieldSet,
 } from "@/components/ui/field";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { getSession } from "next-auth/react";
+import { Skeleton } from "@/components/ui/skeleton";
 import DataTableItemList from "./components/DataTableItemList/DataTable";
 import { AuditItem } from "./components/DataTableItemList/Column/Column";
 
-// Types
-interface Branch {
-  branchid: number;
-  name: string;
-  address?: string;
-  code?: string;
-}
-
-interface User {
-  UserID: string;
-  UserCode: string;
-  Fullname: string;
-  BranchID: number;
-  Position: string;
-  PositionCode: string;
-  Email: string;
-}
-
-interface AuditJobData {
-  jobid: number;
-  jobNo: string;
-  branchId: number;
-  branchName: string;
-  auditDate: string;
-  address: string;
-  pmCode: string;
-  auditorUserId: number;
-  districtManagerUserId: number;
-  branchManagerUserId: number;
-  additionalNotes: string;
-  status: number;
-  active: boolean;
-}
 
 const formSchema = z.object({
   Branch: z.string().nonempty("กรุณาเลือกสาขา"),
-  Date: z.date("กรุณาเลือกวันที่"),
-  PMCode: z.string().optional(),
+  Firstname: z.string().optional(),
+  Lastname: z.string().optional(),
+  Date: z.date({ error: "กรุณาเลือกวันที่" }),
+  PMCode: z.string().min(1, "กรุณาเลือก PM Code"),
   Address: z.string().optional(),
   Auditor: z.string().nonempty("กรุณาเลือกผู้ตรวจสอบ"),
   DistrictManager: z.string().nonempty("กรุณาเลือกผู้จัดการเขต"),
-  BranchManager: z.string().nonempty("กรุณาเลือกผู้จัดการสาขา"),
+  BranchManager: z.string().optional(),
   AdditionalNotes: z.string().optional(),
 });
 
@@ -103,19 +72,23 @@ export default function EditAuditJobPage() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingBranches, setIsLoadingBranches] = useState(true);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoadingPMCodes, setIsLoadingPMCodes] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null); // eslint-disable-line @typescript-eslint/no-unused-vars
 
   // Popover states
   const [openBranch, setOpenBranch] = useState(false);
   const [openAuditor, setOpenAuditor] = useState(false);
   const [openDistrictManager, setOpenDistrictManager] = useState(false);
-  const [openBranchManager, setOpenBranchManager] = useState(false);
+  const [openPMCode, setOpenPMCode] = useState(false);
 
   // Data from API
   const [branches, setBranches] = useState<Branch[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [userPersonalCodes, setUserPersonalCodes] = useState<User[]>([]);
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [jobData, setJobData] = useState<AuditJobData | null>(null);
+  const [auditItems, setAuditItems] = useState<AuditItem[]>([]);
+  const [isLoadingItems, setIsLoadingItems] = useState(true);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -128,6 +101,8 @@ export default function EditAuditJobPage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       Branch: "",
+      Firstname: "",
+      Lastname: "",
       Date: undefined,
       PMCode: "",
       Address: "",
@@ -145,7 +120,7 @@ export default function EditAuditJobPage() {
         setIsLoadingData(true);
         setLoadError(null);
         
-        console.log('🔍 Fetching audit job with jobNo:', jobNo); // jobNo ในที่นี้คือ jobNo จาก URL
+        // console.log('🔍 Fetching audit job with jobNo:', jobNo); // jobNo ในที่นี้คือ jobNo จาก URL
         
         // เรียก API ด้วย query parameter
         const response = await client.get('/audit-jobs/detail', {
@@ -234,6 +209,182 @@ export default function EditAuditJobPage() {
     }
   }, [jobNo, form, users, isLoadingUsers]);
 
+  // Populate Firstname/Lastname when both jobData and userPersonalCodes are ready
+  useEffect(() => {
+    if (jobData?.pmCode && userPersonalCodes.length > 0 && !isLoadingPMCodes) {
+      const user = userPersonalCodes.find((u) => u.PersonalCode === jobData.pmCode);
+      if (user) {
+        form.setValue("Firstname", user.fristName || "");
+        form.setValue("Lastname", user.lastName || "");
+      }
+    }
+  }, [jobData?.pmCode, userPersonalCodes, isLoadingPMCodes, form]);
+
+   useEffect(() => {
+    const fetchAuditItems = async () => {
+      if (!jobData?.jobId) return; // รอให้ jobData โหลดเสร็จก่อน
+      
+      try {
+        setIsLoadingItems(true);
+        
+        // console.log('Fetching audit items for job:', jobData.jobId);
+        
+        const response = await client.get(`/audit-items/job/${jobData.jobId}`, {
+          headers: dataConfig().headers,
+        });
+ 
+        if (response.data.success) {
+          // Transform data to match frontend structure
+          const items = response.data.data.map((item: AuditItemData) => ({
+            item_id: item.itemId,
+            job_id: item.jobId,
+            category_item_id: item.categoryItemId,
+            category_name: item.categoryItem?.categoryName,
+            inspection_date: item.inspectionDate,
+            item_status: item.itemStatus,
+            remarks: item.remarks || "",
+            
+            // Comments from different sources (transformed to Comment shape)
+            note_1: (item.auditDetails || []).map((c: auditDetails) => ({
+              id: c.auditDetailId,
+              itemId: c.itemId,
+              userId: c.createdBy,
+              author: c.OwnerCommentUser?.fullname || "Unknown",
+              authorPosition: c.OwnerCommentUser?.position,
+              text: c.note,
+              approverStatus: c.approverStatus ?? null,
+              approverBy: c.approverBy ?? undefined,
+              approverName: c.approverByUser?.fullname,
+              approverPosition: c.approverByUser?.position,
+              approverDate: c.approverDate ?? undefined,
+              createdAt: c.createdAt,
+              updatedAt: c.updatedAt,
+            })),
+            note_2: (item.amDetails || []).map((c: amDetails) => ({
+              id: c.amDetailId,
+              itemId: c.itemId,
+              userId: c.createdBy,
+              author: c.OwnerCommentUser?.fullname || "Unknown",
+              authorPosition: c.OwnerCommentUser?.position,
+              text: c.note,
+              approverStatus: c.approverStatus ?? null,
+              approverBy: c.approverBy ?? undefined,
+              approverName: c.approverByUser?.fullname,
+              approverPosition: c.approverByUser?.position,
+              approverDate: c.approverDate ?? undefined,
+              createdAt: c.createdAt,
+              updatedAt: c.updatedAt,
+            })),
+            note_3: (item.otherDetails || []).map((c: OtherDetails) => ({
+              id: c.otherDetailId,
+              itemId: c.itemId,
+              userId: c.createdBy,
+              author: c.OwnerCommentUser?.fullname || "Unknown",
+              authorPosition: c.OwnerCommentUser?.position,
+              text: c.note,
+              approverStatus: c.approverStatus ?? null,
+              approverBy: c.approverBy ?? undefined,
+              approverName: c.approverByUser?.fullname,
+              approverPosition: c.approverByUser?.position,
+              approverDate: c.approverDate ?? undefined,
+              createdAt: c.createdAt,
+              updatedAt: c.updatedAt,
+            })),
+            
+            created_at: item.createdAt,
+            updated_at: item.updatedAt,
+            active: item.active,
+          }));
+ 
+          setAuditItems(items);
+          console.log('✅ Loaded audit items:', items.length);
+        }
+      } catch (error) {
+        console.error("❌ Error fetching audit items:", error);
+        toast.error("ไม่สามารถโหลดรายการตรวจสอบได้");
+      } finally {
+        setIsLoadingItems(false);
+      }
+    };
+ 
+    fetchAuditItems();
+  }, [jobData?.jobId]);
+
+    const handleItemsChange = async () => {
+    // Refetch items
+    if (!jobData?.jobId) return;
+    
+    try {
+      const response = await client.get(`/audit-items/job/${jobData.jobId}`, {
+        headers: dataConfig().headers,
+      });
+ 
+      if (response.data.success) {
+        const items = response.data.data.map((item: AuditItemData) => ({
+          item_id: item.itemId,
+          job_id: item.jobId,
+          category_item_id: item.categoryItemId,
+          category_name: item.categoryItem?.categoryName,
+          inspection_date: item.inspectionDate,
+          item_status: item.itemStatus,
+          remarks: item.remarks || "",
+          note_1: (item.auditDetails || []).map((c: auditDetails) => ({
+            id: c.auditDetailId,
+            itemId: c.itemId,
+            userId: c.createdBy,
+            author: c.OwnerCommentUser?.fullname || "Unknown",
+            authorPosition: c.OwnerCommentUser?.position,
+            text: c.note,
+            approverStatus: c.approverStatus ?? null,
+            approverBy: c.approverBy ?? undefined,
+            approverName: c.approverByUser?.fullname,
+            approverPosition: c.approverByUser?.position,
+            approverDate: c.approverDate ?? undefined,
+            createdAt: c.createdAt,
+            updatedAt: c.updatedAt,
+          })),
+          note_2: (item.amDetails || []).map((c: amDetails) => ({
+            id: c.amDetailId,
+            itemId: c.itemId,
+            userId: c.createdBy,
+            author: c.OwnerCommentUser?.fullname || "Unknown",
+            authorPosition: c.OwnerCommentUser?.position,
+            text: c.note,
+            approverStatus: c.approverStatus ?? null,
+            approverBy: c.approverBy ?? undefined,
+            approverName: c.approverByUser?.fullname,
+            approverPosition: c.approverByUser?.position,
+            approverDate: c.approverDate ?? undefined,
+            createdAt: c.createdAt,
+            updatedAt: c.updatedAt,
+          })),
+          note_3: (item.otherDetails || []).map((c: OtherDetails) => ({
+            id: c.otherDetailId,
+            itemId: c.itemId,
+            userId: c.createdBy,
+            author: c.OwnerCommentUser?.fullname || "Unknown",
+            authorPosition: c.OwnerCommentUser?.position,
+            text: c.note,
+            approverStatus: c.approverStatus ?? null,
+            approverBy: c.approverBy ?? undefined,
+            approverName: c.approverByUser?.fullname,
+            approverPosition: c.approverByUser?.position,
+            approverDate: c.approverDate ?? undefined,
+            createdAt: c.createdAt,
+            updatedAt: c.updatedAt,
+          })),
+          created_at: item.createdAt,
+          updated_at: item.updatedAt,
+          active: item.active,
+        }));
+ 
+        setAuditItems(items);
+      }
+    } catch (error) {
+      console.error("Error refreshing items:", error);
+    }
+  };
+
   // Fetch branches from API
   useEffect(() => {
     const fetchBranches = async () => {
@@ -287,13 +438,46 @@ export default function EditAuditJobPage() {
     fetchUsers();
   }, []);
 
+  useEffect(() => {
+    const fetchUserPersonalCodes = async () => {
+      try {
+        setIsLoadingPMCodes(true);
+        const response = await client.get("/users-personal-code", {
+          headers: dataConfig().headers,
+        });
+
+        if (Array.isArray(response.data)) {
+          setUserPersonalCodes(response.data);
+        } else if (response.data?.success && Array.isArray(response.data?.data)) {
+          setUserPersonalCodes(response.data.data);
+        } else if (Array.isArray(response.data?.data)) {
+          setUserPersonalCodes(response.data.data);
+        }
+      } catch (error: unknown) {
+        console.error("Error fetching user personal codes:", error);
+        const errorMessage =
+          error instanceof Error && "response" in error
+            ? (error as { response?: { data?: { message?: string } } })
+                .response?.data?.message
+            : undefined;
+        toast.error("ไม่สามารถโหลดข้อมูล PM Code ได้", {
+          description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
+        });
+      } finally {
+        setIsLoadingPMCodes(false);
+      }
+    };
+
+    fetchUserPersonalCodes();
+  }, []);
+
   // Filter users by position/role
-  const auditors = users.filter((u) => u.BranchID === 901);
+  const auditors = users.filter((u) => ["KKJ", "PWW", "WSR"].includes(u.UserCode));
 
   const districtManagers = users.filter(
     (u) =>
       u.Position?.toLowerCase().includes("ผู้จัดการเขต") ||
-      u.PositionCode === "DM"
+      u.PositionCode === "AM"
   );
 
   const branchManagers = users.filter(
@@ -307,12 +491,12 @@ export default function EditAuditJobPage() {
     const branch = branches.find((b) => b.branchid.toString() === value);
     if (branch) {
       form.setValue("Branch", value);
-      form.setValue("Address", branch.address || "");
+      form.setValue("Address", branch.FullAddress || "");
       setFormData({
         ...formData,
         branchId: value,
         branchName: `${branch.code || branch.branchid} / ${branch.name}`,
-        address: branch.address || "",
+        address: branch.FullAddress || "",
       });
     }
     setOpenBranch(false);
@@ -338,8 +522,12 @@ export default function EditAuditJobPage() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
+    const session = await getSession();
 
     try {
+      const selectedBranch = branches.find((b) => b.branchid.toString() === values.Branch);
+      const branchManager = branchManagers.find((u) => u.BranchID === selectedBranch?.branchid);
+
       const payload = {
         branchId: parseInt(values.Branch),
         branchName: formData.branchName,
@@ -348,22 +536,17 @@ export default function EditAuditJobPage() {
         pmCode: values.PMCode || "",
         auditorUserId: parseInt(values.Auditor),
         districtManagerUserId: parseInt(values.DistrictManager),
-        branchManagerUserId: parseInt(values.BranchManager),
+        branchManagerUserId: parseInt(branchManager?.UserID || "0"),
         additionalNotes: values.AdditionalNotes || "",
-        updatedBy: "current_user", // TODO: Get from auth context
+        updatedBy: session?.user?.UserID,
       };
 
-      console.log('📤 Updating audit job:', jobData?.jobNo, payload);
-
-      // ใช้ jobNo ใน URL แทน jobcode
       await client.put(`/audit-jobs/${jobData?.jobNo}`, payload, {
         headers: dataConfig().headers,
       });
 
-      // Upload excel file if exists
       if (excelFile) {
         console.log("File to upload:", excelFile.name);
-        // TODO: Upload file API
       }
 
       toast.success("อัพเดทงานสำเร็จ", {
@@ -389,6 +572,16 @@ export default function EditAuditJobPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setExcelFile(e.target.files[0]);
+    }
+  };
+
+  const handleFormError = (errors: FieldErrors<z.infer<typeof formSchema>>) => {
+    console.error("Form validation errors:", errors);
+    const firstError = Object.values(errors)[0];
+    if (firstError?.message) {
+      toast.error("กรุณากรอกข้อมูลให้ครบถ้วน", {
+        description: firstError.message,
+      });
     }
   };
 
@@ -442,7 +635,7 @@ export default function EditAuditJobPage() {
   // }
 
   return (
-    <div className="">
+    <div className="mb-10">
       <div className="max-w-[1400px] mx-auto px-4">
         {/* Header */}
         <div className="mb-6">
@@ -453,17 +646,21 @@ export default function EditAuditJobPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold">Edit Audit Job</h1>
-              <p className="text-muted-foreground mt-2">
-                {/* แก้ไขข้อมูลงานตรวจสอบ: {jobData.jobNo} */}
-              </p>
+              {isLoadingData ? (
+                <Skeleton className="h-4 w-48 mt-2" />
+              ) : (
+                <p className="text-muted-foreground mt-2">
+                  แก้ไขข้อมูลงานตรวจสอบ: {jobData?.jobNo}
+                </p>
+              )}
             </div>
             <div className="flex gap-3">
               <Button variant="outline" onClick={() => router.back()}>
                 ยกเลิก
               </Button>
               <Button
-                onClick={form.handleSubmit(onSubmit)}
-                disabled={isSubmitting}
+                onClick={form.handleSubmit(onSubmit, handleFormError)}
+                disabled={isSubmitting || isLoadingData}
               >
                 {isSubmitting ? (
                   <>
@@ -478,7 +675,7 @@ export default function EditAuditJobPage() {
           </div>
         </div>
 
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(onSubmit, handleFormError)} className="space-y-6">
           {/* Main Card with all fields */}
           <Card>
             <CardContent className="pt-6">
@@ -493,11 +690,15 @@ export default function EditAuditJobPage() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <Field>
                       <FieldLabel>Job No</FieldLabel>
-                      <Input
-                        value={jobData?.jobNo || ""}
-                        disabled
-                        className="bg-muted"
-                      />
+                      {isLoadingData ? (
+                        <Skeleton className="h-10 w-full" />
+                      ) : (
+                        <Input
+                          value={jobData?.jobNo || ""}
+                          disabled
+                          className="bg-muted"
+                        />
+                      )}
                       <FieldDescription>
                         หมายเลขงานไม่สามารถแก้ไขได้
                       </FieldDescription>
@@ -505,6 +706,16 @@ export default function EditAuditJobPage() {
                   </div>
 
                   {/* Row 1: Branch, Date, PM Code */}
+                  {isLoadingData ? (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {[...Array(6)].map((_, i) => (
+                        <div key={i} className="space-y-2">
+                          <Skeleton className="h-4 w-24" />
+                          <Skeleton className="h-10 w-full" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* Branch */}
                     <Controller
@@ -629,18 +840,108 @@ export default function EditAuditJobPage() {
                     <Controller
                       name="PMCode"
                       control={form.control}
+                      render={({ field, fieldState }) => (
+                        <Field>
+                          <FieldLabel>
+                            PM Code <span className="text-red-500">*</span>
+                          </FieldLabel>
+                          {isLoadingPMCodes ? (
+                            <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
+                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            </div>
+                          ) : (
+                            <Popover open={openPMCode} onOpenChange={setOpenPMCode}>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  aria-expanded={openPMCode}
+                                  className={cn("w-full justify-between", fieldState.error && "border-red-500")}
+                                >
+                                  {field.value
+                                    ? (() => {
+                                        const u = userPersonalCodes.find((u) => u.PersonalCode === field.value);
+                                        return u ? `${u.PersonalCode} - ${u.fristName} ${u.lastName}` : field.value;
+                                      })()
+                                    : "เลือก PM Code"}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-full p-0" align="start">
+                                <Command>
+                                  <CommandInput placeholder="ค้นหา PM Code..." />
+                                  <CommandList>
+                                    <CommandEmpty>ไม่พบข้อมูล</CommandEmpty>
+                                    <CommandGroup>
+                                      {userPersonalCodes
+                                        .filter((u) => u.UserCode)
+                                        .map((u) => (
+                                          <CommandItem
+                                            key={u.UserID}
+                                            value={`${u.PersonalCode} ${u.fristName} ${u.lastName} ${u.BranchName}`}
+                                            onSelect={() => {
+                                              field.onChange(u.PersonalCode);
+                                              const matchedBranch = branches.find((b) => b.branchid === u.BranchID);
+                                              // const user = userPersonalCodes.find((u) => u.PersonalCode === jobData?.pmCode);
+                                              if (matchedBranch) {
+                                                form.setValue("Branch", matchedBranch.branchid.toString());
+                                                form.setValue("Address", matchedBranch.FullAddress || "");
+                                                setFormData({
+                                                  branchId: matchedBranch.branchid.toString(),
+                                                  branchName: `${matchedBranch.code || matchedBranch.branchid} / ${matchedBranch.name}`,
+                                                  address: matchedBranch.FullAddress || "",
+                                                });
+                                              }
+                                              form.setValue("Firstname", u.fristName || "");
+                                              form.setValue("Lastname", u.lastName || "");
+                                              setOpenPMCode(false);
+                                            }}
+                                          >
+                                            <Check
+                                              className={cn(
+                                                "mr-2 h-4 w-4",
+                                                field.value === u.PersonalCode ? "opacity-100" : "opacity-0"
+                                              )}
+                                            />
+                                            {u.PersonalCode} - {u.fristName} {u.lastName} {u.BranchName}
+                                          </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                          )}
+                          {fieldState.error && (
+                            <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                          )}
+                        </Field>
+                      )}
+                    />
+
+                    <Controller
+                      name="Firstname"
+                      control={form.control}
                       render={({ field }) => (
                         <Field>
-                          <FieldLabel>PM Code</FieldLabel>
-                          <Input
-                            {...field}
-                            placeholder="PM600005"
-                            className="w-full"
-                          />
+                          <FieldLabel>ชื่อ</FieldLabel>
+                          <Input {...field} placeholder="ชื่อ" className="w-full" disabled />
+                        </Field>
+                      )}
+                    />
+
+                    <Controller
+                      name="Lastname"
+                      control={form.control}
+                      render={({ field }) => (
+                        <Field>
+                          <FieldLabel>นามสกุล</FieldLabel>
+                          <Input {...field} placeholder="นามสกุล" className="w-full" disabled />
                         </Field>
                       )}
                     />
                   </div>
+                  )}
 
                   {/* Row 2: Address (Full Width) */}
                   <div className="grid grid-cols-1">
@@ -649,19 +950,34 @@ export default function EditAuditJobPage() {
                       control={form.control}
                       render={({ field }) => (
                         <Field>
-                          <FieldLabel>Address</FieldLabel>
+                          <FieldLabel>ที่อยู่</FieldLabel>
+                          {isLoadingData ? (
+                            <Skeleton className="h-10 w-full" />
+                          ) : (
                           <Input
                             {...field}
                             placeholder="ที่อยู่สาขา"
                             className="w-full"
+                            disabled
                           />
+                          )}
                         </Field>
                       )}
                     />
                   </div>
 
                   {/* Row 3: Personnel (Same as create) */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {isLoadingData ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {[...Array(2)].map((_, i) => (
+                        <div key={i} className="space-y-2">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-10 w-full" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Auditor */}
                     <Controller
                       name="Auditor"
@@ -817,85 +1133,8 @@ export default function EditAuditJobPage() {
                       )}
                     />
 
-                    {/* Branch Manager */}
-                    <Controller
-                      name="BranchManager"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <Field>
-                          <FieldLabel>
-                            ผู้จัดการสาขา <span className="text-red-500">*</span>
-                          </FieldLabel>
-                          {isLoadingUsers ? (
-                            <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
-                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                            </div>
-                          ) : (
-                            <Popover
-                              open={openBranchManager}
-                              onOpenChange={setOpenBranchManager}
-                            >
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  role="combobox"
-                                  aria-expanded={openBranchManager}
-                                  className={cn(
-                                    "w-full justify-between",
-                                    fieldState.error && "border-red-500"
-                                  )}
-                                >
-                                  {getSelectedUserText(
-                                    field.value,
-                                    branchManagers,
-                                    "เลือกผู้จัดการสาขา"
-                                  )}
-                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-full p-0" align="start">
-                                <Command>
-                                  <CommandInput placeholder="ค้นหาผู้จัดการสาขา..." />
-                                  <CommandList>
-                                    <CommandEmpty>
-                                      ไม่พบข้อมูลผู้จัดการสาขา
-                                    </CommandEmpty>
-                                    <CommandGroup>
-                                      {branchManagers.map((user) => (
-                                        <CommandItem
-                                          key={user.UserID}
-                                          value={`${user.Fullname} ${user.Position}`}
-                                          onSelect={() => {
-                                            field.onChange(user.UserID);
-                                            setOpenBranchManager(false);
-                                          }}
-                                        >
-                                          <Check
-                                            className={cn(
-                                              "mr-2 h-4 w-4",
-                                              field.value === user.UserID
-                                                ? "opacity-100"
-                                                : "opacity-0"
-                                            )}
-                                          />
-                                          {user.Fullname} ({user.Position})
-                                        </CommandItem>
-                                      ))}
-                                    </CommandGroup>
-                                  </CommandList>
-                                </Command>
-                              </PopoverContent>
-                            </Popover>
-                          )}
-                          {fieldState.error && (
-                            <p className="text-sm text-red-500 mt-1">
-                              {fieldState.error.message}
-                            </p>
-                          )}
-                        </Field>
-                      )}
-                    />
                   </div>
+                  )}
 
                   {/* Row 4: Additional Notes (Full Width) */}
                   <div className="grid grid-cols-1">
@@ -972,10 +1211,12 @@ export default function EditAuditJobPage() {
         {/* Audit Items */}
         <div className="mt-6">
           <DataTableItemList
-            items={MOCK_ITEMS}
+            items={auditItems}             
             jobNo={jobNo}
-            isLoading={false}
-            onItemsChange={() => {}}
+            jobData={jobData ?? undefined}
+            isLoading={isLoadingItems} 
+            jobId={jobData?.jobId || 0}
+            onItemsChange={handleItemsChange}
           />
         </div>
       </div>
@@ -983,66 +1224,66 @@ export default function EditAuditJobPage() {
   );
 }
 
-// ── Mock data (ลบออกเมื่อต่อ API จริง) ──────────────────────────────────────
-const MOCK_ITEMS: AuditItem[] = [
-  {
-    item_id: 1,
-    job_id: 1,
-    category_item_id: 101,
-    category_name: "ความสะอาดและความเป็นระเบียบ",
-    inspection_date: "2026-03-01T00:00:00.000Z",
-    item_status: 1,
-    remarks: "ผ่านการตรวจสอบ",
-    created_at: "2026-03-01T08:00:00.000Z",
-    updated_at: "2026-03-01T08:00:00.000Z",
-    active: true,
-  },
-  {
-    item_id: 2,
-    job_id: 1,
-    category_item_id: 102,
-    category_name: "ระบบความปลอดภัยและอัคคีภัย",
-    inspection_date: "2026-03-01T00:00:00.000Z",
-    item_status: 2,
-    remarks: "พบข้อบกพร่อง ต้องแก้ไข",
-    created_at: "2026-03-01T08:00:00.000Z",
-    updated_at: "2026-03-01T08:00:00.000Z",
-    active: true,
-  },
-  {
-    item_id: 3,
-    job_id: 1,
-    category_item_id: 103,
-    category_name: "การจัดเก็บสินค้าและวัสดุ",
-    inspection_date: "2026-03-01T00:00:00.000Z",
-    item_status: 3,
-    remarks: "",
-    created_at: "2026-03-01T08:00:00.000Z",
-    updated_at: "2026-03-01T08:00:00.000Z",
-    active: true,
-  },
-  {
-    item_id: 4,
-    job_id: 1,
-    category_item_id: 104,
-    category_name: "อุปกรณ์และเครื่องมือ",
-    inspection_date: "2026-03-01T00:00:00.000Z",
-    item_status: 1,
-    remarks: "",
-    created_at: "2026-03-01T08:00:00.000Z",
-    updated_at: "2026-03-01T08:00:00.000Z",
-    active: true,
-  },
-  {
-    item_id: 5,
-    job_id: 1,
-    category_item_id: 105,
-    category_name: "การบริการลูกค้า",
-    inspection_date: "2026-03-01T00:00:00.000Z",
-    item_status: 1,
-    remarks: "ดีเยี่ยม",
-    created_at: "2026-03-01T08:00:00.000Z",
-    updated_at: "2026-03-01T08:00:00.000Z",
-    active: true,
-  },
-];
+// // ── Mock data (ลบออกเมื่อต่อ API จริง) ──────────────────────────────────────
+// const MOCK_ITEMS: AuditItem[] = [
+//   {
+//     item_id: 1,
+//     job_id: 1,
+//     category_item_id: 101,
+//     category_name: "ความสะอาดและความเป็นระเบียบ",
+//     inspection_date: "2026-03-01T00:00:00.000Z",
+//     item_status: 1,
+//     remarks: "ผ่านการตรวจสอบ",
+//     created_at: "2026-03-01T08:00:00.000Z",
+//     updated_at: "2026-03-01T08:00:00.000Z",
+//     active: true,
+//   },
+//   {
+//     item_id: 2,
+//     job_id: 1,
+//     category_item_id: 102,
+//     category_name: "ระบบความปลอดภัยและอัคคีภัย",
+//     inspection_date: "2026-03-01T00:00:00.000Z",
+//     item_status: 2,
+//     remarks: "พบข้อบกพร่อง ต้องแก้ไข",
+//     created_at: "2026-03-01T08:00:00.000Z",
+//     updated_at: "2026-03-01T08:00:00.000Z",
+//     active: true,
+//   },
+//   {
+//     item_id: 3,
+//     job_id: 1,
+//     category_item_id: 103,
+//     category_name: "การจัดเก็บสินค้าและวัสดุ",
+//     inspection_date: "2026-03-01T00:00:00.000Z",
+//     item_status: 3,
+//     remarks: "",
+//     created_at: "2026-03-01T08:00:00.000Z",
+//     updated_at: "2026-03-01T08:00:00.000Z",
+//     active: true,
+//   },
+//   {
+//     item_id: 4,
+//     job_id: 1,
+//     category_item_id: 104,
+//     category_name: "อุปกรณ์และเครื่องมือ",
+//     inspection_date: "2026-03-01T00:00:00.000Z",
+//     item_status: 1,
+//     remarks: "",
+//     created_at: "2026-03-01T08:00:00.000Z",
+//     updated_at: "2026-03-01T08:00:00.000Z",
+//     active: true,
+//   },
+//   {
+//     item_id: 5,
+//     job_id: 1,
+//     category_item_id: 105,
+//     category_name: "การบริการลูกค้า",
+//     inspection_date: "2026-03-01T00:00:00.000Z",
+//     item_status: 1,
+//     remarks: "ดีเยี่ยม",
+//     created_at: "2026-03-01T08:00:00.000Z",
+//     updated_at: "2026-03-01T08:00:00.000Z",
+//     active: true,
+//   },
+// ];

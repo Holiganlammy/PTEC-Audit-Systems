@@ -16,6 +16,10 @@ export class CreateCommentDto {
   @IsNumber()
   @IsNotEmpty()
   createdBy: number;
+
+  @IsNumber()
+  @IsOptional()
+  approverStatus?: number; // เผื่ออนาคตมีการสร้าง comment ที่ไม่ต้องรออนุมัติ
 }
 
 export class UpdateCommentDto {

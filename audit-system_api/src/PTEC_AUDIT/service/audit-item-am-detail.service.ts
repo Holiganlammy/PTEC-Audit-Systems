@@ -25,8 +25,9 @@ export class AuditItemAMDetailsService {
       itemId: createDto.itemId,
       userId: createDto.userId,
       note: createDto.note,
-      approverStatus: 0, // Default: รออนุมัติ
+      approverStatus: createDto.approverStatus,
       createdBy: createDto.createdBy,
+      active: true,
     });
 
     return await this.amDetailsRepository.save(amDetail);

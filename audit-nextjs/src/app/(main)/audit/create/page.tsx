@@ -35,7 +35,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, FieldErrors } from "react-hook-form";
 import * as z from "zod";
 import {
   Field,
@@ -47,32 +47,17 @@ import {
 import { getSession } from "next-auth/react";
 import Branch from "./components/Branch"
 
-// Types
-interface Branch {
-  branchid: number;
-  name: string;
-  address?: string;
-  code?: string;
-}
-
-interface User {
-  UserID: string;
-  UserCode: string;
-  Fullname: string;
-  BranchID: number;
-  Position: string;
-  PositionCode: string;
-  Email: string;
-}
 
 const formSchema = z.object({
   Branch: z.string().nonempty("กรุณาเลือกสาขา"),
-  Date: z.date().refine((date) => date instanceof Date && !isNaN(date.getTime()), { message: "กรุณาเลือกวันที่" }),
-  PMCode: z.string().optional(),
+  Firstname: z.string().optional(),
+  Lastname: z.string().optional(),
+  Date: z.date({ error: "กรุณาเลือกวันที่" }),
+  PMCode: z.string().min(1, "กรุณาเลือก PM Code"),
   Address: z.string().optional(),
   Auditor: z.string().nonempty("กรุณาเลือกผู้ตรวจสอบ"),
   DistrictManager: z.string().nonempty("กรุณาเลือกผู้จัดการเขต"),
-  BranchManager: z.string().nonempty("กรุณาเลือกผู้จัดการสาขา"),
+  BranchManager: z.string().optional(), // ✅ ลบออกถ้าไม่มีใน form
   AdditionalNotes: z.string().optional(),
 });
 
@@ -81,16 +66,18 @@ export default function CreateAuditJobPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingBranches, setIsLoadingBranches] = useState(true);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const [isLoadingPMCodes, setIsLoadingPMCodes] = useState(true);
 
   // Popover states
   const [openBranch, setOpenBranch] = useState(false);
   const [openAuditor, setOpenAuditor] = useState(false);
   const [openDistrictManager, setOpenDistrictManager] = useState(false);
-  const [openBranchManager, setOpenBranchManager] = useState(false);
+  const [openPMCode, setOpenPMCode] = useState(false);
 
   // Data from API
   const [branches, setBranches] = useState<Branch[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [userPersonalCodes, setUserPersonalCodes] = useState<User[]>([]);
   const [excelFile, setExcelFile] = useState<File | null>(null);
 
   // Form state
@@ -98,6 +85,8 @@ export default function CreateAuditJobPage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       Branch: "",
+      Firstname: "",
+      Lastname: "",
       Date: undefined,
       PMCode: "",
       Address: "",
@@ -130,7 +119,7 @@ export default function CreateAuditJobPage() {
         toast.error("ไม่สามารถโหลดข้อมูลสาขาได้", {
           description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
         });
-      } finally {
+      } finally{
         setIsLoadingBranches(false);
       }
     };
@@ -168,13 +157,46 @@ export default function CreateAuditJobPage() {
     fetchUsers();
   }, []);
 
+  useEffect(() => {
+    const fetchUserPersonalCodes = async () => {
+      try {
+        setIsLoadingPMCodes(true);
+        const response = await client.get("/users-personal-code", {
+          headers: dataConfig().headers,
+        });
+
+        if (Array.isArray(response.data)) {
+          setUserPersonalCodes(response.data);
+        } else if (response.data?.success && Array.isArray(response.data?.data)) {
+          setUserPersonalCodes(response.data.data);
+        } else if (Array.isArray(response.data?.data)) {
+          setUserPersonalCodes(response.data.data);
+        }
+      } catch (error: unknown) {
+        console.error("Error fetching user personal codes:", error);
+        const errorMessage =
+          error instanceof Error && "response" in error
+            ? (error as { response?: { data?: { message?: string } } })
+                .response?.data?.message
+            : undefined;
+        toast.error("ไม่สามารถโหลดข้อมูลรหัสส่วนตัวผู้ใช้ได้", {
+          description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
+        });
+      } finally {
+        setIsLoadingPMCodes(false);
+      }
+    };
+
+    fetchUserPersonalCodes();
+  }, []);
+
   // Filter users by position/role
-  const auditors = users.filter((u) => u.BranchID === 901);
+  const auditors = users.filter((u) => ["KKJ", "PWW", "WSR"].includes(u.UserCode));
 
   const districtManagers = users.filter(
     (u) =>
       u.Position?.toLowerCase().includes("ผู้จัดการเขต") ||
-      u.PositionCode === "DM"
+      u.PositionCode === "AM"
   );
 
   const branchManagers = users.filter(
@@ -188,7 +210,7 @@ export default function CreateAuditJobPage() {
     const branch = branches.find((b) => b.branchid.toString() === value);
     if (branch) {
       form.setValue("Branch", value);
-      form.setValue("Address", branch.address || "");
+      form.setValue("Address", branch.FullAddress || "");
     }
     setOpenBranch(false);
   }; 
@@ -210,13 +232,17 @@ export default function CreateAuditJobPage() {
     const user = usersList.find((u) => u.UserID === fieldValue);
     return user ? `${user.Fullname}` : placeholder;
   };
-
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    console.log('🎯 Form submitted with values:', values); 
+    
     setIsSubmitting(true);
     const session = await getSession();
+    
     try {
-      console.log("Form Values:", session?.user?.UserID);
+      
       const selectedBranch = branches.find((b) => b.branchid.toString() === values.Branch);
+      const branchManager = branchManagers.find((u) => u.BranchID === selectedBranch?.branchid);
+
       const payload = {
         branchId: parseInt(values.Branch),
         branchName: selectedBranch?.name || "",
@@ -225,32 +251,43 @@ export default function CreateAuditJobPage() {
         pmCode: values.PMCode || "",
         auditorUserId: parseInt(values.Auditor),
         districtManagerUserId: parseInt(values.DistrictManager),
-        branchManagerUserId: parseInt(values.BranchManager),
+        branchManagerUserId: parseInt(branchManager?.UserID || "0"),
         additionalNotes: values.AdditionalNotes || "",
         status: 1,
-        createdBy: session?.user?.UserID,
+        createdBy: session?.user?.UserID, 
       };
-
+  
+      // console.log('Payload:', payload);
+  
       const result = await client.post("/audit-jobs/create", payload, {
         headers: dataConfig().headers,
       });
-
+  
+      // console.log('Result:', result.data);
+  
       if (excelFile) {
         console.log("File to upload:", excelFile.name);
       }
-
+  
+      const createdJobNo = result.data.jobNo ?? result.data.data?.jobNo ?? "";
+      const createdJobId = result.data.jobId ?? result.data.data?.jobId ?? "";
+  
       toast.success("สร้างงานสำเร็จ", {
-        description: `งาน ${result.data.jobNo} ถูกสร้างเรียบร้อยแล้ว`,
+        description: `งาน ${createdJobNo} ถูกสร้างเรียบร้อยแล้ว`,
       });
-
-      router.push("/audit-jobs/list");
+  
+      router.push(
+        `/audit/create/add_items?jobNo=${encodeURIComponent(createdJobNo)}&jobId=${createdJobId}`
+      );
     } catch (error: unknown) {
       console.error("Error creating audit job:", error);
+     
       const errorMessage =
         error instanceof Error && "response" in error
           ? (error as { response?: { data?: { message?: string } } }).response
               ?.data?.message
           : undefined;
+          
       toast.error("เกิดข้อผิดพลาด", {
         description: errorMessage || "ไม่สามารถสร้างงานได้",
       });
@@ -262,6 +299,17 @@ export default function CreateAuditJobPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setExcelFile(e.target.files[0]);
+    }
+  };
+
+  const handleFormError = (errors: FieldErrors<z.infer<typeof formSchema>>) => {
+    console.error('Form validation errors:', errors);
+    
+    const firstError = Object.values(errors)[0];
+    if (firstError?.message) {
+      toast.error("กรุณากรอกข้อมูลให้ครบถ้วน", {
+        description: firstError.message,
+      });
     }
   };
 
@@ -302,7 +350,7 @@ export default function CreateAuditJobPage() {
           </div>
         </div>
 
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(onSubmit, handleFormError)} className="space-y-6">
           {/* Main Card with all fields */}
           <Card>
             <CardContent className="pt-6">
@@ -322,7 +370,7 @@ export default function CreateAuditJobPage() {
                       render={({ field, fieldState }) => (
                         <Field>
                           <FieldLabel>
-                            Branch <span className="text-red-500">*</span>
+                            สาขา <span className="text-red-500">*</span>
                           </FieldLabel>
                           {isLoadingBranches ? (
                             <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
@@ -348,6 +396,85 @@ export default function CreateAuditJobPage() {
                       )}
                     />
 
+                    
+                    {/* PM Code */}
+                    <Controller
+                      name="PMCode"
+                      control={form.control}
+                      render={({ field }) => (
+                        <Field>
+                          <FieldLabel>
+                            PM Code <span className="text-red-500">*</span>
+                          </FieldLabel>
+                          {isLoadingPMCodes ? (
+                            <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
+                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            </div>
+                          ) : (
+                            <Popover open={openPMCode} onOpenChange={setOpenPMCode}>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  aria-expanded={openPMCode}
+                                  className="w-full justify-between"
+                                >
+                                  {field.value
+                                    ? (() => {
+                                        const u = userPersonalCodes.find((u) => u.UserCode === field.value);
+                                        return u ? `${u.PersonalCode} - ${u.fristName} ${u.lastName}` : field.value;
+                                      })()
+                                    : "เลือก PM Code"}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-full p-0" align="start">
+                                <Command>
+                                  <CommandInput placeholder="ค้นหา PM Code..." />
+                                  <CommandList>
+                                    <CommandEmpty>ไม่พบข้อมูล</CommandEmpty>
+                                    <CommandGroup>
+                                      {userPersonalCodes
+                                        .filter((u) => u.UserCode)
+                                        .map((u) => (
+                                          <CommandItem
+                                            key={u.UserID}
+                                            value={`${u.PersonalCode} ${u.fristName} ${u.lastName} ${u.BranchName}`}
+                                            onSelect={() => {
+                                              field.onChange(u.PersonalCode);
+                                              // Auto-fill Branch and Address from user's BranchID
+                                              const matchedBranch = branches.find((b) => b.branchid === u.BranchID);
+                                              if (matchedBranch) {
+                                                form.setValue("Branch", matchedBranch.branchid.toString());
+                                                form.setValue("Address", matchedBranch.FullAddress || "");
+                                              }
+                                              // Auto-fill Firstname and Lastname
+                                              form.setValue("Firstname", u.fristName || "");
+                                              form.setValue("Lastname", u.lastName || "");
+                                              setOpenPMCode(false);
+                                            }}
+                                          >
+                                            <Check
+                                              className={cn(
+                                                "mr-2 h-4 w-4",
+                                                field.value === u.UserCode
+                                                  ? "opacity-100"
+                                                  : "opacity-0"
+                                              )}
+                                            />
+                                            {u.PersonalCode} - {u.fristName} {u.lastName} {u.BranchName}
+                                          </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                          )}
+                        </Field>
+                      )}
+                    />
+
                     {/* Date */}
                     <Controller
                       name="Date"
@@ -355,7 +482,7 @@ export default function CreateAuditJobPage() {
                       render={({ field, fieldState }) => (
                         <Field>
                           <FieldLabel>
-                            Date <span className="text-red-500">*</span>
+                            วันที่ <span className="text-red-500">*</span>
                           </FieldLabel>
                           <Popover>
                             <PopoverTrigger asChild>
@@ -395,21 +522,52 @@ export default function CreateAuditJobPage() {
                       )}
                     />
 
-                    {/* PM Code */}
                     <Controller
-                      name="PMCode"
+                      name="Firstname"
                       control={form.control}
-                      render={({ field }) => (
+                      render={({ field, fieldState }) => (
                         <Field>
-                          <FieldLabel>PM Code</FieldLabel>
+                          <FieldLabel>
+                            ชื่อ <span className="text-red-500">*</span>
+                          </FieldLabel>
                           <Input
                             {...field}
-                            placeholder="PM600005"
+                            placeholder="ชื่อ"
                             className="w-full"
+                            disabled
                           />
+                          {fieldState.error && (
+                            <p className="text-sm text-red-500 mt-1">
+                              {fieldState.error.message}
+                            </p>
+                          )}
                         </Field>
                       )}
                     />
+
+                    <Controller
+                      name="Lastname"
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <Field>
+                          <FieldLabel>
+                            นามสกุล <span className="text-red-500">*</span>
+                          </FieldLabel>
+                          <Input
+                            {...field}
+                            placeholder="นามสกุล"
+                            className="w-full"
+                            disabled
+                          />
+                          {fieldState.error && (
+                            <p className="text-sm text-red-500 mt-1">
+                              {fieldState.error.message}
+                            </p>
+                          )}
+                        </Field>
+                      )}
+                    />
+
                   </div>
 
                   {/* Row 2: Address (Full Width) */}
@@ -419,11 +577,12 @@ export default function CreateAuditJobPage() {
                       control={form.control}
                       render={({ field }) => (
                         <Field>
-                          <FieldLabel>Address</FieldLabel>
+                          <FieldLabel>ที่อยู่</FieldLabel>
                           <Input
                             {...field}
                             placeholder="ที่อยู่สาขา"
                             className="w-full"
+                            disabled
                           />
                         </Field>
                       )}
@@ -431,7 +590,7 @@ export default function CreateAuditJobPage() {
                   </div>
 
                   {/* Row 3: Auditor, District Manager, Branch Manager */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Auditor */}
                     <Controller
                       name="Auditor"
@@ -439,7 +598,7 @@ export default function CreateAuditJobPage() {
                       render={({ field, fieldState }) => (
                         <Field>
                           <FieldLabel>
-                            Audit <span className="text-red-500">*</span>
+                            ผู้ตรวจสอบ <span className="text-red-500">*</span>
                           </FieldLabel>
                           {isLoadingUsers ? (
                             <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
@@ -473,7 +632,8 @@ export default function CreateAuditJobPage() {
                                       ไม่พบข้อมูลผู้ตรวจสอบ
                                     </CommandEmpty>
                                     <CommandGroup>
-                                      {auditors.map((user) => (
+                                      {auditors
+                                      .map((user) => (
                                         <CommandItem
                                           key={user.UserID}
                                           value={`${user.Fullname} ${user.Position}`}
@@ -586,85 +746,6 @@ export default function CreateAuditJobPage() {
                         </Field>
                       )}
                     />
-
-                    {/* Branch Manager */}
-                    <Controller
-                      name="BranchManager"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <Field>
-                          <FieldLabel>
-                            ผู้จัดการสาขา <span className="text-red-500">*</span>
-                          </FieldLabel>
-                          {isLoadingUsers ? (
-                            <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
-                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                            </div>
-                          ) : (
-                            <Popover
-                              open={openBranchManager}
-                              onOpenChange={setOpenBranchManager}
-                            >
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  role="combobox"
-                                  aria-expanded={openBranchManager}
-                                  className={cn(
-                                    "w-full justify-between",
-                                    fieldState.error && "border-red-500"
-                                  )}
-                                >
-                                  {getSelectedUserText(
-                                    field.value,
-                                    branchManagers,
-                                    "เลือกผู้จัดการสาขา"
-                                  )}
-                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-full p-0" align="start">
-                                <Command>
-                                  <CommandInput placeholder="ค้นหาผู้จัดการสาขา..." />
-                                  <CommandList>
-                                    <CommandEmpty>
-                                      ไม่พบข้อมูลผู้จัดการสาขา
-                                    </CommandEmpty>
-                                    <CommandGroup>
-                                      {branchManagers.map((user) => (
-                                        <CommandItem
-                                          key={user.UserID}
-                                          value={`${user.Fullname} ${user.Position}`}
-                                          onSelect={() => {
-                                            field.onChange(user.UserID);
-                                            setOpenBranchManager(false);
-                                          }}
-                                        >
-                                          <Check
-                                            className={cn(
-                                              "mr-2 h-4 w-4",
-                                              field.value === user.UserID
-                                                ? "opacity-100"
-                                                : "opacity-0"
-                                            )}
-                                          />
-                                          {user.Fullname} ({user.Position})
-                                        </CommandItem>
-                                      ))}
-                                    </CommandGroup>
-                                  </CommandList>
-                                </Command>
-                              </PopoverContent>
-                            </Popover>
-                          )}
-                          {fieldState.error && (
-                            <p className="text-sm text-red-500 mt-1">
-                              {fieldState.error.message}
-                            </p>
-                          )}
-                        </Field>
-                      )}
-                    />
                   </div>
 
                   {/* Row 4: Additional Notes (Full Width) */}
@@ -726,7 +807,7 @@ export default function CreateAuditJobPage() {
             >
               ยกเลิก
             </Button>
-            <Button type="submit" className="flex-1" disabled={isSubmitting}>
+            <Button type="submit" className="flex-1" disabled={isSubmitting} onClick={form.handleSubmit(onSubmit, handleFormError)}>
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
