@@ -42,6 +42,7 @@ export class AuditItemAuditDetailsController {
           email: user.Email,
           position: user.Position,
           branchId: user.BranchID,
+          empUpperId: user.EmpUpperID ? Number(user.EmpUpperID) : null,
         };
       }
     } catch (error) {
@@ -83,11 +84,27 @@ export class AuditItemAuditDetailsController {
       const enriched = await Promise.all(
         auditDetails.map(async (detail) => {
           const { userId, approverBy, ...rest } = detail;
-          const [OwnerCommentUser, approverByUser] = await Promise.all([
+          const [OwnerCommentUser, approverByUserData] = await Promise.all([
             this.getUserData(userId),
             this.getUserData(approverBy),
           ]);
-          return { ...rest, OwnerCommentUser, approverByUser };
+
+          const requireApprovalFrom = OwnerCommentUser?.empUpperId
+            ? await this.getUserData(OwnerCommentUser.empUpperId)
+            : null;
+
+          // approverStatus: null = comment ธรรมดา, 0 = รออนุมัติ, อื่นๆ = อนุมัติแล้ว
+          const isApprovalComment = detail.approverStatus !== null;
+          const isPendingApproval = detail.approverStatus === 0;
+
+          return {
+            ...rest,
+            isApprovalComment,
+            isPendingApproval,
+            OwnerCommentUser,
+            approverByUser: approverByUserData,
+            requireApprovalFrom,
+          };
         }),
       );
       return res.status(HttpStatus.OK).json({

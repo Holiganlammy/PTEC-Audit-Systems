@@ -18,29 +18,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { CalendarIcon, Loader2 } from "lucide-react";
-import { format } from "date-fns";
-import { th } from "date-fns/locale";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { getSession } from "next-auth/react";
 import * as z from "zod";
 
 const formSchema = z.object({
   categoryItemId: z.string().min(1, "กรุณาเลือกหมวดหมู่"),
-  inspectionDate: z.date({ error: "กรุณาเลือกวันที่" }),
   itemStatus: z.string().min(1, "กรุณาเลือกสถานะ"),
   remarks: z.string().optional(),
+  auditCommentStatus: z.enum(["0", "null"]),
 });
 
 interface CategoryItem {
@@ -76,9 +71,9 @@ export default function AddItemModal({
     resolver: zodResolver(formSchema),
     defaultValues: {
       categoryItemId: "",
-      inspectionDate: new Date(),
       itemStatus: "1",
       remarks: "",
+      auditCommentStatus: "0",
     },
   });
 
@@ -106,9 +101,9 @@ export default function AddItemModal({
       fetchCategories();
       form.reset({
         categoryItemId: "",
-        inspectionDate: new Date(),
         itemStatus: "1",
         remarks: "",
+        auditCommentStatus: "0",
       });
     }
   }, [open, form]);
@@ -116,19 +111,38 @@ export default function AddItemModal({
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       setIsSubmitting(true);
+      const session = await getSession();
 
       const payload = {
         jobId: jobId,
         categoryItemId: parseInt(values.categoryItemId),
         inspectionDate: jobData?.auditDate,
         itemStatus: parseInt(values.itemStatus),
-        remarks: values.remarks || "",
-        createdBy: 1,
+        remarks: null,
+        createdBy: session?.user?.UserID,
       };
 
-      await client.post("/audit-items", payload, {
+
+      const response = await client.post("/audit-items", payload, {
         headers: dataConfig().headers,
       });
+
+      // Post remarks as first audit comment if provided
+      const newItemId = response.data?.data?.itemId ?? response.data?.itemId;
+      if (values.remarks?.trim() && newItemId) {
+        const approverStatus = values.auditCommentStatus === "0" ? 0 : null;
+        await client.post(
+          `/audit-items/${newItemId}/audit-details`,
+          {
+            itemId: newItemId,
+            note: values.remarks.trim(),
+            userId: jobData?.auditor.userId,
+            createdBy: session?.user?.UserID,
+            approverStatus,
+          },
+          { headers: dataConfig().headers }
+        );
+      }
 
       toast.success("เพิ่มรายการสำเร็จ");
       onItemAdded();
@@ -150,11 +164,11 @@ export default function AddItemModal({
     }
   };
 
-  const statusOptions = [
-    { value: "1", label: "ปกติ" },
-    { value: "2", label: "ผิดปกติ" },
-  ];
-
+const statusOptions = [
+  { value: "1", label: "ปกติ" },
+  { value: "2", label: "อยู่ระหว่างดำเนินการ" },
+  { value: "3", label: "ผิดปกติ" },
+];
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
@@ -274,19 +288,62 @@ export default function AddItemModal({
             )}
           />
 
-          {/* Remarks */}
+          {/* Remarks + Audit Comment Status */}
           <Controller
             name="remarks"
             control={form.control}
             render={({ field }) => (
               <Field>
-                <FieldLabel>หมายเหตุ</FieldLabel>
+                <FieldLabel>หมายเหตุ / Comment Audit แรก</FieldLabel>
                 <Textarea
                   {...field}
-                  placeholder="กรอกหมายเหตุ..."
+                  placeholder="กรอกหมายเหตุ (จะถูกบันทึกเป็น Comment Audit แรก)..."
                   rows={3}
                   className="resize-none"
                 />
+              </Field>
+            )}
+          />
+
+          {/* Audit Comment Approval Status */}
+          <Controller
+            name="auditCommentStatus"
+            control={form.control}
+            render={({ field }) => (
+              <Field>
+                <FieldLabel className="text-xs text-muted-foreground">
+                  สถานะ Comment Audit
+                </FieldLabel>
+                <RadioGroup
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  className="flex gap-6 mt-1"
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="0" id="comment-approved" />
+                    <Label
+                      htmlFor="comment-approved"
+                      className={cn(
+                        "cursor-pointer text-sm font-medium",
+                        field.value === "0" ? "text-green-600" : "text-muted-foreground"
+                      )}
+                    >
+                      อนุมัติ
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="null" id="comment-rejected" />
+                    <Label
+                      htmlFor="comment-rejected"
+                      className={cn(
+                        "cursor-pointer text-sm font-medium",
+                        field.value === "null" ? "text-red-500" : "text-muted-foreground"
+                      )}
+                    >
+                      ไม่อนุมัติ
+                    </Label>
+                  </div>
+                </RadioGroup>
               </Field>
             )}
           />

@@ -23,7 +23,7 @@ export class AuditItemAuditDetail {
   @Column({ name: 'approver_status', type: 'int', nullable: true })
   approverStatus: number;
 
-  @Column({ name: 'approver_date', type: 'date', nullable: true })
+  @Column({ name: 'approver_date', type: 'datetime', nullable: true })
   approverDate: Date;
 
   @Column({ name: 'note', type: 'nvarchar', nullable: true })

@@ -236,7 +236,6 @@ export default function LoginPage() {
 
   return (
     <>
-      {/* ✅ MFA Dialog */}
       <MFADialog
         open={showMFADialog}
         onOpenChange={setShowMFADialog}

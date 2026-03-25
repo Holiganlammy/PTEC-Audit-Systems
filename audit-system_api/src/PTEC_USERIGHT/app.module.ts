@@ -1,6 +1,7 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { AppController } from './controller/ptec_useright.controller';
 import { AppService } from './service/ptec_useright.service';
+import { AuditUserRolesService } from './service/audit-user-roles.service';
 // import { jwtConstants } from './config/jwt.config';
 // import { JwtModule } from '@nestjs/jwt';
 // import { ConfigModule } from '@nestjs/config';
@@ -11,12 +12,19 @@ import { AppService } from './service/ptec_useright.service';
 import { redisProvider } from '../redis/redis.provider';
 import { AuthMiddleware } from '../auth/auth.middleware';
 import { DatabaseManagerModule } from 'src/database/database-manager.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditUserRoles } from 'src/PTEC_USERIGHT/domain/model/audit-user-roles.entity';
+import { RoleSystemAudit } from 'src/PTEC_USERIGHT/domain/model/role-system-audit.entity';
+import { AuditUserRolesController } from './controller/audit-user-roles.controller';
 
 @Module({
-  imports: [DatabaseManagerModule],
-  controllers: [AppController],
-  providers: [AppService, redisProvider],
-  exports: [AppService],
+  imports: [
+    DatabaseManagerModule,
+    TypeOrmModule.forFeature([AuditUserRoles, RoleSystemAudit]),
+  ],
+  controllers: [AppController, AuditUserRolesController],
+  providers: [AppService, AuditUserRolesService, redisProvider],
+  exports: [AppService, AuditUserRolesService],
 })
 export class PTEC_USERRIGHT_Module implements NestModule {
   configure(consumer: MiddlewareConsumer) {

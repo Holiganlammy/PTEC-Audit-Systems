@@ -52,7 +52,6 @@ function NavMenuItem({ item }: { item: MenuItem }) {
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} asChild>
       <SidebarMenuItem>
-        {/* ✅ ถ้าไม่มี path และมี children: ให้คลิกทั้งแถบเพื่อเปิด/ปิด */}
         {!item.path && hasChildren ? (
           <CollapsibleTrigger asChild>
             <SidebarMenuButton tooltip={item.name} className="w-full">

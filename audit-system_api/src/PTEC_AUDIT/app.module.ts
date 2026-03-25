@@ -9,7 +9,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditJobsHeader } from './domain/model/audit.jobs-header.entity';
 import { AuditItem } from './domain/model/audit-item.entity';
 import { AuditCategoryItem } from './domain/model/audit-category-item.entity';
-import { AuditStatus } from './domain/model/audit-status.entity';
+import { AuditHeaderStatus } from './domain/model/audit-status.entity';
 import { AuditItemAMDetail } from './domain/model/audit-item-am-detail.entity';
 import { AuditItemAuditDetail } from './domain/model/audit-item-audit-detail.entity';
 import { AuditItemOtherDetails } from './domain/model/audit-item-other-details.entity';
@@ -23,6 +23,7 @@ import { AuditItemAMDetailsService } from './service/audit-item-am-detail.servic
 import { AuditItemAuditDetailsService } from './service/audit-item-audit-detail.service';
 import { AuditItemOtherDetailsService } from './service/audit-item-other-detail.service';
 import { AuditCategoryService } from './service/audit-category.service';
+import { AuditItemOtherUserDetailService } from './service/audit-item-other-user-detail.service';
 
 // Controllers
 import { AuditJobsController } from './controller/audit-job.controller';
@@ -33,6 +34,7 @@ import { AuditItemAuditDetailsController } from './controller/audit-item-audit-d
 import { AuditItemOtherDetailsController } from './controller/audit-item-other-detail.controller';
 import { AuditCategoryController } from './controller/audit-category.controller';
 import { PTEC_USERRIGHT_Module } from '../PTEC_USERIGHT/app.module';
+import { AuditItemOtherUserDetailController } from './controller/audit-item-audit-user-detail.controller';
 
 @Module({
   controllers: [
@@ -44,6 +46,7 @@ import { PTEC_USERRIGHT_Module } from '../PTEC_USERIGHT/app.module';
     AuditItemAuditDetailsController,
     AuditItemOtherDetailsController,
     AuditCategoryController,
+    AuditItemOtherUserDetailController,
   ],
   imports: [
     TypeOrmModule.forFeature([
@@ -52,7 +55,7 @@ import { PTEC_USERRIGHT_Module } from '../PTEC_USERIGHT/app.module';
       AuditJobsHeader,
       AuditItem,
       AuditCategoryItem,
-      AuditStatus,
+      AuditHeaderStatus,
       AuditItemAMDetail,
       AuditItemAuditDetail,
       AuditItemOtherDetails,
@@ -70,6 +73,7 @@ import { PTEC_USERRIGHT_Module } from '../PTEC_USERIGHT/app.module';
     AuditJobsService,
     AuditItemsService,
     CategoryItemsService,
+    AuditItemOtherUserDetailService,
   ],
 })
 export class PTEC_AUDIT_Module implements NestModule {

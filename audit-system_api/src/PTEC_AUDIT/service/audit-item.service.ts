@@ -32,6 +32,7 @@ export class AuditItemsService {
           email: user.Email,
           position: user.Position,
           branchId: user.BranchID,
+          userId: user.UserID,
         };
       }
     } catch (error) {
@@ -96,6 +97,7 @@ export class AuditItemsService {
       relations: [
         'job',
         'categoryItem',
+        'itemStatusRelation',
         'amDetails',
         'auditDetails',
         'otherDetails',
@@ -114,7 +116,13 @@ export class AuditItemsService {
   async findByJobId(jobId: number): Promise<any[]> {
     const items = await this.auditItemsRepository.find({
       where: { jobId, active: true },
-      relations: ['categoryItem', 'amDetails', 'auditDetails', 'otherDetails'],
+      relations: [
+        'categoryItem',
+        'amDetails',
+        'auditDetails',
+        'otherDetails',
+        'itemStatusRelation',
+      ],
       order: { inspectionDate: 'DESC' },
     });
 
@@ -168,7 +176,7 @@ export class AuditItemsService {
   async findByCategoryId(categoryItemId: number): Promise<AuditItem[]> {
     return await this.auditItemsRepository.find({
       where: { categoryItemId, active: true },
-      relations: ['job', 'categoryItem'],
+      relations: ['job', 'categoryItem', 'itemStatusRelation'],
     });
   }
 
@@ -177,9 +185,17 @@ export class AuditItemsService {
     id: number,
     updateAuditItemDto: UpdateAuditItemDto,
   ): Promise<AuditItem> {
-    const auditItem = await this.findOne(id);
+    const auditItem = await this.auditItemsRepository.findOne({
+      where: { itemId: id },
+    });
+    console.log('Found audit item for update:', auditItem);
+    console.log('Update DTO:', updateAuditItemDto);
+    if (!auditItem) {
+      throw new NotFoundException(`Audit Item with ID ${id} not found`);
+    }
 
-    Object.assign(auditItem, updateAuditItemDto);
+    const updatedAuditItem = Object.assign(auditItem, updateAuditItemDto);
+    console.log('Updated audit item before save:', updatedAuditItem);
 
     return await this.auditItemsRepository.save(auditItem);
   }

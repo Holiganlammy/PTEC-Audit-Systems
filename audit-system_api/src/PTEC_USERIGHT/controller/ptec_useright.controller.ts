@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import express from 'express';
 import { AppService } from '../service/ptec_useright.service';
+import { AuditUserRolesService } from '../service/audit-user-roles.service';
 import {
   ChangPasswordDto,
   CheckUserPermissionDto,
@@ -42,6 +43,7 @@ import { Position } from '../domain/model/ptec_useright.entity';
 export class AppController {
   constructor(
     private readonly appService: AppService,
+    private readonly auditUserRolesService: AuditUserRolesService,
     @Inject('REDIS') private readonly redis: Redis,
   ) {}
 
@@ -124,10 +126,29 @@ export class AppController {
 
       // Handle success login
       if (success === true && access_token) {
+        // ดึง role_id จาก Audit_User_Roles แทนค่าจาก Portal
+        let auditRoleId = user?.role_id ?? null;
+        let auditRoleName: string | null = null;
+        if (user?.UserCode) {
+          try {
+            const roleInfo = await this.auditUserRolesService.getRoleByUserCode(
+              user.UserCode,
+            );
+            if (roleInfo) {
+              auditRoleId = roleInfo.roleId;
+              auditRoleName = roleInfo.roleName;
+            }
+          } catch (err) {
+            console.error('Failed to fetch audit role_id:', err);
+          }
+        }
+
         return res.status(HttpStatus.OK).json({
           success: true,
           access_token,
-          user: user ?? null,
+          user: user
+            ? { ...user, role_id: auditRoleId, role_name: auditRoleName }
+            : null,
           message: message ?? 'Login successful',
         });
       }
@@ -298,10 +319,30 @@ export class AppController {
       //  Success - OTP ถูกต้อง
       if (data.success && data.access_token) {
         console.log('✅ OTP verified successfully for user:', usercode);
+
+        // ดึง role_id จาก Audit_User_Roles แทนค่าจาก Portal
+        let auditRoleId = data.user?.role_id ?? null;
+        let auditRoleName: string | null = null;
+        if (data.user?.UserCode) {
+          try {
+            const roleInfo = await this.auditUserRolesService.getRoleByUserCode(
+              data.user.UserCode,
+            );
+            if (roleInfo) {
+              auditRoleId = roleInfo.roleId;
+              auditRoleName = roleInfo.roleName;
+            }
+          } catch (err) {
+            console.error('Failed to fetch audit role_id:', err);
+          }
+        }
+
         return res.status(HttpStatus.OK).json({
           success: true,
           access_token: data.access_token,
-          user: data.user,
+          user: data.user
+            ? { ...data.user, role_id: auditRoleId, role_name: auditRoleName }
+            : data.user,
           message: data.message ?? 'OTP verified successfully',
         });
       }

@@ -26,7 +26,7 @@ export class AuditItemOtherDetails {
   @Column({ name: 'approver_status', type: 'int', nullable: true })
   approverStatus: number;
 
-  @Column({ name: 'approver_date', type: 'date', nullable: true })
+  @Column({ name: 'approver_date', type: 'datetime', nullable: true })
   approverDate: Date;
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime' })

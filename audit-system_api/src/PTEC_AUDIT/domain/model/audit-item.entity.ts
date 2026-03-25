@@ -14,6 +14,7 @@ import { AuditItemAMDetail } from './audit-item-am-detail.entity';
 import { AuditItemAuditDetail } from './audit-item-audit-detail.entity';
 import { AuditItemOtherDetails } from './audit-item-other-details.entity';
 import { AuditItemOtherDetailsUser } from './audit-item-other-details-users.entity';
+import { AuditItemStatus } from './audit-item-status.entity';
 
 @Entity('AuditItems')
 export class AuditItem {
@@ -70,4 +71,8 @@ export class AuditItem {
 
   @OneToMany(() => AuditItemOtherDetailsUser, (user) => user.item)
   taggedUsers: AuditItemOtherDetailsUser[];
+
+  @ManyToOne(() => AuditItemStatus, (status) => status.items)
+  @JoinColumn({ name: 'item_status' })
+  itemStatusRelation: AuditItemStatus;
 }

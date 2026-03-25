@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, CheckCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
-import { AuditItem } from "@/app/(main)/audit/edit_document/components/DataTableItemList/Column/Column";
+// import { AuditItem } from "@/app/(main)/audit/edit_document/components/DataTableItemList/Column/Column";
 import DataTableItemList from "@/app/(main)/audit/edit_document/components/DataTableItemList/DataTable";
 
 // ── Local type definitions (mirrors editdoc.d.ts) ────────────────────────────
@@ -111,6 +111,7 @@ function transformItems(data: AuditItemData[]): AuditItem[] {
       approverStatus: c.approverStatus ?? 0,
       approverBy: c.approverBy ?? undefined,
       approverName: c.approverByUser?.fullname,
+      approverUsername: c.approverByUser?.userCode,
       approverPosition: c.approverByUser?.position,
       approverDate: c.approverDate ?? undefined,
       createdAt: c.createdAt,
@@ -126,6 +127,7 @@ function transformItems(data: AuditItemData[]): AuditItem[] {
       approverStatus: c.approverStatus ?? 0,
       approverBy: c.approverBy ?? undefined,
       approverName: c.approverByUser?.fullname,
+      approverUsername: c.approverByUser?.userCode,
       approverPosition: c.approverByUser?.position,
       approverDate: c.approverDate ?? undefined,
       createdAt: c.createdAt,
@@ -141,6 +143,7 @@ function transformItems(data: AuditItemData[]): AuditItem[] {
       approverStatus: c.approverStatus ?? 0,
       approverBy: c.approverBy ?? undefined,
       approverName: c.approverByUser?.fullname,
+      approverUsername: c.approverByUser?.userCode,
       approverPosition: c.approverByUser?.position,
       approverDate: c.approverDate ?? undefined,
       createdAt: c.createdAt,

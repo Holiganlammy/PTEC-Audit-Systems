@@ -4,6 +4,7 @@ export interface User {
   UserCode: string;
   Fullname: string;
   BranchID: number;
+  BranchName: string;
   DepID: number;
   Email: string;
   SecCode: string;

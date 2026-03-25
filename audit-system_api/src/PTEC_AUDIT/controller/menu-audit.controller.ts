@@ -17,31 +17,17 @@ import { MenuAuditDto } from '../domain/dto/menu.dto';
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
-  /**
-   * ดึง role_id จาก JWT token ที่ decode แล้วอยู่ใน req.user
-   */
-  private getRoleIdFromRequest(req: express.Request): number {
+  private getUserCodeFromRequest(req: express.Request): string {
     const extendedReq = req as express.Request & {
-      user?: unknown;
-      token?: string;
-      role_id?: number;
+      user?: string;
     };
 
-    const token = extendedReq.token;
-    if (!token) {
-      throw new UnauthorizedException('No token in request');
-    }
-    const payload = JSON.parse(
-      Buffer.from(token.split('.')[1], 'base64').toString('utf-8'),
-    ) as Record<string, unknown>;
-
-    const roleId = payload.role_id ?? payload.roleId ?? payload.role;
-
-    if (roleId === undefined || roleId === null) {
-      throw new UnauthorizedException('No role in token payload');
+    const userCode = extendedReq.user;
+    if (!userCode) {
+      throw new UnauthorizedException('No user in request');
     }
 
-    return Number(roleId);
+    return String(userCode);
   }
 
   @Get('/menu_audit')
@@ -112,12 +98,12 @@ export class AppController {
   @Get('/menu_audit/my-menus')
   async getMyMenus(@Req() req: express.Request, @Res() res: express.Response) {
     try {
-      const roleId = this.getRoleIdFromRequest(req);
-      const menuTree = await this.appService.getMenuTreeByRole(roleId);
+      const userCode = this.getUserCodeFromRequest(req);
+      const menuTree = await this.appService.getMenuTreeByUserCode(userCode);
 
       return res.status(HttpStatus.OK).json({
         success: true,
-        roleId, // บอก frontend ว่า role ที่ใช้คืออะไร
+        userCode,
         data: menuTree,
       });
     } catch (error) {

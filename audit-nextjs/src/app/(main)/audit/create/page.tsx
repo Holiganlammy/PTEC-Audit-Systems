@@ -57,7 +57,7 @@ const formSchema = z.object({
   Address: z.string().optional(),
   Auditor: z.string().nonempty("กรุณาเลือกผู้ตรวจสอบ"),
   DistrictManager: z.string().nonempty("กรุณาเลือกผู้จัดการเขต"),
-  BranchManager: z.string().optional(), // ✅ ลบออกถ้าไม่มีใน form
+  BranchManager: z.string().optional(),
   AdditionalNotes: z.string().optional(),
 });
 

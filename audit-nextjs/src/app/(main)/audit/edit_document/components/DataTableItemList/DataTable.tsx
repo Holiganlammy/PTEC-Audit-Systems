@@ -51,12 +51,19 @@ import {
   ChevronsRight,
   Plus,
 } from "lucide-react";
-import { createAuditItemsColumns, AuditItem, DragHandleContext } from "./Column/Column";
+import { createAuditItemsColumns, DragHandleContext } from "./Column/Column";
 import EditItemModal from "../EditItemModal";
 import AddItemModal from "../AdditemModal";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
 import { toast } from "sonner";
+import type { TaggedUser } from "./TagCell/TagCell";
+
+interface ApiUser {
+  UserID: string;
+  UserCode: string;
+  Fullname: string;
+}
 
 function SortableTableRow({ row }: { row: Row<AuditItem> }) {
   const {
@@ -112,6 +119,8 @@ export default function DataTableItemList({
   const [search, setSearch] = useState("");
   const [pageSize, setPageSize] = useState(20);
   const [pageIndex, setPageIndex] = useState(0);
+  const [users, setUsers] = useState<ApiUser[]>([]);
+  const [taggedUsersMap, setTaggedUsersMap] = useState<Record<number, TaggedUser[]>>({});
 
   // Modal state
   const [openAddModal, setOpenAddModal] = useState(false);
@@ -123,9 +132,42 @@ export default function DataTableItemList({
     setOrderedItems(items);
   }, [items]);
 
+  // Fetch users once for TagCell
+  useEffect(() => {
+    client
+      .get("/users", { headers: dataConfig().headers })
+      .then((res) => {
+        if (Array.isArray(res.data)) setUsers(res.data);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Fetch all tagged users and group by item_id
+  useEffect(() => {
+    client
+      .get("/audit-items/all/tagged-users", { headers: dataConfig().headers })
+      .then((res) => {
+        const list: { itemId?: number; item_id?: number; userId: string; userCode: string; fullname: string }[] =
+          Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
+        const map: Record<number, TaggedUser[]> = {};
+        list.forEach((entry) => {
+          const id = entry.itemId ?? entry.item_id;
+          if (id == null) return;
+          if (!map[id]) map[id] = [];
+          map[id].push({ userId: entry.userId, userCode: entry.userCode, fullname: entry.fullname });
+        });
+        setTaggedUsersMap(map);
+      })
+      .catch(() => {});
+  }, []);
+
   const handleEdit = (item: AuditItem) => {
     setSelectedItem(item);
     setOpenEditModal(true);
+  };
+
+  const handleTagChange = (itemId: number, tags: TaggedUser[]) => {
+    setTaggedUsersMap((prev) => ({ ...prev, [itemId]: tags }));
   };
 
   const handleDelete = async (item: AuditItem) => {
@@ -141,7 +183,7 @@ export default function DataTableItemList({
     }
   };
 
-  const columns = createAuditItemsColumns(handleEdit, handleDelete, onItemsChange);
+  const columns = createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, jobData);
 
   const table = useReactTable({
     data: orderedItems,

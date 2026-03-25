@@ -258,7 +258,7 @@ export async function proxy(req: NextRequest) {
   const roleId = token.role_id;
 
   if (!userId) {
-    console.log(`[AUTH] ❌ No userId in token for path: ${pathname}`);
+    console.log(`[AUTH] No userId in token for path: ${pathname}`);
     return NextResponse.redirect(new URL("/unauthorized", req.url));
   }
 
@@ -289,11 +289,11 @@ export async function proxy(req: NextRequest) {
   const isAllowed = isPathAllowed(normalizedPathname, allowedPaths);
 
   if (!isAllowed) {
-    console.warn(`[RBAC] ❌ User ${userId} (role ${roleId}) DENIED access to ${pathname}`);
+    console.warn(`[RBAC] User ${userId} (role ${roleId}) DENIED access to ${pathname}`);
     return NextResponse.redirect(new URL("/unauthorized", req.url));
   }
 
-  console.log(`[RBAC] ✅ User ${userId} (role ${roleId}) ALLOWED to access ${pathname}`);
+  console.log(`[RBAC] User ${userId} (role ${roleId}) ALLOWED to access ${pathname}`);
   return NextResponse.next();
 }
 

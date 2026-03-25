@@ -89,6 +89,7 @@ export const authOptions: AuthOptions = {
                 role_id: number;
                 branchid: number;
                 depid: number;
+                role_name: string;
               };
             };
             
@@ -111,6 +112,7 @@ export const authOptions: AuthOptions = {
               branchid: user.branchid,
               depid: user.depid,
               loginMethod: 'otp',
+              role_name: user.role_name,
             };
           }
 
@@ -131,6 +133,7 @@ export const authOptions: AuthOptions = {
                 role_id: number;
                 branchid: number;
                 depid: number;
+                role_name: string;
               };
             };
             
@@ -152,6 +155,7 @@ export const authOptions: AuthOptions = {
               branchid: user.branchid,
               depid: user.depid,
               loginMethod: 'password',
+              role_name: user.role_name,
             };
           }
 
@@ -178,6 +182,7 @@ export const authOptions: AuthOptions = {
         token.branchid = user.branchid;
         token.depid = user.depid;
         token.loginMethod = user.loginMethod;
+        token.role_name = user.role_name;
         token.accessTokenExpires = Date.now() + 240 * 60 * 1000; // 4 ชั่วโมง
       }
 
@@ -240,8 +245,9 @@ export const authOptions: AuthOptions = {
               token.role_id = userData.role_id;
               token.branchid = userData.branchid;
               token.depid = userData.depid;
+              token.role_name = userData.role_name;
               token.lastRefresh = now;
-              
+
               console.log("User data refreshed successfully");
             }
           }
@@ -277,6 +283,8 @@ export const authOptions: AuthOptions = {
           branchid: token.branchid as number,
           depid: token.depid as number,
           loginMethod: token.loginMethod as string,
+          role_name: token.role_name as string,
+
         };
       }
       

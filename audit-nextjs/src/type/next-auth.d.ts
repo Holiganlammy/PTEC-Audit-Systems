@@ -14,6 +14,7 @@ declare module "next-auth" {
       branchid?: number;
       depid?: number;
       loginMethod?: string;
+      role_name?: string;
     };
   }
   interface User {
@@ -29,6 +30,7 @@ declare module "next-auth" {
     accessTokenExpires?: number;
     depid?:number;
     loginMethod?: string;
+    role_name?: string;
   }
 
   interface JWT { 
@@ -40,5 +42,11 @@ declare module "next-auth" {
     access_token?: string;
     img_profile?: string;
     role_id?: number;
+    branchid?: number;
+    depid?: number;
+    loginMethod?: string;
+    role_name?: string;
+    accessTokenExpires?: number;
+    lastRefresh?: number;
   }
 }

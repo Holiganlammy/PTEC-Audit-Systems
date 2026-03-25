@@ -1,7 +1,3 @@
-// ==========================================
-// Column.tsx (อัพเดทให้ใช้ NoteCell ใหม่)
-// ==========================================
-
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
@@ -23,41 +19,73 @@ import { th } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import NoteCell from "../NoteCell/NoteCell";
+import TagCell, { TaggedUser } from "../TagCell/TagCell";
+export type { TaggedUser };
+import { useSession } from "next-auth/react";
 
 export const DragHandleContext = createContext<{
   listeners?: SyntheticListenerMap;
   attributes?: DraggableAttributes;
 }>({});
 
-export interface Comment {
-  id: number;
-  itemId: number;
-  userId: number;
-  author: string;
-  text: string;
-  approverStatus: number | null;
-  approverBy?: number;
-  approverName?: string;
-  approverDate?: string;
-  createdAt: string;
-  updatedAt: string;
+// ── Actions Cell Component ──
+function ActionsCell({
+  item,
+  onEdit,
+  onDelete,
+}: {
+  item: AuditItem;
+  onEdit: (item: AuditItem) => void;
+  onDelete: (item: AuditItem) => void;
+}) {
+  const session = useSession();
+  return (
+    <div className="text-right">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="h-8 w-8 p-0">
+            <span className="sr-only">Open menu</span>
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+          {session.data?.user.role_id == 1 || session.data?.user.role_id == 2 ?
+            <DropdownMenuItem onClick={() => onEdit(item)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              แก้ไข
+            </DropdownMenuItem>
+          : null}
+          <DropdownMenuItem
+            onClick={() => onDelete(item)}
+            className="text-red-600 focus:text-red-600"
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            ลบ
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
 }
 
-export interface AuditItem {
-  item_id: number;
-  job_id: number;
-  category_item_id: number;
-  category_name: string;
-  inspection_date: string;
-  item_status: number;
-  remarks: string;
-  note_1?: Comment[];
-  note_2?: Comment[];
-  note_3?: Comment[];
-  created_at: string;
-  updated_at: string;
-  active: boolean;
-}
+
+// export interface AuditItem {
+//   item_id: number;
+//   job_id: number;
+//   category_item_id: number;
+//   category_name: string;
+//   inspection_date: string;
+//   item_status: number;
+//   remarks: string;
+//   note_1?: AuditComment[];
+//   note_2?: AuditComment[];
+//   note_3?: AuditComment[];
+//   tagged_users?: TaggedUser[];
+//   created_at: string;
+//   updated_at: string;
+//   active: boolean;
+// }
 
 // Status badge 
 const getStatusBadge = (status: number) => {
@@ -69,9 +97,9 @@ const getStatusBadge = (status: number) => {
         </Badge>
       );
     case 2:
-      return <Badge variant="destructive">ผิดปกติ</Badge>;
+      return <Badge className="bg-yellow-500">อยู่ระหว่างดำเนินการ</Badge>;
     case 3:
-      return <Badge variant="secondary">ไม่มีข้อมูล</Badge>;
+      return <Badge variant="destructive">ผิดปกติ</Badge>;
     default:
       return <Badge variant="outline">ไม่ทราบ</Badge>;
   }
@@ -98,7 +126,11 @@ function DragHandle() {
 export const createAuditItemsColumns = (
   onEdit: (item: AuditItem) => void,
   onDelete: (item: AuditItem) => void,
-  onRefresh?: () => void
+  onRefresh?: () => void,
+  users: { UserID: string; UserCode: string; Fullname: string }[] = [],
+  taggedUsersMap: Record<number, TaggedUser[]> = {},
+  onTagChange?: (itemId: number, tags: TaggedUser[]) => void,
+  jobData?: AuditJobData
 ): ColumnDef<AuditItem>[] => [
   {
     id: "drag",
@@ -189,59 +221,62 @@ export const createAuditItemsColumns = (
         label="Other Agencies"
         initialComments={row.original.note_3}
         onRefresh={onRefresh}
+        taggedUsers={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []}
       />
     ),
   },
   {
-    accessorKey: "item_status",
-    header: "สถานะ",
-    cell: ({ row }) => getStatusBadge(row.getValue("item_status")),
-  },
-  {
-    accessorKey: "remarks",
-    header: "หมายเหตุ",
+    id: "tagged_users",
+    header: "แท็กผู้ใช้",
     cell: ({ row }) => {
-      const remarks = row.getValue("remarks") as string;
-      return remarks ? (
-        <span className="text-sm text-muted-foreground line-clamp-2">
-          {remarks}
-        </span>
-      ) : (
-        <span className="text-sm text-muted-foreground italic">-</span>
+      return (
+        <TagCell
+          itemId={row.original.item_id}
+          users={users}
+          initialTags={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []}
+          onTagChange={(tags) => onTagChange?.(row.original.item_id, tags)}
+        />
       );
     },
   },
+  {
+    accessorKey: "item_status",
+    header: (table) => (
+      <div className="text-center">
+        สถานะ
+      </div>
+    ),
+    cell: ({ row }) => {
+      return(
+        <div className="text-center">
+          {getStatusBadge(row.getValue("item_status") as number)}
+        </div>
+      )
+    },
+  },
+  // {
+  //   accessorKey: "remarks",
+  //   header: "หมายเหตุ",
+  //   cell: ({ row }) => {
+  //     const remarks = row.getValue("remarks") as string;
+  //     return remarks ? (
+  //       <span className="text-sm text-muted-foreground line-clamp-2">
+  //         {remarks}
+  //       </span>
+  //     ) : (
+  //       <span className="text-sm text-muted-foreground italic">-</span>
+  //     );
+  //   },
+  // },
   // ── Actions ───────────────────────────────────────────────────────────────
   {
     id: "actions",
-    cell: ({ row }) => {
-      const item = row.original;
-      return (
-        <div className="text-right">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => onEdit(item)}>
-                <Pencil className="mr-2 h-4 w-4" />
-                แก้ไข
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => onDelete(item)}
-                className="text-red-600 focus:text-red-600"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                ลบ
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      );
-    },
+    cell: ({ row }) => (
+      <ActionsCell
+        item={row.original}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />
+    ),
   },
 ];

@@ -29,19 +29,60 @@ interface User {
 }
 
 interface AuditJobData {
-  jobId: number;
-  jobNo: string;
-  branchId: number;
-  branchName: string;
-  auditDate: string;
-  address: string;
-  pmCode: string;
-  auditorUserId: number;
-  districtManagerUserId: number;
-  branchManagerUserId: number;
-  additionalNotes: string;
-  status: number;
-  active: boolean;
+    active: boolean;
+    additionalNotes: string;
+    address: string;
+    auditDate: string;
+    branchId: number;
+    branchName: string;
+    createdAt: string;
+    excelFileName: string | null;
+    excelFilePath: string | null;
+    jobId: number;
+    jobNo: string;
+    pmCode: string;
+    status: number;
+    updatedAt: string;
+    auditor: Auditor;
+    branchManager: branchManager;
+    districtManager: districtManager;
+    createdByUser: CreatedByUser;
+}
+
+interface Auditor {
+    branchId: number;
+    email: string;
+    fullname: string;
+    position: string;
+    userCode: string;
+    userId: number;
+}
+
+interface branchManager {
+    branchId: number;
+    email: string;
+    fullname: string;
+    position: string;
+    userCode: string;
+    userId: number;
+}
+
+interface districtManager {
+    branchId: number;
+    email: string;
+    fullname: string;
+    position: string;
+    userCode: string;
+    userId: number;
+}
+
+interface CreatedByUser {
+    branchId: number;
+    email: string;
+    fullname: string;
+    position: string;
+    userCode: string;
+    userId: number;
 }
 
 interface Branch {

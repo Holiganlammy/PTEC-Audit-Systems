@@ -48,6 +48,7 @@ export class AuditJobsService {
           email: user.Email,
           position: user.Position,
           branchId: user.BranchID,
+          userId: user.UserID,
         };
       }
     } catch (error) {

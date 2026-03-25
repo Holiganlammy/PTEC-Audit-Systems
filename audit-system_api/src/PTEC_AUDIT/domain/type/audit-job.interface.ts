@@ -31,6 +31,7 @@ export interface UserData {
   email: string;
   position: string;
   branchId: number;
+  userId?: number;
 }
 
 // Interface for audit item with user data

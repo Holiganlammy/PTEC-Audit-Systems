@@ -47,7 +47,6 @@ import {
 import { getSession } from "next-auth/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import DataTableItemList from "./components/DataTableItemList/DataTable";
-import { AuditItem } from "./components/DataTableItemList/Column/Column";
 
 
 const formSchema = z.object({
@@ -180,7 +179,7 @@ export default function EditAuditJobPage() {
         })
 
       } catch (error: unknown) {
-        console.error("❌ Error fetching job data:", error);
+        console.error("Error fetching job data:", error);
         
         if (error && typeof error === 'object' && 'response' in error) {
           const axiosError = error as { response?: { data?: { message?: string; code?: number } } };
@@ -255,6 +254,7 @@ export default function EditAuditJobPage() {
               approverStatus: c.approverStatus ?? null,
               approverBy: c.approverBy ?? undefined,
               approverName: c.approverByUser?.fullname,
+              approverUsername: c.approverByUser?.userCode,
               approverPosition: c.approverByUser?.position,
               approverDate: c.approverDate ?? undefined,
               createdAt: c.createdAt,
@@ -270,6 +270,7 @@ export default function EditAuditJobPage() {
               approverStatus: c.approverStatus ?? null,
               approverBy: c.approverBy ?? undefined,
               approverName: c.approverByUser?.fullname,
+              approverUsername: c.approverByUser?.userCode,
               approverPosition: c.approverByUser?.position,
               approverDate: c.approverDate ?? undefined,
               createdAt: c.createdAt,
@@ -285,6 +286,7 @@ export default function EditAuditJobPage() {
               approverStatus: c.approverStatus ?? null,
               approverBy: c.approverBy ?? undefined,
               approverName: c.approverByUser?.fullname,
+              approverUsername: c.approverByUser?.userCode,
               approverPosition: c.approverByUser?.position,
               approverDate: c.approverDate ?? undefined,
               createdAt: c.createdAt,
@@ -297,10 +299,10 @@ export default function EditAuditJobPage() {
           }));
  
           setAuditItems(items);
-          console.log('✅ Loaded audit items:', items.length);
+          console.log('Loaded audit items:', items.length);
         }
       } catch (error) {
-        console.error("❌ Error fetching audit items:", error);
+        console.error("Error fetching audit items:", error);
         toast.error("ไม่สามารถโหลดรายการตรวจสอบได้");
       } finally {
         setIsLoadingItems(false);
@@ -338,6 +340,7 @@ export default function EditAuditJobPage() {
             approverStatus: c.approverStatus ?? null,
             approverBy: c.approverBy ?? undefined,
             approverName: c.approverByUser?.fullname,
+            approverUsername: c.approverByUser?.userCode,
             approverPosition: c.approverByUser?.position,
             approverDate: c.approverDate ?? undefined,
             createdAt: c.createdAt,
@@ -353,6 +356,7 @@ export default function EditAuditJobPage() {
             approverStatus: c.approverStatus ?? null,
             approverBy: c.approverBy ?? undefined,
             approverName: c.approverByUser?.fullname,
+            approverUsername: c.approverByUser?.userCode,
             approverPosition: c.approverByUser?.position,
             approverDate: c.approverDate ?? undefined,
             createdAt: c.createdAt,
@@ -368,6 +372,7 @@ export default function EditAuditJobPage() {
             approverStatus: c.approverStatus ?? null,
             approverBy: c.approverBy ?? undefined,
             approverName: c.approverByUser?.fullname,
+            approverUsername: c.approverByUser?.userCode,
             approverPosition: c.approverByUser?.position,
             approverDate: c.approverDate ?? undefined,
             createdAt: c.createdAt,

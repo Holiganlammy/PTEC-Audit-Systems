@@ -1,4 +1,3 @@
-// components/audit/EditItemModal.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -33,12 +32,24 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
-import { AuditItem } from "./DataTableItemList/Column/Column";
+import { useSession } from "next-auth/react";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+
+const formSchema = z.object({
+  categoryItemId: z.string().min(1, "กรุณาเลือกหมวดหมู่"),
+  inspectionDate: z.date(),
+  itemStatus: z.string().min(1, "กรุณาเลือกสถานะ"),
+  remarks: z.string().optional(),
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 interface CategoryItem {
-  category_item_id: number;
-  category_name: string;
-  category_code: string;
+  categoryItemId: number;
+  categoryName: string;
+  categoryCode: number;
   description: string;
   active: boolean;
 }
@@ -50,6 +61,12 @@ interface EditItemModalProps {
   onItemUpdated: () => void;
 }
 
+const statusOptions = [
+  { value: "1", label: "ปกติ" },
+  { value: "2", label: "อยู่ระหว่างดำเนินการ" },
+  { value: "3", label: "ผิดปกติ" },
+];
+
 export default function EditItemModal({
   open,
   onOpenChange,
@@ -60,36 +77,43 @@ export default function EditItemModal({
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
 
-  const [formData, setFormData] = useState({
-    category_item_id: 0,
-    inspection_date: new Date(),
-    item_status: 1,
-    remarks: "",
+  const { data: session } = useSession();
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      categoryItemId: "",
+      inspectionDate: new Date(),
+      itemStatus: "1",
+      remarks: "",
+    },
   });
 
-  // Load item data when modal opens
+  // Populate form when item / modal opens
   useEffect(() => {
     if (item && open) {
-      setFormData({
-        category_item_id: item.category_item_id,
-        inspection_date: new Date(item.inspection_date),
-        item_status: item.item_status,
+      form.reset({
+        categoryItemId: item.category_item_id.toString(),
+        inspectionDate: new Date(item.inspection_date),
+        itemStatus: item.item_status.toString(),
         remarks: item.remarks || "",
       });
     }
-  }, [item, open]);
+  }, [item, open, form]);
 
   // Fetch categories
   useEffect(() => {
+    if (!open) return;
     const fetchCategories = async () => {
       try {
         setIsLoadingCategories(true);
-        const response = await client.get("/audit-category-items", {
+        const response = await client.get("/audit-categories", {
           headers: dataConfig().headers,
         });
-
         if (response.data.success) {
-          setCategories(response.data.data.filter((c: CategoryItem) => c.active));
+          setCategories(
+            response.data.data.filter((c: CategoryItem) => c.active === true)
+          );
         }
       } catch (error) {
         console.error("Error fetching categories:", error);
@@ -98,30 +122,19 @@ export default function EditItemModal({
         setIsLoadingCategories(false);
       }
     };
-
-    if (open) {
-      fetchCategories();
-    }
+    fetchCategories();
   }, [open]);
 
-  const handleSubmit = async () => {
+  const onSubmit = async (values: FormValues) => {
     if (!item) return;
-
-    // Validation
-    if (!formData.category_item_id) {
-      toast.error("กรุณาเลือกหมวดหมู่");
-      return;
-    }
-
     try {
       setIsSubmitting(true);
-
       const payload = {
-        category_item_id: formData.category_item_id,
-        inspection_date: format(formData.inspection_date, "yyyy-MM-dd"),
-        item_status: formData.item_status,
-        remarks: formData.remarks,
-        update_by: "current_user", // TODO: Get from auth
+        categoryItemId: parseInt(values.categoryItemId),
+        inspectionDate: format(values.inspectionDate, "yyyy-MM-dd"),
+        itemStatus: parseInt(values.itemStatus),
+        remarks: values.remarks ?? "",
+        updateBy: session?.user?.UserID,
       };
 
       await client.put(`/audit-items/${item.item_id}`, payload, {
@@ -139,15 +152,9 @@ export default function EditItemModal({
     }
   };
 
-  const statusOptions = [
-    { value: 1, label: "ปกติ" },
-    { value: 2, label: "ผิดปกติ" },
-    { value: 3, label: "ไม่มีข้อมูล" },
-  ];
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-125">
         <DialogHeader>
           <DialogTitle>แก้ไขรายการตรวจสอบ</DialogTitle>
           <DialogDescription>
@@ -155,133 +162,153 @@ export default function EditItemModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
           {/* Category */}
-          <Field>
-            <FieldLabel>
-              หมวดหมู่ <span className="text-red-500">*</span>
-            </FieldLabel>
-            {isLoadingCategories ? (
-              <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
-                <Loader2 className="h-4 w-4 animate-spin" />
-              </div>
-            ) : (
-              <Select
-                value={formData.category_item_id.toString()}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, category_item_id: parseInt(value) })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="เลือกหมวดหมู่" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem
-                      key={cat.category_item_id}
-                      value={cat.category_item_id.toString()}
-                    >
-                      {cat.category_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <Controller
+            name="categoryItemId"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <Field>
+                <FieldLabel>
+                  หมวดหมู่ <span className="text-red-500">*</span>
+                </FieldLabel>
+                {isLoadingCategories ? (
+                  <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  </div>
+                ) : (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className={cn(fieldState.error && "border-red-500")}>
+                      <SelectValue placeholder="เลือกหมวดหมู่" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem
+                          key={cat.categoryItemId}
+                          value={cat.categoryItemId.toString()}
+                        >
+                          {cat.categoryName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {fieldState.error && (
+                  <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                )}
+              </Field>
             )}
-          </Field>
+          />
 
           {/* Inspection Date */}
-          <Field>
-            <FieldLabel>
-              วันที่ตรวจสอบ <span className="text-red-500">*</span>
-            </FieldLabel>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !formData.inspection_date && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {formData.inspection_date ? (
-                    format(formData.inspection_date, "dd/MM/yyyy", { locale: th })
-                  ) : (
-                    <span>เลือกวันที่</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={formData.inspection_date}
-                  onSelect={(date) =>
-                    setFormData({ ...formData, inspection_date: date || new Date() })
-                  }
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </Field>
+          <Controller
+            name="inspectionDate"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <Field>
+                <FieldLabel>
+                  วันที่ตรวจสอบ <span className="text-red-500">*</span>
+                </FieldLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !field.value && "text-muted-foreground",
+                        fieldState.error && "border-red-500"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {field.value ? (
+                        format(field.value, "dd/MM/yyyy", { locale: th })
+                      ) : (
+                        <span>เลือกวันที่</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={field.value}
+                      onSelect={(date) => field.onChange(date ?? new Date())}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                {fieldState.error && (
+                  <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                )}
+              </Field>
+            )}
+          />
 
           {/* Status */}
-          <Field>
-            <FieldLabel>
-              สถานะ <span className="text-red-500">*</span>
-            </FieldLabel>
-            <Select
-              value={formData.item_status.toString()}
-              onValueChange={(value) =>
-                setFormData({ ...formData, item_status: parseInt(value) })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="เลือกสถานะ" />
-              </SelectTrigger>
-              <SelectContent>
-                {statusOptions.map((status) => (
-                  <SelectItem key={status.value} value={status.value.toString()}>
-                    {status.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
+          <Controller
+            name="itemStatus"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <Field>
+                <FieldLabel>
+                  สถานะ <span className="text-red-500">*</span>
+                </FieldLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger className={cn(fieldState.error && "border-red-500")}>
+                    <SelectValue placeholder="เลือกสถานะ" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {fieldState.error && (
+                  <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                )}
+              </Field>
+            )}
+          />
 
           {/* Remarks */}
-          <Field>
-            <FieldLabel>หมายเหตุ</FieldLabel>
-            <Textarea
-              value={formData.remarks}
-              onChange={(e) =>
-                setFormData({ ...formData, remarks: e.target.value })
-              }
-              placeholder="กรอกหมายเหตุ..."
-              rows={3}
-              className="resize-none"
-            />
-          </Field>
-        </div>
-
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
-            ยกเลิก
-          </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                กำลังบันทึก...
-              </>
-            ) : (
-              "บันทึก"
+          <Controller
+            name="remarks"
+            control={form.control}
+            render={({ field }) => (
+              <Field>
+                <FieldLabel>หมายเหตุ</FieldLabel>
+                <Textarea
+                  {...field}
+                  placeholder="กรอกหมายเหตุ..."
+                  rows={3}
+                  className="resize-none"
+                />
+              </Field>
             )}
-          </Button>
-        </DialogFooter>
+          />
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              ยกเลิก
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  กำลังบันทึก...
+                </>
+              ) : (
+                "บันทึก"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

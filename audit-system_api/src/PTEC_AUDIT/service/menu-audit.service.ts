@@ -6,6 +6,7 @@ import { MenuAudit } from '../domain/model/menu-audit.entity';
 import { MenuAuditPermission } from '../domain/model/menu-audit-permission.entity';
 import { MenuAuditResponseDto } from '../dto/menu-audit.dto';
 import { AppService as UserRightService } from 'src/PTEC_USERIGHT/service/ptec_useright.service';
+import { AuditUserRolesService } from 'src/PTEC_USERIGHT/service/audit-user-roles.service';
 
 @Injectable()
 export class AppService {
@@ -15,18 +16,58 @@ export class AppService {
     @InjectRepository(MenuAuditPermission)
     private readonly menuPermissionRepository: Repository<MenuAuditPermission>,
     private readonly userRightService: UserRightService,
+    private readonly auditUserRolesService: AuditUserRolesService,
   ) {}
 
   private async getRoleIdByUserId(userId: number): Promise<number | null> {
+    // Prefer Audit role mapping (Audit_User_Roles) over Portal role_id
+    const auditRole = await this.auditUserRolesService.getRoleByUserId(userId);
+    if (auditRole?.roleId !== undefined && auditRole?.roleId !== null) {
+      return Number(auditRole.roleId);
+    }
+
+    // Fallback: pull role_id from portal user info if audit mapping is missing
     const users = await this.userRightService.getUsersFromProcedure(
       null,
       userId,
     );
     const roleId = users?.[0]?.role_id;
-    if (roleId === undefined || roleId === null) {
-      return null;
-    }
+    if (roleId === undefined || roleId === null) return null;
     return Number(roleId);
+  }
+
+  private async getRoleIdByUserCode(userCode: string): Promise<number | null> {
+    const auditRole =
+      await this.auditUserRolesService.getRoleByUserCode(userCode);
+    if (auditRole?.roleId !== undefined && auditRole?.roleId !== null) {
+      return Number(auditRole.roleId);
+    }
+
+    const users = await this.userRightService.getUsersFromProcedure(
+      userCode,
+      null,
+    );
+    const roleId = users?.[0]?.role_id;
+    if (roleId === undefined || roleId === null) return null;
+    return Number(roleId);
+  }
+
+  async getMenusByUserCode(userCode: string): Promise<MenuAuditResponseDto[]> {
+    const roleId = await this.getRoleIdByUserCode(userCode);
+    if (roleId === null) {
+      return [];
+    }
+    return this.getMenusByRole(roleId);
+  }
+
+  async getMenuTreeByUserCode(
+    userCode: string,
+  ): Promise<MenuAuditResponseDto[]> {
+    const roleId = await this.getRoleIdByUserCode(userCode);
+    if (roleId === null) {
+      return [];
+    }
+    return this.getMenuTreeByRole(roleId);
   }
 
   async getMenusByUserId(userId: number): Promise<MenuAuditResponseDto[]> {

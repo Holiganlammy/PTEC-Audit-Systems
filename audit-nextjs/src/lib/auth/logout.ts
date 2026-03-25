@@ -15,10 +15,10 @@ export async function logout(accessToken?: string) {
         cache: "no-store",
       });
       
-      console.log('✅ Token revoked from backend');
+      console.log('Token revoked from backend');
     }
   } catch (error) {
-    console.error('❌ Backend logout error:', error);
+    console.error('Backend logout error:', error);
   } finally {
     await signOut({ 
         redirect: false
