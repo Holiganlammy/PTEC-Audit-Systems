@@ -452,10 +452,8 @@ export default function EditAuditJobPage() {
   // Filter users by position/role
   const auditors = users.filter((u) => ["KKJ", "PWW", "WSR"].includes(u.UserCode));
 
-  const districtManagers = users.filter(
-    (u) =>
-      u.Position?.toLowerCase().includes("ผู้จัดการเขต") ||
-      u.PositionCode === "AM"
+  const districtManagers = users.filter((u) =>
+    ["TNM", "KTK", "PRH", "STJ", "TKA"].includes(u.UserCode)
   );
 
   const branchManagers = users.filter(
