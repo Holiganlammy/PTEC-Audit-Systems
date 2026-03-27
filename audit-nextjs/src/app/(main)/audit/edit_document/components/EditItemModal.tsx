@@ -201,7 +201,7 @@ export default function EditItemModal({
           />
 
           {/* Inspection Date */}
-          <Controller
+          {/* <Controller
             name="inspectionDate"
             control={form.control}
             render={({ field, fieldState }) => (
@@ -242,7 +242,7 @@ export default function EditItemModal({
                 )}
               </Field>
             )}
-          />
+          /> */}
 
           {/* Status */}
           <Controller

@@ -1,3 +1,8 @@
+interface AuditStatusInfo {
+  auditStatusId: number;
+  statusName: string;
+}
+
 interface AuditList {
   jobId: number;
   jobNo: string;
@@ -5,6 +10,7 @@ interface AuditList {
   branchName: string;
   auditDate: string;
   status: number;
+  statusInfo?: AuditStatusInfo;
   auditor?: {
     userCode: string;
     fullname: string;

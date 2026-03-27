@@ -130,12 +130,13 @@ export const createAuditItemsColumns = (
   users: { UserID: string; UserCode: string; Fullname: string }[] = [],
   taggedUsersMap: Record<number, TaggedUser[]> = {},
   onTagChange?: (itemId: number, tags: TaggedUser[]) => void,
-  jobData?: AuditJobData
+  jobData?: AuditJobData,
+  isLocked?: boolean
 ): ColumnDef<AuditItem>[] => [
   {
     id: "drag",
     header: () => null,
-    cell: () => <DragHandle />,
+    cell: () => isLocked ? null : <DragHandle />,
   },
   {
     id: "select",
@@ -195,6 +196,7 @@ export const createAuditItemsColumns = (
         label="Audit Unit"
         initialComments={row.original.note_1}
         onRefresh={onRefresh}
+        isLocked={isLocked}
       />
     ),
   },
@@ -208,6 +210,7 @@ export const createAuditItemsColumns = (
         label="AM Unit"
         initialComments={row.original.note_2}
         onRefresh={onRefresh}
+        isLocked={isLocked}
       />
     ),
   },
@@ -222,6 +225,7 @@ export const createAuditItemsColumns = (
         initialComments={row.original.note_3}
         onRefresh={onRefresh}
         taggedUsers={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []}
+        isLocked={isLocked}
       />
     ),
   },
@@ -235,6 +239,7 @@ export const createAuditItemsColumns = (
           users={users}
           initialTags={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []}
           onTagChange={(tags) => onTagChange?.(row.original.item_id, tags)}
+          isLocked={isLocked}
         />
       );
     },
@@ -271,12 +276,13 @@ export const createAuditItemsColumns = (
   // ── Actions ───────────────────────────────────────────────────────────────
   {
     id: "actions",
-    cell: ({ row }) => (
-      <ActionsCell
-        item={row.original}
-        onEdit={onEdit}
-        onDelete={onDelete}
-      />
-    ),
+    cell: ({ row }) =>
+      isLocked ? null : (
+        <ActionsCell
+          item={row.original}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
+      ),
   },
 ];

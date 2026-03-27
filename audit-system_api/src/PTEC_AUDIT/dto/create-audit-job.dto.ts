@@ -1,70 +1,65 @@
 import {
-  IsOptional,
   IsInt,
   IsString,
-  IsDateString,
+  IsDate,
+  IsOptional,
   IsBoolean,
 } from 'class-validator';
-// import { Type } from 'class-transformer';
 
 export class CreateAuditJobDto {
-  @IsOptional()
-  @IsString()
-  jobNo?: string;
-
-  @IsOptional()
   @IsInt()
+  @IsOptional()
   branchId?: number;
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
   branchName?: string;
 
+  @IsDate()
   @IsOptional()
-  @IsDateString()
-  auditDate?: string;
+  auditDate?: Date;
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
   address?: string;
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
   pmCode?: string;
 
-  @IsOptional()
   @IsInt()
+  @IsOptional()
   auditorUserId?: number;
 
-  @IsOptional()
   @IsInt()
+  @IsOptional()
   districtManagerUserId?: number;
 
-  @IsOptional()
   @IsInt()
+  @IsOptional()
   branchManagerUserId?: number;
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
   additionalNotes?: string;
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
   excelFileName?: string;
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
   excelFilePath?: string;
 
-  @IsOptional()
   @IsInt()
+  @IsOptional()
   status?: number;
 
-  @IsOptional()
   @IsInt()
+  @IsOptional()
   createdBy?: number;
 
-  @IsOptional()
   @IsBoolean()
+  @IsOptional()
   active?: boolean;
 }

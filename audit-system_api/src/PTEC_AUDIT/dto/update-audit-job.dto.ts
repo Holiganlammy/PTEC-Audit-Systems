@@ -1,9 +1,66 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateAuditJobDto } from './create-audit-job.dto';
-import { IsOptional, IsString } from 'class-validator';
+import {
+  IsInt,
+  IsString,
+  IsDate,
+  IsOptional,
+  IsBoolean,
+} from 'class-validator';
 
-export class UpdateAuditJobDto extends PartialType(CreateAuditJobDto) {
+export class UpdateAuditJobDto {
+  @IsInt()
   @IsOptional()
+  branchId?: number;
+
   @IsString()
-  updatedBy?: string;
+  @IsOptional()
+  branchName?: string;
+
+  @IsDate()
+  @IsOptional()
+  auditDate?: Date;
+
+  @IsString()
+  @IsOptional()
+  address?: string;
+
+  @IsString()
+  @IsOptional()
+  pmCode?: string;
+
+  // ✅ ถ้า update user_id → service จะ update snapshot อัตโนมัติ
+  @IsInt()
+  @IsOptional()
+  auditorUserId?: number;
+
+  @IsInt()
+  @IsOptional()
+  districtManagerUserId?: number;
+
+  @IsInt()
+  @IsOptional()
+  branchManagerUserId?: number;
+
+  @IsString()
+  @IsOptional()
+  additionalNotes?: string;
+
+  @IsString()
+  @IsOptional()
+  excelFileName?: string;
+
+  @IsString()
+  @IsOptional()
+  excelFilePath?: string;
+
+  @IsInt()
+  @IsOptional()
+  status?: number;
+
+  @IsInt()
+  @IsOptional()
+  updatedBy?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  active?: boolean;
 }

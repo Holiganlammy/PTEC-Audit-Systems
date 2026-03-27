@@ -18,6 +18,7 @@ interface NoteCellProps {
   onRefresh?: () => void;
   taggedUsers?: TaggedUser[];
   jobData?: AuditJobData;
+  isLocked?: boolean;
 }
 
 interface AuditDetailsComment {
@@ -65,15 +66,14 @@ export default function NoteCell({
   onRefresh,
   taggedUsers = [],
   jobData,
+  isLocked = false,
 }: NoteCellProps) {
   const { data: session } = useSession();
   const [comments, setComments] = useState<AuditComment[]>(initialComments);
   const [openThread, setOpenThread] = useState(false);
   const [viewOnly, setViewOnly] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  console.log(session?.user.role_id, "session role id in NoteCell");
   const roleId = session?.user?.role_id;
-  console.log("Current User Role ID:", roleId);
   
   const canComment = (() => {
     // Thread Type 1 (Audit): role 1, 2, 4
@@ -85,11 +85,11 @@ export default function NoteCell({
   if (threadType === 2) {
     const isDistrictManager =
       String(session?.user?.UserID) === String(jobData?.districtManager?.userId);
-    return roleId === 1 || roleId === 2 || isDistrictManager;
+    return roleId === 1 || roleId === 3 || isDistrictManager;
   }
     
-    // Thread Type 3 (Other): เฉพาะคนที่ถูก tag
-    return taggedUsers.some(
+    // Thread Type 3 (Other): เฉพาะคนที่ถูก tag หรือ role 1, 2
+    return roleId === 1 || roleId === 2 || taggedUsers.some(
       (t) => String(t.userId) === String(session?.user?.UserID)
     );
   })();
@@ -300,7 +300,7 @@ export default function NoteCell({
 
       {/* Action row */}
       <div className="flex items-center gap-1">
-        {canComment && (
+        {canComment && !isLocked && (
           <Button
             size="sm"
             variant="outline"

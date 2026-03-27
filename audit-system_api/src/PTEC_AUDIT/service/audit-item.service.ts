@@ -29,6 +29,8 @@ export class AuditItemsService {
         return {
           userCode: user.UserCode,
           fullname: user.fristName ? user.fristName + ' ' + user.lastName : '',
+          firstName: user.fristName || '',
+          lastName: user.lastName || '',
           email: user.Email,
           position: user.Position,
           branchId: user.BranchID,

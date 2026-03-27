@@ -30,6 +30,11 @@ import { AuditListColumn } from "./DataTable/Column";
 import { Badge } from "@/components/ui/badge";
 
 // Types
+interface AuditStatusInfo {
+  auditStatusId: number;
+  statusName: string;
+}
+
 interface AuditList {
   jobId: number;
   jobNo: string;
@@ -37,6 +42,7 @@ interface AuditList {
   branchName: string;
   auditDate: string;
   status: number;
+  statusInfo?: AuditStatusInfo;
   auditor?: {
     userCode: string;
     fullname: string;
@@ -186,11 +192,9 @@ export default function AuditJobsListPage() {
   // Get filter labels
   const getStatusLabel = (value: string) => {
     const labels: Record<string, string> = {
-      all: "All Status",
-      "0": "Draft",
-      "1": "In Progress",
-      "2": "Completed",
-      "3": "Cancelled",
+      all: "ทั้งหมด",
+      "1": "อยู่ระหว่างดำเนินการ",
+      "2": "ดำเนินการเสร็จสิ้น",
     };
     return labels[value] || value;
   };
@@ -222,7 +226,7 @@ export default function AuditJobsListPage() {
                 </p>
               </div>
               <Button
-                onClick={() => router.push("/audit-jobs/create")}
+                onClick={() => router.push("/audit/create")}
                 size="lg"
               >
                 <Plus className="mr-2 h-5 w-5" />
@@ -238,15 +242,13 @@ export default function AuditJobsListPage() {
 
               {/* Status Filter */}
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[160px]">
+                <SelectTrigger className="w-[200px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="0">Draft</SelectItem>
-                  <SelectItem value="1">In Progress</SelectItem>
-                  <SelectItem value="2">Completed</SelectItem>
-                  <SelectItem value="3">Cancelled</SelectItem>
+                  <SelectItem value="all">ทั้งหมด</SelectItem>
+                  <SelectItem value="1">อยู่ระหว่างดำเนินการ</SelectItem>
+                  <SelectItem value="2">ดำเนินการเสร็จสิ้น</SelectItem>
                 </SelectContent>
               </Select>
 

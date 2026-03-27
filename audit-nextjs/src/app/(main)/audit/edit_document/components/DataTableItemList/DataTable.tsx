@@ -104,6 +104,7 @@ interface DataTableItemListProps {
   jobId: number;
   jobData?: AuditJobData;
   isLoading?: boolean;
+  isLocked?: boolean;
   onItemsChange: () => void;
 }
 
@@ -113,6 +114,7 @@ export default function DataTableItemList({
   jobId,
   jobData,
   isLoading = false,
+  isLocked = false,
   onItemsChange,
 }: DataTableItemListProps) {
   const [orderedItems, setOrderedItems] = useState<AuditItem[]>(items);
@@ -183,7 +185,7 @@ export default function DataTableItemList({
     }
   };
 
-  const columns = createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, jobData);
+  const columns = createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, jobData, isLocked);
 
   const table = useReactTable({
     data: orderedItems,
@@ -241,10 +243,12 @@ export default function DataTableItemList({
           className="max-w-sm"
           disabled={isLoading}
         />
-        <Button onClick={() => setOpenAddModal(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          เพิ่มรายการ
-        </Button>
+        {!isLocked && (
+          <Button onClick={() => setOpenAddModal(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            เพิ่มรายการ
+          </Button>
+        )}
       </div>
 
       {/* DnD Table */}
@@ -374,7 +378,7 @@ export default function DataTableItemList({
           </div>
         </div>
       </div>
-
+     
       {/* Add Modal */}
       <AddItemModal
         open={openAddModal}

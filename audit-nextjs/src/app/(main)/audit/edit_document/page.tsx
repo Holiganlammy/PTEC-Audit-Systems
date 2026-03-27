@@ -30,7 +30,27 @@ import {
   Loader2,
   Check,
   ChevronsUpDown,
+  Lock,
+  ShieldCheck,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
@@ -68,11 +88,12 @@ export default function EditAuditJobPage() {
   const jobNo = searchParams.get("jobNo") ?? "";
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingBranches, setIsLoadingBranches] = useState(true);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
-  const [isLoadingPMCodes, setIsLoadingPMCodes] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null); // eslint-disable-line @typescript-eslint/no-unused-vars
+
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Popover states
   const [openBranch, setOpenBranch] = useState(false);
@@ -83,7 +104,7 @@ export default function EditAuditJobPage() {
   // Data from API
   const [branches, setBranches] = useState<Branch[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [userPersonalCodes, setUserPersonalCodes] = useState<User[]>([]);
+
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [jobData, setJobData] = useState<AuditJobData | null>(null);
   const [auditItems, setAuditItems] = useState<AuditItem[]>([]);
@@ -111,6 +132,8 @@ export default function EditAuditJobPage() {
       AdditionalNotes: "",
     },
   });
+
+  const [watchFirstname, watchLastname] = form.watch(["Firstname", "Lastname"]);
 
   // Fetch existing job data
   useEffect(() => {
@@ -145,28 +168,22 @@ export default function EditAuditJobPage() {
         
         form.setValue("PMCode", jobData.pmCode || "");
         form.setValue("Address", jobData.address || "");
-        
-        // ใช้ userCode แทน userId
-        if (jobData.auditor?.userCode) {
-          // ต้องหา UserID จาก users list ด้วย userCode
-          const auditorUser = users.find(u => u.UserCode === jobData.auditor.userCode);
-          if (auditorUser) {
-            form.setValue("Auditor", auditorUser.UserID);
-          }
+
+        // ใช้ข้อมูล branchManager จาก detail API โดยตรง
+        form.setValue("Firstname", jobData.branchManager?.firstName || "");
+        form.setValue("Lastname", jobData.branchManager?.lastName || "");
+
+        // ใช้ userId จาก detail API โดยตรง ไม่ต้อง lookup จาก users list
+        if (jobData.auditor?.userId) {
+          form.setValue("Auditor", jobData.auditor.userId.toString());
         }
-        
-        if (jobData.districtManager?.userCode) {
-          const dmUser = users.find(u => u.UserCode === jobData.districtManager.userCode);
-          if (dmUser) {
-            form.setValue("DistrictManager", dmUser.UserID);
-          }
+
+        if (jobData.districtManager?.userId) {
+          form.setValue("DistrictManager", jobData.districtManager.userId.toString());
         }
-        
-        if (jobData.branchManager?.userCode) {
-          const bmUser = users.find(u => u.UserCode === jobData.branchManager.userCode);
-          if (bmUser) {
-            form.setValue("BranchManager", bmUser.UserID);
-          }
+
+        if (jobData.branchManager?.userId) {
+          form.setValue("BranchManager", jobData.branchManager.userId.toString());
         }
         
         form.setValue("AdditionalNotes", jobData.additionalNotes || "");
@@ -202,22 +219,11 @@ export default function EditAuditJobPage() {
       }
     };
 
-    // ⚠️ เรียก fetchJobData หลังจากโหลด users เสร็จแล้ว
+    // เรียก fetchJobData หลังจากโหลด users เสร็จแล้ว
     if (jobNo && !isLoadingUsers && users.length > 0) {
       fetchJobData();
     }
   }, [jobNo, form, users, isLoadingUsers]);
-
-  // Populate Firstname/Lastname when both jobData and userPersonalCodes are ready
-  useEffect(() => {
-    if (jobData?.pmCode && userPersonalCodes.length > 0 && !isLoadingPMCodes) {
-      const user = userPersonalCodes.find((u) => u.PersonalCode === jobData.pmCode);
-      if (user) {
-        form.setValue("Firstname", user.fristName || "");
-        form.setValue("Lastname", user.lastName || "");
-      }
-    }
-  }, [jobData?.pmCode, userPersonalCodes, isLoadingPMCodes, form]);
 
    useEffect(() => {
     const fetchAuditItems = async () => {
@@ -443,39 +449,6 @@ export default function EditAuditJobPage() {
     fetchUsers();
   }, []);
 
-  useEffect(() => {
-    const fetchUserPersonalCodes = async () => {
-      try {
-        setIsLoadingPMCodes(true);
-        const response = await client.get("/users-personal-code", {
-          headers: dataConfig().headers,
-        });
-
-        if (Array.isArray(response.data)) {
-          setUserPersonalCodes(response.data);
-        } else if (response.data?.success && Array.isArray(response.data?.data)) {
-          setUserPersonalCodes(response.data.data);
-        } else if (Array.isArray(response.data?.data)) {
-          setUserPersonalCodes(response.data.data);
-        }
-      } catch (error: unknown) {
-        console.error("Error fetching user personal codes:", error);
-        const errorMessage =
-          error instanceof Error && "response" in error
-            ? (error as { response?: { data?: { message?: string } } })
-                .response?.data?.message
-            : undefined;
-        toast.error("ไม่สามารถโหลดข้อมูล PM Code ได้", {
-          description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
-        });
-      } finally {
-        setIsLoadingPMCodes(false);
-      }
-    };
-
-    fetchUserPersonalCodes();
-  }, []);
-
   // Filter users by position/role
   const auditors = users.filter((u) => ["KKJ", "PWW", "WSR"].includes(u.UserCode));
 
@@ -490,6 +463,11 @@ export default function EditAuditJobPage() {
       u.Position?.toLowerCase().includes("ผู้จัดการสาขา") ||
       u.PositionCode === "BM"
   );
+
+  const canConfirm =
+    !isLoadingItems &&
+    auditItems.length > 0 &&
+    auditItems.every((item) => item.item_status === 1);
 
   // Handle branch selection
   const handleBranchChange = (value: string) => {
@@ -590,6 +568,29 @@ export default function EditAuditJobPage() {
     }
   };
 
+  const handleConfirm = async () => {
+    if (!jobData?.jobId) return;
+    setIsConfirming(true);
+    const session = await getSession();
+    try {
+      await client.patch(`/audit-jobs/${jobData.jobId}/confirm`, {
+        confirmedBy: session?.user?.UserID || 0,
+      }, { headers: dataConfig().headers });
+
+      setJobData((prev) => prev ? { ...prev, status: 2 } : prev);
+      toast.success("ยืนยันเอกสารสำเร็จ", {
+        description: "เอกสารถูก lock เรียบร้อยแล้ว",
+      });
+    } catch (error) {
+      console.error("Error confirming audit job:", error);
+      toast.error("เกิดข้อผิดพลาด", {
+        description: "ไม่สามารถยืนยันเอกสารได้",
+      });
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
   // Show loading state
   // if (isLoadingData) {
   //   return (
@@ -638,7 +639,7 @@ export default function EditAuditJobPage() {
   //     </div>
   //   );
   // }
-
+ console.log("Loaded job data:", jobData);
   return (
     <div className="mb-10">
       <div className="max-w-[1400px] mx-auto px-4">
@@ -650,7 +651,15 @@ export default function EditAuditJobPage() {
           </Button>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold">Edit Audit Job</h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl font-bold">Edit Audit Job</h1>
+                {!isLoadingData && jobData?.status === 2 && (
+                  <Badge variant="secondary" className="flex items-center gap-1 bg-green-100 text-green-700 border-green-300">
+                    <Lock className="h-3 w-3" />
+                    Confirmed / Locked
+                  </Badge>
+                )}
+              </div>
               {isLoadingData ? (
                 <Skeleton className="h-4 w-48 mt-2" />
               ) : (
@@ -661,26 +670,80 @@ export default function EditAuditJobPage() {
             </div>
             <div className="flex gap-3">
               <Button variant="outline" onClick={() => router.back()}>
-                ยกเลิก
+                ย้อนกลับ
               </Button>
-              <Button
-                onClick={form.handleSubmit(onSubmit, handleFormError)}
-                disabled={isSubmitting || isLoadingData}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    กำลังอัพเดท...
-                  </>
-                ) : (
-                  "อัพเดทงาน"
-                )}
-              </Button>
+              {jobData?.status !== 2 && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={form.handleSubmit(onSubmit, handleFormError)}
+                    disabled={isSubmitting || isLoadingData}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        กำลังอัพเดท...
+                      </>
+                    ) : (
+                      "อัพเดทงาน"
+                    )}
+                  </Button>
+                  {!isLoadingData && <AlertDialog>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span tabIndex={!canConfirm ? 0 : undefined}>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                disabled={isConfirming || !canConfirm}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                <ShieldCheck className=" h-4 w-4" />
+                                Confirm
+                              </Button>
+                            </AlertDialogTrigger>
+                          </span>
+                        </TooltipTrigger>
+                        {!canConfirm && (
+                          <TooltipContent>
+                            <p>รายการตรวจสอบทั้งหมดต้องมีสถานะ &quot;ปกติ&quot; ก่อนยืนยันเอกสาร</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>ยืนยันเอกสาร</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          การยืนยันเอกสารจะ <strong>lock</strong> เอกสารนี้ทั้งหมด
+                          และจะไม่สามารถแก้ไขข้อมูลใดๆ ได้อีก
+                          คุณต้องการดำเนินการต่อหรือไม่?
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleConfirm}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          {isConfirming ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <ShieldCheck className="h-4 w-4" />
+                          )}
+                          ยืนยัน
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>}
+                </>
+              )}
             </div>
           </div>
         </div>
 
         <form onSubmit={form.handleSubmit(onSubmit, handleFormError)} className="space-y-6">
+          <fieldset disabled={jobData?.status === 2} className="contents">
           {/* Main Card with all fields */}
           <Card>
             <CardContent className="pt-6">
@@ -850,11 +913,6 @@ export default function EditAuditJobPage() {
                           <FieldLabel>
                             PM Code <span className="text-red-500">*</span>
                           </FieldLabel>
-                          {isLoadingPMCodes ? (
-                            <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
-                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                            </div>
-                          ) : (
                             <Popover open={openPMCode} onOpenChange={setOpenPMCode}>
                               <PopoverTrigger asChild>
                                 <Button
@@ -865,8 +923,8 @@ export default function EditAuditJobPage() {
                                 >
                                   {field.value
                                     ? (() => {
-                                        const u = userPersonalCodes.find((u) => u.PersonalCode === field.value);
-                                        return u ? `${u.PersonalCode} - ${u.fristName} ${u.lastName}` : field.value;
+                                        const name = [watchFirstname, watchLastname].filter(Boolean).join(" ");
+                                        return name ? `${field.value} - ${name}` : field.value;
                                       })()
                                     : "เลือก PM Code"}
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -878,8 +936,13 @@ export default function EditAuditJobPage() {
                                   <CommandList>
                                     <CommandEmpty>ไม่พบข้อมูล</CommandEmpty>
                                     <CommandGroup>
-                                      {userPersonalCodes
-                                        .filter((u) => u.UserCode)
+                                      {users
+                                        .filter((u) => u.PersonalCode)
+                                        .sort((a, b) => {
+                                          if (a.PersonalCode === field.value && a.BranchID?.toString() === formData.branchId && a.Actived == true) return -1;
+                                          if (b.PersonalCode === field.value && b.BranchID?.toString() === formData.branchId && b.Actived == true) return 1;
+                                          return 0;
+                                        })
                                         .map((u) => (
                                           <CommandItem
                                             key={u.UserID}
@@ -887,7 +950,6 @@ export default function EditAuditJobPage() {
                                             onSelect={() => {
                                               field.onChange(u.PersonalCode);
                                               const matchedBranch = branches.find((b) => b.branchid === u.BranchID);
-                                              // const user = userPersonalCodes.find((u) => u.PersonalCode === jobData?.pmCode);
                                               if (matchedBranch) {
                                                 form.setValue("Branch", matchedBranch.branchid.toString());
                                                 form.setValue("Address", matchedBranch.FullAddress || "");
@@ -905,10 +967,10 @@ export default function EditAuditJobPage() {
                                             <Check
                                               className={cn(
                                                 "mr-2 h-4 w-4",
-                                                field.value === u.PersonalCode ? "opacity-100" : "opacity-0"
+                                                field.value === u.PersonalCode && u.BranchID?.toString() === formData.branchId ? "opacity-100" : "opacity-0"
                                               )}
                                             />
-                                            {u.PersonalCode} - {u.fristName} {u.lastName} {u.BranchName}
+                                            {u.PersonalCode} - {u.fristName} {u.lastName}
                                           </CommandItem>
                                         ))}
                                     </CommandGroup>
@@ -916,7 +978,6 @@ export default function EditAuditJobPage() {
                                 </Command>
                               </PopoverContent>
                             </Popover>
-                          )}
                           {fieldState.error && (
                             <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
                           )}
@@ -1191,36 +1252,40 @@ export default function EditAuditJobPage() {
           </Card>
 
           {/* Action Buttons - Mobile */}
-          <div className="flex gap-3 md:hidden">
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1"
-              onClick={() => router.back()}
-            >
-              ยกเลิก
-            </Button>
-            <Button type="submit" className="flex-1" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  กำลังอัพเดท...
-                </>
-              ) : (
-                "อัพเดทงาน"
-              )}
-            </Button>
-          </div>
+          {jobData?.status !== 2 && (
+            <div className="flex gap-3 md:hidden">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => router.back()}
+              >
+                ยกเลิก
+              </Button>
+              <Button type="submit" className="flex-1" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    กำลังอัพเดท...
+                  </>
+                ) : (
+                  "อัพเดทงาน"
+                )}
+              </Button>
+            </div>
+          )}
+          </fieldset>
         </form>
 
         {/* Audit Items */}
         <div className="mt-6">
           <DataTableItemList
-            items={auditItems}             
+            items={auditItems}
             jobNo={jobNo}
             jobData={jobData ?? undefined}
-            isLoading={isLoadingItems} 
+            isLoading={isLoadingItems}
             jobId={jobData?.jobId || 0}
+            isLocked={jobData?.status === 2}
             onItemsChange={handleItemsChange}
           />
         </div>

@@ -1,3 +1,7 @@
+// ==========================================
+// audit-job.service.ts - บันทึก Snapshot
+// ==========================================
+
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -9,7 +13,6 @@ import { UpdateAuditJobDto } from '../dto/update-audit-job.dto';
 import { DatabaseManagerService } from '../../database/database-manager.service';
 import { databaseConfig } from '../config/database.config';
 import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec_useright.service';
-// import { User } from '../../PTEC_USERIGHT/domain/model/ptec_useright.entity';
 import {
   PaginationParams,
   PaginatedResponse,
@@ -29,7 +32,7 @@ export class AuditJobsService {
     private readonly userRightService: UserRightService,
   ) {}
 
-  // Helper method to get user data by UserID
+  // Helper: ดึงข้อมูล user
   private async getUserData(
     userId: number | null,
   ): Promise<UserData | undefined> {
@@ -44,10 +47,13 @@ export class AuditJobsService {
         const user = users[0];
         return {
           userCode: user.UserCode,
+          firstName: user.fristName || '',
+          lastName: user.lastName || '',
           fullname: user.fristName ? user.fristName + ' ' + user.lastName : '',
           email: user.Email,
           position: user.Position,
           branchId: user.BranchID,
+          branchName: user.BranchName,
           userId: user.UserID,
         };
       }
@@ -59,35 +65,11 @@ export class AuditJobsService {
   }
 
   // Helper method to transform audit item with user data
-  private async transformAuditItemWithUsers(
-    item: AuditItem,
-  ): Promise<AuditItemWithUsers> {
-    const [createdByUser, updatedByUser] = await Promise.all([
-      this.getUserData(item.createdBy),
-      this.getUserData(item.updateBy),
-    ]);
-
-    return {
-      itemId: item.itemId,
-      jobId: item.jobId,
-      categoryItemId: item.categoryItemId,
-      inspectionDate: item.inspectionDate,
-      itemStatus: item.itemStatus,
-      remarks: item.remarks,
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt,
-      active: item.active,
-      createdByUser,
-      updatedByUser,
-      categoryItem: item.categoryItem,
-      amDetails: item.amDetails,
-      auditDetails: item.auditDetails,
-      otherDetails: item.otherDetails,
-      taggedUsers: item.taggedUsers,
-    };
+  private transformAuditItemWithUsers(item: AuditItem): AuditItemWithUsers {
+    // Transform the item as needed based on its structure
+    return item as AuditItemWithUsers;
   }
 
-  // Helper method to transform audit job with user data
   private async transformAuditJobWithUsers(
     job: AuditJobsHeader,
   ): Promise<AuditJobWithUsers> {
@@ -108,16 +90,77 @@ export class AuditJobsService {
     // Transform items if they exist
     let transformedItems: AuditItemWithUsers[] | undefined;
     if (job.items && job.items.length > 0) {
-      transformedItems = await Promise.all(
-        job.items.map((item) => this.transformAuditItemWithUsers(item)),
+      transformedItems = job.items.map((item) =>
+        this.transformAuditItemWithUsers(item),
       );
     }
 
-    // Remove the ID fields and add user data
+    // รวม snapshot fields เข้าไปใน auditor object
+    const auditorWithSnapshot = auditor
+      ? {
+          ...auditor,
+          // Override ด้วย snapshot (ถ้ามี)
+          userCode: job.auditorUserCode || auditor.userCode,
+          firstName: job.auditorFirstName || auditor.firstName,
+          lastName: job.auditorLastName || auditor.lastName,
+          fullname:
+            job.auditorFirstName && job.auditorLastName
+              ? `${job.auditorFirstName} ${job.auditorLastName}`
+              : auditor.fullname,
+          branchName: job.auditorBranchName || auditor.branchName,
+        }
+      : undefined;
+
+    // รวม snapshot fields เข้าไปใน districtManager object
+    const districtManagerWithSnapshot = districtManager
+      ? {
+          ...districtManager,
+          userCode: job.districtManagerUserCode || districtManager.userCode,
+          firstName: job.districtManagerFirstName || districtManager.firstName,
+          lastName: job.districtManagerLastName || districtManager.lastName,
+          fullname:
+            job.districtManagerFirstName && job.districtManagerLastName
+              ? `${job.districtManagerFirstName} ${job.districtManagerLastName}`
+              : districtManager.fullname,
+          branchName:
+            job.districtManagerBranchName || districtManager.branchName,
+        }
+      : undefined;
+
+    // รวม snapshot fields เข้าไปใน branchManager object
+    const branchManagerWithSnapshot = branchManager
+      ? {
+          ...branchManager,
+          userCode: job.branchManagerUserCode || branchManager.userCode,
+          firstName: job.branchManagerFirstName || branchManager.firstName,
+          lastName: job.branchManagerLastName || branchManager.lastName,
+          fullname:
+            job.branchManagerFirstName && job.branchManagerLastName
+              ? `${job.branchManagerFirstName} ${job.branchManagerLastName}`
+              : branchManager.fullname,
+          // ไม่มี branchName สำหรับ Branch Manager (ใช้ของ header)
+        }
+      : undefined;
+
+    // ลบ snapshot fields ออกจาก root + ลบ user_id fields
     const {
       auditorUserId: _auditorUserId,
+      auditorUserCode: _auditorUserCode,
+      auditorFirstName: _auditorFirstName,
+      auditorLastName: _auditorLastName,
+      auditorBranchName: _auditorBranchName,
+
       districtManagerUserId: _districtManagerUserId,
+      districtManagerUserCode: _districtManagerUserCode,
+      districtManagerFirstName: _districtManagerFirstName,
+      districtManagerLastName: _districtManagerLastName,
+      districtManagerBranchName: _districtManagerBranchName,
+
       branchManagerUserId: _branchManagerUserId,
+      branchManagerUserCode: _branchManagerUserCode,
+      branchManagerFirstName: _branchManagerFirstName,
+      branchManagerLastName: _branchManagerLastName,
+
       createdBy: _createdBy,
       updatedBy: _updatedBy,
       items: _items,
@@ -126,9 +169,9 @@ export class AuditJobsService {
 
     return {
       ...jobWithoutIds,
-      auditor,
-      districtManager,
-      branchManager,
+      auditor: auditorWithSnapshot,
+      districtManager: districtManagerWithSnapshot,
+      branchManager: branchManagerWithSnapshot,
       createdByUser,
       updatedByUser,
       items: transformedItems,
@@ -157,10 +200,10 @@ export class AuditJobsService {
     }
   }
 
-  // Create new audit job
+  // Create new audit job - บันทึก Snapshot
   async create(createAuditJobDto: CreateAuditJobDto): Promise<AuditJobsHeader> {
     try {
-      // Generate running number for jobNo
+      // Generate running number
       const jobNo = await this.running_number('IAO');
       console.log('Generated Job Number:', jobNo);
 
@@ -168,10 +211,36 @@ export class AuditJobsService {
         throw new Error('Running number not generated');
       }
 
+      // ดึงข้อมูล users สำหรับ snapshot
+      const [auditor, districtManager, branchManager] = await Promise.all([
+        this.getUserData(createAuditJobDto.auditorUserId || null),
+        this.getUserData(createAuditJobDto.districtManagerUserId || null),
+        this.getUserData(createAuditJobDto.branchManagerUserId || null),
+      ]);
+
+      // สร้าง job พร้อม snapshot
       const auditJob = this.auditJobsRepository.create({
         ...createAuditJobDto,
         jobNo,
+
+        // Auditor snapshot
+        auditorUserCode: auditor?.userCode || undefined,
+        auditorFirstName: auditor?.firstName || undefined,
+        auditorLastName: auditor?.lastName || undefined,
+        auditorBranchName: auditor?.branchName || undefined,
+
+        // District Manager snapshot
+        districtManagerUserCode: districtManager?.userCode || undefined,
+        districtManagerFirstName: districtManager?.firstName || undefined,
+        districtManagerLastName: districtManager?.lastName || undefined,
+        districtManagerBranchName: districtManager?.branchName || undefined,
+
+        // Branch Manager snapshot (ไม่มี branchName)
+        branchManagerUserCode: branchManager?.userCode || undefined,
+        branchManagerFirstName: branchManager?.firstName || undefined,
+        branchManagerLastName: branchManager?.lastName || undefined,
       });
+
       return await this.auditJobsRepository.save(auditJob);
     } catch (error) {
       console.error('Error creating audit job:', error);
@@ -184,15 +253,12 @@ export class AuditJobsService {
     params: PaginationParams,
     user: UserInfo,
   ): Promise<PaginatedResponse> {
-    // Set default values
     const page = params.page || 1;
     const limit = params.limit || 20;
     const skip = (page - 1) * limit;
 
-    // Build query
     const query = this.auditJobsRepository.createQueryBuilder('job');
 
-    // Apply filters
     if (params.status !== undefined) {
       query.andWhere('job.status = :status', { status: params.status });
     }
@@ -212,7 +278,6 @@ export class AuditJobsService {
     if (params.active !== undefined) {
       query.andWhere('job.active = :active', { active: params.active });
     } else {
-      // Default: only show active jobs
       query.andWhere('job.active = :active', { active: true });
     }
 
@@ -223,21 +288,17 @@ export class AuditJobsService {
       );
     }
 
-    // Get total count
     const total = await query.getCount();
 
-    // Apply pagination and sorting
+    query.leftJoinAndSelect('job.statusInfo', 'statusInfo');
     query.orderBy('job.createdAt', 'DESC').skip(skip).take(limit);
 
-    // Get data
     const data = await query.getMany();
 
-    // Transform data to include user information
     const transformedData = await Promise.all(
       data.map((job) => this.transformAuditJobWithUsers(job)),
     );
 
-    // Calculate pagination meta
     const totalPages = Math.ceil(total / limit);
     const hasNext = page < totalPages;
     const hasPrev = page > 1;
@@ -260,11 +321,12 @@ export class AuditJobsService {
     };
   }
 
-  // Get audit job by ID with relations (สำหรับหน้า edit)
+  // Get audit job by ID with relations
   async findOne(id: number): Promise<AuditJobWithUsers> {
     const auditJob = await this.auditJobsRepository.findOne({
       where: { jobId: id },
       relations: [
+        'statusInfo',
         'items',
         'items.categoryItem',
         'items.amDetails',
@@ -285,6 +347,7 @@ export class AuditJobsService {
     const auditJob = await this.auditJobsRepository.findOne({
       where: { jobNo },
       relations: [
+        'statusInfo',
         'items',
         'items.categoryItem',
         'items.amDetails',
@@ -301,12 +364,11 @@ export class AuditJobsService {
     return await this.transformAuditJobWithUsers(auditJob);
   }
 
-  // Update audit job
+  // ✅ Update audit job - อัพเดท Snapshot ถ้าเปลี่ยน user
   async update(
     id: number,
     updateAuditJobDto: UpdateAuditJobDto,
   ): Promise<AuditJobWithUsers> {
-    // ดึงข้อมูลแบบปกติจาก repository (ไม่ใช่ผ่าน findOne ที่ได้ transform แล้ว)
     const auditJob = await this.auditJobsRepository.findOne({
       where: { jobId: id },
     });
@@ -315,15 +377,58 @@ export class AuditJobsService {
       throw new NotFoundException(`Audit Job with ID ${id} not found`);
     }
 
+    // ถ้ามีการเปลี่ยน auditor → update snapshot
+    if (
+      updateAuditJobDto.auditorUserId !== undefined &&
+      updateAuditJobDto.auditorUserId !== auditJob.auditorUserId
+    ) {
+      const auditor = await this.getUserData(updateAuditJobDto.auditorUserId);
+      if (auditor) {
+        updateAuditJobDto['auditorUserCode'] = auditor.userCode;
+        updateAuditJobDto['auditorFirstName'] = auditor.firstName;
+        updateAuditJobDto['auditorLastName'] = auditor.lastName;
+        updateAuditJobDto['auditorBranchName'] = auditor.branchName;
+      }
+    }
+
+    // ถ้ามีการเปลี่ยน district manager → update snapshot
+    if (
+      updateAuditJobDto.districtManagerUserId !== undefined &&
+      updateAuditJobDto.districtManagerUserId !== auditJob.districtManagerUserId
+    ) {
+      const dm = await this.getUserData(
+        updateAuditJobDto.districtManagerUserId,
+      );
+      if (dm) {
+        updateAuditJobDto['districtManagerUserCode'] = dm.userCode;
+        updateAuditJobDto['districtManagerFirstName'] = dm.firstName;
+        updateAuditJobDto['districtManagerLastName'] = dm.lastName;
+        updateAuditJobDto['districtManagerBranchName'] = dm.branchName;
+      }
+    }
+
+    // ถ้ามีการเปลี่ยน branch manager → update snapshot
+    if (
+      updateAuditJobDto.branchManagerUserId !== undefined &&
+      updateAuditJobDto.branchManagerUserId !== auditJob.branchManagerUserId
+    ) {
+      const bm = await this.getUserData(updateAuditJobDto.branchManagerUserId);
+      if (bm) {
+        updateAuditJobDto['branchManagerUserCode'] = bm.userCode;
+        updateAuditJobDto['branchManagerFirstName'] = bm.firstName;
+        updateAuditJobDto['branchManagerLastName'] = bm.lastName;
+        // ไม่มี branchManagerBranchName
+      }
+    }
+
     Object.assign(auditJob, updateAuditJobDto);
 
     const savedJob = await this.auditJobsRepository.save(auditJob);
 
-    // Transform และ return ข้อมูลพร้อม user data
     return await this.transformAuditJobWithUsers(savedJob);
   }
 
-  // Soft delete (set active = false)
+  // Soft delete
   async remove(id: number): Promise<void> {
     const auditJob = await this.auditJobsRepository.findOne({
       where: { jobId: id },
@@ -335,6 +440,23 @@ export class AuditJobsService {
 
     auditJob.active = false;
     await this.auditJobsRepository.save(auditJob);
+  }
+
+  // Confirm (lock) audit job
+  async confirm(id: number, confirmedBy: number): Promise<AuditJobWithUsers> {
+    const auditJob = await this.auditJobsRepository.findOne({
+      where: { jobId: id },
+    });
+
+    if (!auditJob) {
+      throw new NotFoundException(`Audit Job with ID ${id} not found`);
+    }
+
+    auditJob.status = 2;
+    auditJob.updatedBy = confirmedBy;
+
+    const savedJob = await this.auditJobsRepository.save(auditJob);
+    return await this.transformAuditJobWithUsers(savedJob);
   }
 
   // Hard delete

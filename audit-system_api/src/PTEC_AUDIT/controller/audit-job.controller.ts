@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -128,7 +129,7 @@ export class AuditJobsController {
     }
   }
 
-  // GET /audit-jobs/detail?jobcode=AJB... - Get job detail for edit screen (preferred)
+  // GET /audit-jobs/detail?jobNo=IAO... - Get job detail for edit screen (preferred)
   @Get('detail')
   async findOneByJobCodeQuery(
     @Query('jobNo') jobNo: string,
@@ -260,6 +261,38 @@ export class AuditJobsController {
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: 'Error updating audit job',
+      });
+    }
+  }
+
+  // PATCH /audit-jobs/:id/confirm - Confirm (lock) audit job
+  @Patch(':id/confirm')
+  async confirm(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('confirmedBy') confirmedBy: number,
+    @Res() res: express.Response,
+  ) {
+    try {
+      const auditJob = await this.auditJobsService.confirm(
+        id,
+        confirmedBy || 0,
+      );
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        data: auditJob,
+        message: 'Audit job confirmed and locked successfully',
+      });
+    } catch (error) {
+      console.error('Error confirming audit job:', error);
+      if (error instanceof NotFoundException) {
+        return res.status(HttpStatus.NOT_FOUND).json({
+          success: false,
+          message: error.message,
+        });
+      }
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Error confirming audit job',
       });
     }
   }

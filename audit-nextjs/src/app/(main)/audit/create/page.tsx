@@ -254,7 +254,7 @@ export default function CreateAuditJobPage() {
         branchManagerUserId: parseInt(branchManager?.UserID || "0"),
         additionalNotes: values.AdditionalNotes || "",
         status: 1,
-        createdBy: session?.user?.UserID, 
+        createdBy: session?.user?.UserID,
       };
   
       // console.log('Payload:', payload);
@@ -312,7 +312,6 @@ export default function CreateAuditJobPage() {
       });
     }
   };
-
   return (
     <div className="">
       <div className="max-w-[1400px] mx-auto px-4">

@@ -166,6 +166,17 @@ export default function AddItemsPage() {
 
   const [auditItems, setAuditItems] = useState<AuditItem[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
+  const [jobData, setJobData] = useState<AuditJobData | null>(null);
+
+  useEffect(() => {
+    if (!jobNo) return;
+    client
+      .get("/audit-jobs/detail", { params: { jobNo }, headers: dataConfig().headers })
+      .then((res) => {
+        if (res.data?.success) setJobData(res.data.data);
+      })
+      .catch(() => {});
+  }, [jobNo]);
 
   const fetchItems = useCallback(async () => {
     if (!jobId) return;
@@ -238,6 +249,7 @@ export default function AddItemsPage() {
             items={auditItems}
             jobNo={jobNo}
             jobId={jobId}
+            jobData={jobData ?? undefined}
             isLoading={isLoadingItems}
             onItemsChange={fetchItems}
           />

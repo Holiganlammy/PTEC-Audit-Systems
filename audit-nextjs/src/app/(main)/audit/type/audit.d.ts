@@ -28,6 +28,11 @@ interface User {
     PersonalCode: string | null;
 }
 
+interface AuditStatusInfo {
+    auditStatusId: number;
+    statusName: string;
+}
+
 interface AuditJobData {
     active: boolean;
     additionalNotes: string;
@@ -42,6 +47,7 @@ interface AuditJobData {
     jobNo: string;
     pmCode: string;
     status: number;
+    statusInfo?: AuditStatusInfo;
     updatedAt: string;
     auditor: Auditor;
     branchManager: branchManager;
@@ -52,6 +58,8 @@ interface AuditJobData {
 interface Auditor {
     branchId: number;
     email: string;
+    firstName: string;
+    lastName: string;
     fullname: string;
     position: string;
     userCode: string;
@@ -61,6 +69,8 @@ interface Auditor {
 interface branchManager {
     branchId: number;
     email: string;
+    firstName: string;
+    lastName: string;
     fullname: string;
     position: string;
     userCode: string;
@@ -70,6 +80,8 @@ interface branchManager {
 interface districtManager {
     branchId: number;
     email: string;
+    firstName: string;
+    lastName: string;
     fullname: string;
     position: string;
     userCode: string;

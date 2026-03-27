@@ -11,12 +11,10 @@ import { th } from "date-fns/locale"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 
-// Status config
-const statusConfig: Record<number, { label: string; color: string }> = {
-  0: { label: "Draft", color: "bg-gray-100 text-gray-800" },
-  1: { label: "In Progress", color: "bg-blue-100 text-blue-800" },
-  2: { label: "Completed", color: "bg-green-100 text-green-800" },
-  3: { label: "Cancelled", color: "bg-red-100 text-red-800" },
+// Status color config (key = audit_status_id)
+const statusColorConfig: Record<number, string> = {
+  1: "bg-blue-100 text-blue-800",
+  2: "bg-green-100 text-green-800",
 };
 
 export const AuditListColumn: ColumnDef<AuditList>[] = [
@@ -117,10 +115,12 @@ export const AuditListColumn: ColumnDef<AuditList>[] = [
     },
     cell: ({ row }) => {
       const status = row.getValue("status") as number;
-      const config = statusConfig[status];
+      const statusInfo = row.original.statusInfo;
+      const label = statusInfo?.statusName || (status === 2 ? "ดำเนินการเสร็จสิ้น" : "อยู่ระหว่างดำเนินการ");
+      const color = statusColorConfig[status] || "bg-gray-100 text-gray-800";
       return (
-        <Badge className={config?.color || "bg-gray-100 text-gray-800"}>
-          {config?.label || "Unknown"}
+        <Badge className={color}>
+          {label}
         </Badge>
       );
     },

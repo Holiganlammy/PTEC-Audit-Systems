@@ -73,7 +73,7 @@ export default function AddItemModal({
       categoryItemId: "",
       itemStatus: "1",
       remarks: "",
-      auditCommentStatus: "0",
+      auditCommentStatus: "null",
     },
   });
 
@@ -103,7 +103,7 @@ export default function AddItemModal({
         categoryItemId: "",
         itemStatus: "1",
         remarks: "",
-        auditCommentStatus: "0",
+        auditCommentStatus: "null",
       });
     }
   }, [open, form]);

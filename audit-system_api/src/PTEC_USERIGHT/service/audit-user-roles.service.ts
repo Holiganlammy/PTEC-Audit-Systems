@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -142,7 +143,19 @@ export class AuditUserRolesService {
     userRoleId: number,
     updateDto: UpdateUserRoleDto,
   ): Promise<AuditUserRoles> {
-    const userRole = await this.findOne(userRoleId);
+    const userRole = await this.auditUserRolesRepo.findOneBy({ userRoleId });
+
+    if (!userRole) {
+      throw new NotFoundException(`User role with ID ${userRoleId} not found`);
+    }
+
+    if (updateDto.roleId === undefined && updateDto.updatedBy === undefined) {
+      throw new BadRequestException(
+        'At least one field is required: roleId or updatedBy',
+      );
+    }
+
+    const updatePayload: Partial<AuditUserRoles> = {};
 
     if (updateDto.roleId !== undefined) {
       const role = await this.roleSystemAuditRepo.findOne({
@@ -155,14 +168,16 @@ export class AuditUserRolesService {
         );
       }
 
-      userRole.roleId = updateDto.roleId;
+      updatePayload.roleId = updateDto.roleId;
     }
 
     if (updateDto.updatedBy !== undefined) {
-      userRole.updatedBy = updateDto.updatedBy;
+      updatePayload.updatedBy = updateDto.updatedBy;
     }
 
-    return await this.auditUserRolesRepo.save(userRole);
+    await this.auditUserRolesRepo.update(userRoleId, updatePayload);
+
+    return await this.findOne(userRoleId);
   }
 
   // Soft delete (deactivate)

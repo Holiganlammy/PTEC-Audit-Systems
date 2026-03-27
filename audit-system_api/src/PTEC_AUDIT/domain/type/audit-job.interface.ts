@@ -26,12 +26,15 @@ export interface UserInfo {
 
 // Interface for simplified user data in response
 export interface UserData {
+  userId: number;
   userCode: string;
+  firstName: string;
+  lastName: string;
   fullname: string;
-  email: string;
-  position: string;
-  branchId: number;
-  userId?: number;
+  email?: string;
+  position?: string;
+  branchId?: number;
+  branchName?: string;
 }
 
 // Interface for audit item with user data
@@ -104,6 +107,12 @@ interface OtherDetails {
   OwnerCommentUser?: UserData;
   approverByUser?: UserData;
 }
+// Interface for audit status info
+export interface AuditStatusInfo {
+  auditStatusId: number;
+  statusName: string;
+}
+
 // Interface for audit job with user data
 export interface AuditJobWithUsers {
   auditor?: UserData;
@@ -111,6 +120,7 @@ export interface AuditJobWithUsers {
   branchManager?: UserData;
   createdByUser?: UserData;
   updatedByUser?: UserData;
+  statusInfo?: AuditStatusInfo;
   items?: AuditItemWithUsers[];
 }
 
