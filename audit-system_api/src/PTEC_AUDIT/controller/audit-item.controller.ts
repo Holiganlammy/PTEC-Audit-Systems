@@ -128,12 +128,13 @@ export class AuditItemsController {
 
   // GET /audit-items/job/:jobId - Get all items for a job
   @Get('job/:jobId')
-  async findByJobId(
+  async findByItemsJobAuditId(
     @Param('jobId', ParseIntPipe) jobId: number,
     @Res() res: express.Response,
   ) {
     try {
-      const auditItems = await this.auditItemsService.findByJobId(jobId);
+      const auditItems =
+        await this.auditItemsService.findByItemsJobAuditId(jobId);
       return res.status(HttpStatus.OK).json({
         success: true,
         data: auditItems,

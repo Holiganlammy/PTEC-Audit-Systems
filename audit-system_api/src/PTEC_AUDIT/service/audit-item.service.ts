@@ -115,7 +115,7 @@ export class AuditItemsService {
   }
 
   // Get all items for a specific job with comments
-  async findByJobId(jobId: number): Promise<any[]> {
+  async findByItemsJobAuditId(jobId: number): Promise<any[]> {
     const items = await this.auditItemsRepository.find({
       where: { jobId, active: true },
       relations: [
@@ -125,7 +125,7 @@ export class AuditItemsService {
         'otherDetails',
         'itemStatusRelation',
       ],
-      order: { inspectionDate: 'DESC' },
+      order: { inspectionDate: 'ASC' },
     });
 
     return await Promise.all(
