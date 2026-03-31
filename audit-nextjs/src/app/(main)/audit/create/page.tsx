@@ -365,41 +365,7 @@ export default function CreateAuditJobPage() {
                 <div className="space-y-6 mt-6">
                   {/* Row 1: Branch, Date, PM Code */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Branch */}
-                    <Controller
-                      name="Branch"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <Field>
-                          <FieldLabel>
-                            สาขา <span className="text-red-500">*</span>
-                          </FieldLabel>
-                          {isLoadingBranches ? (
-                            <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
-                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                            </div>
-                          ) : (
-                            <Branch
-                              openBranch={openBranch}
-                              setOpenBranch={setOpenBranch}
-                              branches={branches}
-                              fieldState={fieldState}
-                              field={field}
-                              handleBranchChange={handleBranchChange}
-                              getSelectedBranchText={getSelectedBranchText}
-                            />
-                          )}
-                          {fieldState.error && (
-                            <p className="text-sm text-red-500 mt-1">
-                              {fieldState.error.message}
-                            </p>
-                          )}
-                        </Field>
-                      )}
-                    />
-
-                    
-                    {/* PM Code */}
+                                        {/* PM Code */}
                     <Controller
                       name="PMCode"
                       control={form.control}
@@ -476,6 +442,40 @@ export default function CreateAuditJobPage() {
                         </Field>
                       )}
                     />
+                    
+                    {/* Branch */}
+                    <Controller
+                      name="Branch"
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <Field>
+                          <FieldLabel>
+                            สาขา <span className="text-red-500">*</span>
+                          </FieldLabel>
+                          {isLoadingBranches ? (
+                            <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
+                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            </div>
+                          ) : (
+                            <Branch
+                              openBranch={openBranch}
+                              setOpenBranch={setOpenBranch}
+                              branches={branches}
+                              fieldState={fieldState}
+                              field={field}
+                              handleBranchChange={handleBranchChange}
+                              getSelectedBranchText={getSelectedBranchText}
+                            />
+                          )}
+                          {fieldState.error && (
+                            <p className="text-sm text-red-500 mt-1">
+                              {fieldState.error.message}
+                            </p>
+                          )}
+                        </Field>
+                      )}
+                    />
+
 
                     {/* Date */}
                     <Controller
@@ -552,7 +552,7 @@ export default function CreateAuditJobPage() {
                       control={form.control}
                       render={({ field }) => (
                         <Field className="mx-2">
-                          <FieldLabel className="mb-2">ประเภทการตรวจ</FieldLabel>
+                          <FieldLabel className="mb-2 text-center">ประเภทการตรวจ</FieldLabel>
                           <RadioGroup
                             value={field.value}
                             onValueChange={field.onChange}

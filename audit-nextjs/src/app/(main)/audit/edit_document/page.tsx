@@ -769,8 +769,8 @@ export default function EditAuditJobPage() {
 
                 <div className="space-y-6 mt-6">
                   {/* Job No (Read Only) */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Field>
+                  <div className="flex justify-between items-start">
+                    <Field className="w-[30%]">
                       <FieldLabel>Job No</FieldLabel>
                       {isLoadingData ? (
                         <Skeleton className="h-10 w-full" />
@@ -785,6 +785,29 @@ export default function EditAuditJobPage() {
                         หมายเลขงานไม่สามารถแก้ไขได้
                       </FieldDescription>
                     </Field>
+                    <Controller
+                      name="Type"
+                      control={form.control}
+                      render={({ field }) => (
+                        <Field className="mx-2 w-auto text-center">
+                          <FieldLabel className="mb-2">ประเภทการตรวจ</FieldLabel>
+                          <RadioGroup
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            className="flex gap-6 mt-1"
+                          >
+                            <div className="flex items-center gap-3">
+                              <RadioGroupItem value="visit" id="type-visit" />
+                              <Label htmlFor="type-visit" className="cursor-pointer">Visit</Label>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <RadioGroupItem value="online" id="type-online" />
+                              <Label htmlFor="type-online" className="cursor-pointer">Online</Label>
+                            </div>
+                          </RadioGroup>
+                        </Field>
+                      )}
+                    />
                   </div>
 
                   {/* Row 1: Branch, Date, PM Code */}
@@ -799,6 +822,88 @@ export default function EditAuditJobPage() {
                     </div>
                   ) : (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        {/* PM Code */}
+                    <Controller
+                      name="PMCode"
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <Field>
+                          <FieldLabel>
+                            PM Code <span className="text-red-500">*</span>
+                          </FieldLabel>
+                            <Popover open={openPMCode} onOpenChange={setOpenPMCode}>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  aria-expanded={openPMCode}
+                                  className={cn("w-full justify-between", fieldState.error && "border-red-500")}
+                                >
+                                  {field.value
+                                    ? (() => {
+                                        const name = [watchFirstname, watchLastname].filter(Boolean).join(" ");
+                                        return name ? `${field.value} - ${name}` : field.value;
+                                      })()
+                                    : "เลือก PM Code"}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-full p-0" align="start">
+                                <Command>
+                                  <CommandInput placeholder="ค้นหา PM Code..." />
+                                  <CommandList>
+                                    <CommandEmpty>ไม่พบข้อมูล</CommandEmpty>
+                                    <CommandGroup>
+                                      {users
+                                        .filter((u) => u.PersonalCode)
+                                        .sort((a, b) => {
+                                          if (a.PersonalCode === field.value && a.BranchID?.toString() === formData.branchId && a.Actived == true) return -1;
+                                          if (b.PersonalCode === field.value && b.BranchID?.toString() === formData.branchId && b.Actived == true) return 1;
+                                          return 0;
+                                        })
+                                        .map((u) => (
+                                          <CommandItem
+                                            key={u.UserID}
+                                            value={`${u.PersonalCode} ${u.fristName} ${u.lastName} ${u.BranchName}`}
+                                            onSelect={() => {
+                                              field.onChange(u.PersonalCode);
+                                              const matchedBranch = branches.find((b) => b.branchid === u.BranchID);
+                                              if (matchedBranch) {
+                                                form.setValue("Branch", matchedBranch.branchid.toString());
+                                                form.setValue("Address", matchedBranch.FullAddress || "");
+                                                setFormData({
+                                                  branchId: matchedBranch.branchid.toString(),
+                                                  branchName: `${matchedBranch.code || matchedBranch.branchid} / ${matchedBranch.name}`,
+                                                  address: matchedBranch.FullAddress || "",
+                                                });
+                                              }
+                                              form.setValue("Firstname", u.fristName || "");
+                                              form.setValue("Lastname", u.lastName || "");
+                                              setOpenPMCode(false);
+                                            }}
+                                          >
+                                            <Check
+                                              className={cn(
+                                                "mr-2 h-4 w-4",
+                                                field.value === u.PersonalCode && u.BranchID?.toString() === formData.branchId ? "opacity-100" : "opacity-0"
+                                              )}
+                                            />
+                                            {u.PersonalCode} - {u.fristName} {u.lastName}
+                                          </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                          {fieldState.error && (
+                            <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                          )}
+                        </Field>
+                      )}
+                    />
+
+
                     {/* Branch */}
                     <Controller
                       name="Branch"
@@ -918,87 +1023,6 @@ export default function EditAuditJobPage() {
                       )}
                     />
 
-                    {/* PM Code */}
-                    <Controller
-                      name="PMCode"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <Field>
-                          <FieldLabel>
-                            PM Code <span className="text-red-500">*</span>
-                          </FieldLabel>
-                            <Popover open={openPMCode} onOpenChange={setOpenPMCode}>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  role="combobox"
-                                  aria-expanded={openPMCode}
-                                  className={cn("w-full justify-between", fieldState.error && "border-red-500")}
-                                >
-                                  {field.value
-                                    ? (() => {
-                                        const name = [watchFirstname, watchLastname].filter(Boolean).join(" ");
-                                        return name ? `${field.value} - ${name}` : field.value;
-                                      })()
-                                    : "เลือก PM Code"}
-                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-full p-0" align="start">
-                                <Command>
-                                  <CommandInput placeholder="ค้นหา PM Code..." />
-                                  <CommandList>
-                                    <CommandEmpty>ไม่พบข้อมูล</CommandEmpty>
-                                    <CommandGroup>
-                                      {users
-                                        .filter((u) => u.PersonalCode)
-                                        .sort((a, b) => {
-                                          if (a.PersonalCode === field.value && a.BranchID?.toString() === formData.branchId && a.Actived == true) return -1;
-                                          if (b.PersonalCode === field.value && b.BranchID?.toString() === formData.branchId && b.Actived == true) return 1;
-                                          return 0;
-                                        })
-                                        .map((u) => (
-                                          <CommandItem
-                                            key={u.UserID}
-                                            value={`${u.PersonalCode} ${u.fristName} ${u.lastName} ${u.BranchName}`}
-                                            onSelect={() => {
-                                              field.onChange(u.PersonalCode);
-                                              const matchedBranch = branches.find((b) => b.branchid === u.BranchID);
-                                              if (matchedBranch) {
-                                                form.setValue("Branch", matchedBranch.branchid.toString());
-                                                form.setValue("Address", matchedBranch.FullAddress || "");
-                                                setFormData({
-                                                  branchId: matchedBranch.branchid.toString(),
-                                                  branchName: `${matchedBranch.code || matchedBranch.branchid} / ${matchedBranch.name}`,
-                                                  address: matchedBranch.FullAddress || "",
-                                                });
-                                              }
-                                              form.setValue("Firstname", u.fristName || "");
-                                              form.setValue("Lastname", u.lastName || "");
-                                              setOpenPMCode(false);
-                                            }}
-                                          >
-                                            <Check
-                                              className={cn(
-                                                "mr-2 h-4 w-4",
-                                                field.value === u.PersonalCode && u.BranchID?.toString() === formData.branchId ? "opacity-100" : "opacity-0"
-                                              )}
-                                            />
-                                            {u.PersonalCode} - {u.fristName} {u.lastName}
-                                          </CommandItem>
-                                        ))}
-                                    </CommandGroup>
-                                  </CommandList>
-                                </Command>
-                              </PopoverContent>
-                            </Popover>
-                          {fieldState.error && (
-                            <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
-                          )}
-                        </Field>
-                      )}
-                    />
-
                     <Controller
                       name="Firstname"
                       control={form.control}
@@ -1021,29 +1045,6 @@ export default function EditAuditJobPage() {
                       )}
                     />
 
-                    <Controller
-                      name="Type"
-                      control={form.control}
-                      render={({ field }) => (
-                        <Field className="mx-2">
-                          <FieldLabel className="mb-2">ประเภทการตรวจ</FieldLabel>
-                          <RadioGroup
-                            value={field.value}
-                            onValueChange={field.onChange}
-                            className="flex gap-6 mt-1"
-                          >
-                            <div className="flex items-center gap-3">
-                              <RadioGroupItem value="visit" id="type-visit" />
-                              <Label htmlFor="type-visit" className="cursor-pointer">Visit</Label>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <RadioGroupItem value="online" id="type-online" />
-                              <Label htmlFor="type-online" className="cursor-pointer">Online</Label>
-                            </div>
-                          </RadioGroup>
-                        </Field>
-                      )}
-                    />
                   </div>
                   )}
 
