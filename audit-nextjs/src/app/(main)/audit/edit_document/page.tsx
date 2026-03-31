@@ -67,6 +67,9 @@ import {
 import { getSession } from "next-auth/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import DataTableItemList from "./components/DataTableItemList/DataTable";
+import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+
 
 
 const formSchema = z.object({
@@ -80,6 +83,7 @@ const formSchema = z.object({
   DistrictManager: z.string().nonempty("กรุณาเลือกผู้จัดการเขต"),
   BranchManager: z.string().optional(),
   AdditionalNotes: z.string().optional(),
+  Type: z.enum(["visit", "online"]),
 });
 
 export default function EditAuditJobPage() {
@@ -130,6 +134,7 @@ export default function EditAuditJobPage() {
       DistrictManager: "",
       BranchManager: "",
       AdditionalNotes: "",
+      Type: "visit",
     },
   });
 
@@ -187,6 +192,7 @@ export default function EditAuditJobPage() {
         }
         
         form.setValue("AdditionalNotes", jobData.additionalNotes || "");
+        form.setValue("Type", jobData.auditType === "online" ? "online" : "visit");
 
         // Set formData
         setFormData({
@@ -247,6 +253,7 @@ export default function EditAuditJobPage() {
             category_name: item.categoryItem?.categoryName,
             inspection_date: item.inspectionDate,
             item_status: item.itemStatus,
+            item_status_edit: item.itemStatusEdit,
             remarks: item.remarks || "",
             
             // Comments from different sources (transformed to Comment shape)
@@ -305,7 +312,7 @@ export default function EditAuditJobPage() {
           }));
  
           setAuditItems(items);
-          console.log('Loaded audit items:', items.length);
+          console.log('Loaded audit items:', items);
         }
       } catch (error) {
         console.error("Error fetching audit items:", error);
@@ -335,6 +342,7 @@ export default function EditAuditJobPage() {
           category_name: item.categoryItem?.categoryName,
           inspection_date: item.inspectionDate,
           item_status: item.itemStatus,
+          item_status_edit: item.itemStatusEdit,
           remarks: item.remarks || "",
           note_1: (item.auditDetails || []).map((c: auditDetails) => ({
             id: c.auditDetailId,
@@ -388,7 +396,7 @@ export default function EditAuditJobPage() {
           updated_at: item.updatedAt,
           active: item.active,
         }));
- 
+        console.log('Refreshed audit items:', items);
         setAuditItems(items);
       }
     } catch (error) {
@@ -462,8 +470,11 @@ export default function EditAuditJobPage() {
       u.PositionCode === "BM"
   );
 
+  const { isDirty } = form.formState;
+
   const canConfirm =
     !isLoadingItems &&
+    !isDirty &&
     auditItems.length > 0 &&
     auditItems.every((item) => item.item_status === 1);
 
@@ -519,6 +530,7 @@ export default function EditAuditJobPage() {
         districtManagerUserId: parseInt(values.DistrictManager),
         branchManagerUserId: parseInt(branchManager?.UserID || "0"),
         additionalNotes: values.AdditionalNotes || "",
+        positionType: values.Type,
         updatedBy: session?.user?.UserID,
       };
 
@@ -645,7 +657,7 @@ export default function EditAuditJobPage() {
         <div className="mb-6">
           <Button variant="ghost" onClick={() => router.back()} className="mb-4">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            ย้อนกลับ
+            Back
           </Button>
           <div className="flex items-center justify-between">
             <div>
@@ -668,7 +680,7 @@ export default function EditAuditJobPage() {
             </div>
             <div className="flex gap-3">
               <Button variant="outline" onClick={() => router.back()}>
-                ย้อนกลับ
+                Back
               </Button>
               {jobData?.status !== 2 && (
                 <>
@@ -683,7 +695,7 @@ export default function EditAuditJobPage() {
                         กำลังอัพเดท...
                       </>
                     ) : (
-                      "อัพเดทงาน"
+                      "Save Changes"
                     )}
                   </Button>
                   {!isLoadingData && <AlertDialog>
@@ -704,7 +716,11 @@ export default function EditAuditJobPage() {
                         </TooltipTrigger>
                         {!canConfirm && (
                           <TooltipContent>
-                            <p>รายการตรวจสอบทั้งหมดต้องมีสถานะ &quot;ปกติ&quot; ก่อนยืนยันเอกสาร</p>
+                            <p>
+                              {isDirty
+                                ? "กรุณา Save Changes ก่อนยืนยันเอกสาร"
+                                : "รายการตรวจสอบทั้งหมดต้องมีสถานะ \"ปกติ\" ก่อนยืนยันเอกสาร"}
+                            </p>
                           </TooltipContent>
                         )}
                       </Tooltip>
@@ -1004,6 +1020,30 @@ export default function EditAuditJobPage() {
                         </Field>
                       )}
                     />
+
+                    <Controller
+                      name="Type"
+                      control={form.control}
+                      render={({ field }) => (
+                        <Field className="mx-2">
+                          <FieldLabel className="mb-2">ประเภทการตรวจ</FieldLabel>
+                          <RadioGroup
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            className="flex gap-6 mt-1"
+                          >
+                            <div className="flex items-center gap-3">
+                              <RadioGroupItem value="visit" id="type-visit" />
+                              <Label htmlFor="type-visit" className="cursor-pointer">Visit</Label>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <RadioGroupItem value="online" id="type-online" />
+                              <Label htmlFor="type-online" className="cursor-pointer">Online</Label>
+                            </div>
+                          </RadioGroup>
+                        </Field>
+                      )}
+                    />
                   </div>
                   )}
 
@@ -1267,7 +1307,7 @@ export default function EditAuditJobPage() {
                     กำลังอัพเดท...
                   </>
                 ) : (
-                  "อัพเดทงาน"
+                  "Save Changes"
                 )}
               </Button>
             </div>

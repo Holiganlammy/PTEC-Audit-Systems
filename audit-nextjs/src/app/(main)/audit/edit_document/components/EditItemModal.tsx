@@ -19,13 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { CalendarIcon, Loader2 } from "lucide-react";
+
+import { Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -41,6 +36,7 @@ const formSchema = z.object({
   categoryItemId: z.string().min(1, "กรุณาเลือกหมวดหมู่"),
   inspectionDate: z.date(),
   itemStatus: z.string().min(1, "กรุณาเลือกสถานะ"),
+  itemStatusEdit: z.string().min(1, "กรุณาเลือกสถานะอัพเดทและแก้ไข"),
   remarks: z.string().optional(),
 });
 
@@ -65,6 +61,7 @@ const statusOptions = [
   { value: "1", label: "ปกติ" },
   { value: "2", label: "อยู่ระหว่างดำเนินการ" },
   { value: "3", label: "ผิดปกติ" },
+  { value: "4", label: "ปิดเคส" },
 ];
 
 export default function EditItemModal({
@@ -85,6 +82,7 @@ export default function EditItemModal({
       categoryItemId: "",
       inspectionDate: new Date(),
       itemStatus: "1",
+      itemStatusEdit: "1",
       remarks: "",
     },
   });
@@ -96,6 +94,7 @@ export default function EditItemModal({
         categoryItemId: item.category_item_id.toString(),
         inspectionDate: new Date(item.inspection_date),
         itemStatus: item.item_status.toString(),
+        itemStatusEdit: item.item_status_edit.toString(),
         remarks: item.remarks || "",
       });
     }
@@ -133,6 +132,7 @@ export default function EditItemModal({
         categoryItemId: parseInt(values.categoryItemId),
         inspectionDate: format(values.inspectionDate, "yyyy-MM-dd"),
         itemStatus: parseInt(values.itemStatus),
+        itemStatusEdit: parseInt(values.itemStatusEdit),
         remarks: values.remarks ?? "",
         updateBy: session?.user?.UserID,
       };
@@ -161,6 +161,26 @@ export default function EditItemModal({
             แก้ไขข้อมูลรายการตรวจสอบในงาน Audit
           </DialogDescription>
         </DialogHeader>
+
+        {/* Info Section */}
+        {item && (
+          <div className="rounded-md border bg-muted/40 px-4 py-3 text-sm space-y-1">
+            <div className="flex gap-2">
+              <span className="text-muted-foreground w-32 shrink-0">รหัสรายการ</span>
+              <span className="font-medium">#{item.item_id}</span>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-muted-foreground w-32 shrink-0">หมวดหมู่</span>
+              <span className="font-medium">{item.category_name}</span>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-muted-foreground w-32 shrink-0">วันที่ตรวจสอบ</span>
+              <span className="font-medium">
+                {format(new Date(item.inspection_date), "dd MMM yyyy", { locale: th })}
+              </span>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
           {/* Category */}
@@ -251,7 +271,35 @@ export default function EditItemModal({
             render={({ field, fieldState }) => (
               <Field>
                 <FieldLabel>
-                  สถานะ <span className="text-red-500">*</span>
+                  สถานะที่ตรวจพบ (ครั้งแรก) <span className="text-red-500">*</span>
+                </FieldLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger className={cn(fieldState.error && "border-red-500")}>
+                    <SelectValue placeholder="เลือกสถานะ" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {fieldState.error && (
+                  <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                )}
+              </Field>
+            )}
+          />
+
+          {/* Status */}
+          <Controller
+            name="itemStatusEdit"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <Field>
+                <FieldLabel>
+                  สถานะอัพเดทและแก้ไข (ล่าสุด) <span className="text-red-500">*</span>
                 </FieldLabel>
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger className={cn(fieldState.error && "border-red-500")}>
@@ -273,7 +321,7 @@ export default function EditItemModal({
           />
 
           {/* Remarks */}
-          <Controller
+          {/* <Controller
             name="remarks"
             control={form.control}
             render={({ field }) => (
@@ -287,7 +335,7 @@ export default function EditItemModal({
                 />
               </Field>
             )}
-          />
+          /> */}
 
           <DialogFooter>
             <Button

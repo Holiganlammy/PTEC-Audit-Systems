@@ -187,6 +187,14 @@ export class AuditJobsHeader {
   @Column({ name: 'active', type: 'bit', default: 1 })
   active: boolean;
 
+  @Column({
+    name: 'position_type',
+    type: 'nvarchar',
+    length: 100,
+    nullable: true,
+  })
+  positionType: string;
+
   // Relations
   @OneToMany(() => AuditItem, (item) => item.job)
   items: AuditItem[];

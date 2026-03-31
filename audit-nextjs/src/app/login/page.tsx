@@ -102,7 +102,10 @@ export default function LoginPage() {
       const response = await client.post('/login', {
         loginname: data.username,
         password: data.password,
-      },{ headers: dataConfig().headers});
+      },{ 
+        headers: dataConfig().headers,
+        withCredentials: true,
+      });
 
       const result = response.data;
       console.log("Login response:", result);
@@ -203,7 +206,8 @@ export default function LoginPage() {
     try {
       const response = await client.post(`/verify-otp`,{ email, otp },
         {
-          headers: dataConfig().headers
+          headers: dataConfig().headers,
+          withCredentials: true,
         }
       );
 

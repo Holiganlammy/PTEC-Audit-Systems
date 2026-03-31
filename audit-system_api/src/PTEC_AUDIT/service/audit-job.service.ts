@@ -202,9 +202,17 @@ export class AuditJobsService {
 
   // Create new audit job - บันทึก Snapshot
   async create(createAuditJobDto: CreateAuditJobDto): Promise<AuditJobsHeader> {
+    //mark
     try {
-      // Generate running number
-      const jobNo = await this.running_number('IAO');
+      // Generate running number based on position_type
+      console.log('Creating audit job with positionType:', createAuditJobDto);
+      const runningType =
+        createAuditJobDto.positionType === 'visit'
+          ? 'IAO-VS'
+          : createAuditJobDto.positionType === 'online'
+            ? 'IAO-OL'
+            : 'IAO';
+      const jobNo = await this.running_number(runningType);
       console.log('Generated Job Number:', jobNo);
 
       if (!jobNo) {

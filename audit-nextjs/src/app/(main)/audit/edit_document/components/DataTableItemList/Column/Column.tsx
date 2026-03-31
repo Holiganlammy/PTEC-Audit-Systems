@@ -100,6 +100,8 @@ const getStatusBadge = (status: number) => {
       return <Badge className="bg-yellow-500">อยู่ระหว่างดำเนินการ</Badge>;
     case 3:
       return <Badge variant="destructive">ผิดปกติ</Badge>;
+    case 4:
+      return <Badge variant="secondary">ปิดเคส</Badge>;
     default:
       return <Badge variant="outline">ไม่ทราบ</Badge>;
   }
@@ -173,18 +175,33 @@ export const createAuditItemsColumns = (
       <div className="font-medium">{row.getValue("category_name")}</div>
     ),
   },
-  {
-    accessorKey: "inspection_date",
-    header: "วันที่ตรวจสอบ",
+    {
+    accessorKey: "item_status",
+    header: (table) => (
+      <div className="text-center">
+        สถานะที่ตรวจพบ (ครั้งแรก)
+      </div>
+    ),
     cell: ({ row }) => {
-      const date = row.getValue("inspection_date") as string;
-      return (
-        <div className="text-sm">
-          {format(new Date(date), "dd/MM/yyyy", { locale: th })}
+      return(
+        <div className="text-center">
+          {getStatusBadge(row.getValue("item_status") as number)}
         </div>
-      );
+      )
     },
   },
+  // {
+  //   accessorKey: "inspection_date",
+  //   header: "วันที่ตรวจสอบ",
+  //   cell: ({ row }) => {
+  //     const date = row.getValue("inspection_date") as string;
+  //     return (
+  //       <div className="text-sm">
+  //         {format(new Date(date), "dd/MM/yyyy", { locale: th })}
+  //       </div>
+  //     );
+  //   },
+  // },
   // thread columns 
   {
     id: "note_1",
@@ -245,16 +262,17 @@ export const createAuditItemsColumns = (
     },
   },
   {
-    accessorKey: "item_status",
+    accessorKey: "item_status_edit",
     header: (table) => (
       <div className="text-center">
-        สถานะ
+        สถานะอัพเดทและแก้ไข (ล่าสุด)
       </div>
     ),
     cell: ({ row }) => {
+      console.log("item_status_edit:", row);
       return(
         <div className="text-center">
-          {getStatusBadge(row.getValue("item_status") as number)}
+          {getStatusBadge(row.getValue("item_status_edit") as number)}
         </div>
       )
     },

@@ -166,7 +166,7 @@ export default function AddItemModal({
 
 const statusOptions = [
   { value: "1", label: "ปกติ" },
-  { value: "2", label: "อยู่ระหว่างดำเนินการ" },
+  // { value: "2", label: "อยู่ระหว่างดำเนินการ" },
   { value: "3", label: "ผิดปกติ" },
 ];
   return (
@@ -267,7 +267,7 @@ const statusOptions = [
             render={({ field, fieldState }) => (
               <Field>
                 <FieldLabel>
-                  สถานะ <span className="text-red-500">*</span>
+                  สถานะที่ตรวจพบ (ครั้งแรก) <span className="text-red-500">*</span>
                 </FieldLabel>
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger className={cn(fieldState.error && "border-red-500")}>

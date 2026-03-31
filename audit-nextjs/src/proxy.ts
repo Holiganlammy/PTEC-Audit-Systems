@@ -89,7 +89,7 @@ async function fetchUserAccessiblePaths(
   }
 
   try {
-    console.log(`[RBAC] Fetching menu for user ${userId}...`);
+    // console.log(`[RBAC] Fetching menu for user ${userId}...`);
 
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu_audit/check-permission`, {
       method: "POST",
@@ -102,7 +102,7 @@ async function fetchUserAccessiblePaths(
       }),
       cache: "no-store",
     });
-    console.log(res)
+    // console.log(res)
     if (!res.ok) {
       console.error(`[RBAC] Fetch menu fail for user ${userId}, status: ${res.status}`);
       
@@ -115,7 +115,7 @@ async function fetchUserAccessiblePaths(
     }
 
     const menus = await res.json();
-    console.log(menus.data)
+    // console.log(menus.data)
     
     interface MenuItem {
       path: string;
@@ -131,7 +131,7 @@ async function fetchUserAccessiblePaths(
       timestamp: Date.now()
     });
 
-    console.log(`[RBAC] User ${userId} (role ${roleId}) accessible paths (${accessiblePaths.length})`);
+    // console.log(`[RBAC] User ${userId} (role ${roleId}) accessible paths (${accessiblePaths.length})`);
     return accessiblePaths;
   } catch (err) {
     console.error("[RBAC] Middleware fetch error:", err);

@@ -62,4 +62,8 @@ export class CreateAuditJobDto {
   @IsBoolean()
   @IsOptional()
   active?: boolean;
+
+  @IsString()
+  @IsOptional()
+  positionType?: string;
 }

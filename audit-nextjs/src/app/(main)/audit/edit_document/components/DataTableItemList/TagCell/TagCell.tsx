@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { X } from "lucide-react";
@@ -8,6 +9,16 @@ import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
 import { toast } from "sonner";
 import { getSession, useSession } from "next-auth/react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export interface TaggedUser {
   userId: string;
@@ -41,7 +52,23 @@ export default function TagCell({
   const [tags, setTags] = useState<TaggedUser[]>(initialTags);
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [pendingUser, setPendingUser] = useState<ApiUser | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setDropdownStyle({
+        position: "fixed",
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+        zIndex: 9999,
+      });
+    }
+  }, [isOpen, search]);
 
   const canTag = !isLocked && [1, 2, 4].includes(session?.user?.role_id ?? -1);
   const filtered = search.trim()
@@ -67,6 +94,7 @@ export default function TagCell({
       setTags(next);
       setSearch("");
       setIsOpen(false);
+      setHighlightedIndex(-1);
       try {
         await client.post(
           `/audit-items/${itemId}/tagged-user`,
@@ -85,6 +113,24 @@ export default function TagCell({
     },
     [itemId, tags, onTagChange]
   );
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isOpen || filtered.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev + 1) % filtered.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev <= 0 ? filtered.length - 1 : prev - 1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const target = highlightedIndex >= 0 ? filtered[highlightedIndex] : filtered[0];
+      if (target) setPendingUser(target);
+    } else if (e.key === "Escape") {
+      setIsOpen(false);
+      setHighlightedIndex(-1);
+    }
+  };
 
   const removeTag = useCallback(
     async (tag: TaggedUser) => {
@@ -148,24 +194,29 @@ export default function TagCell({
           onChange={(e) => {
             setSearch(e.target.value);
             setIsOpen(true);
+            setHighlightedIndex(-1);
           }}
           onFocus={() => setIsOpen(true)}
           onBlur={() => setTimeout(() => setIsOpen(false), 150)}
+          onKeyDown={handleKeyDown}
           placeholder="+ แท็กผู้ใช้สำหรับผู้ใช้งานอื่นๆ..."
           className="h-7 text-xs px-2 placeholder:text-muted-foreground/60"
         />
 
-        {isOpen && filtered.length > 0 && (
-          <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-md border border-border bg-popover shadow-md max-h-44 overflow-y-auto">
-            {filtered.map((u) => (
+        {isOpen && filtered.length > 0 && createPortal(
+          <div style={dropdownStyle} className="rounded-md border border-border bg-popover shadow-md max-h-44 overflow-y-auto">
+            {filtered.map((u, idx) => (
               <button
                 key={u.UserID}
                 type="button"
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  addTag(u);
+                  setPendingUser(u);
                 }}
-                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left hover:bg-muted transition-colors"
+                onMouseEnter={() => setHighlightedIndex(idx)}
+                className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left transition-colors ${
+                  idx === highlightedIndex ? "bg-muted" : "hover:bg-muted"
+                }`}
               >
                 <span className="text-xs font-semibold text-foreground shrink-0">
                   {u.UserCode}
@@ -175,16 +226,45 @@ export default function TagCell({
                 </span>
               </button>
             ))}
-          </div>
+          </div>,
+          document.body
         )}
 
-        {isOpen && search.trim() !== "" && filtered.length === 0 && (
-          <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-md border border-border bg-popover shadow-sm px-3 py-2">
+        {isOpen && search.trim() !== "" && filtered.length === 0 && createPortal(
+          <div style={dropdownStyle} className="rounded-md border border-border bg-popover shadow-sm px-3 py-2">
             <p className="text-xs text-muted-foreground">ไม่พบผู้ใช้</p>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
       )}
+
+      {/* Confirm Alert Dialog */}
+      <AlertDialog open={!!pendingUser} onOpenChange={(open) => { if (!open) setPendingUser(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ยืนยันการแท็กผู้ใช้</AlertDialogTitle>
+            <AlertDialogDescription>
+              คุณต้องการแท็ก{" "}
+              <span className="font-semibold text-foreground">
+                {pendingUser?.UserCode} — {pendingUser?.Fullname}
+              </span>{" "}
+              ใช่หรือไม่?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingUser(null)}>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingUser) addTag(pendingUser);
+                setPendingUser(null);
+              }}
+            >
+              ยืนยัน
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -53,6 +53,7 @@ interface AuditItem {
   category_name: string;
   inspection_date: string;
   item_status: number;
+  item_status_edit: number;
   remarks: string;
   note_1?: AuditComment[];
   note_2?: AuditComment[];     

@@ -178,8 +178,6 @@ export class AuditItemsController {
     @Res() res: express.Response,
   ) {
     try {
-      console.log('Updating audit item with ID:', id);
-      console.log('Update DTO:', updateAuditItemDto);
       const auditItem = await this.auditItemsService.update(
         id,
         updateAuditItemDto,

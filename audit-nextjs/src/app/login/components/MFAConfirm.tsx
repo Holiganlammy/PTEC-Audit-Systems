@@ -27,6 +27,7 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod"
 import client from "@/lib/axios/interceptors";
 import { useRouter } from "next/navigation";
+import { dataConfig } from "@/config/config";
 
 interface MFADialogProps {
   open: boolean;
@@ -94,6 +95,10 @@ export function MFADialog({
           usercode: userCode,
           otpCode: value.otp,
           trustDevice: value.trustDevice,
+        },
+        {
+          headers: dataConfig().headers,
+          withCredentials: true,
         }
       );
 

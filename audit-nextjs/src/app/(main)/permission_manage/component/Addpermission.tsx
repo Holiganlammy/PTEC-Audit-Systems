@@ -173,7 +173,7 @@ export default function AddPermissionModal({
                 <Loader2 className="h-4 w-4 animate-spin" />
               </div>
             ) : (
-              <Popover open={openUserSelect} onOpenChange={setOpenUserSelect}>
+              <Popover open={openUserSelect} onOpenChange={setOpenUserSelect} modal={true}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
@@ -185,7 +185,7 @@ export default function AddPermissionModal({
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-full p-0" align="start">
+                <PopoverContent  className="w-full p-0" align="start">
                   <Command>
                     <CommandInput placeholder="ค้นหาผู้ใช้..." />
                     <CommandList>

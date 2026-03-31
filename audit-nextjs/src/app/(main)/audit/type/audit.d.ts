@@ -38,6 +38,7 @@ interface AuditJobData {
     additionalNotes: string;
     address: string;
     auditDate: string;
+    auditType: "visit" | "online";
     branchId: number;
     branchName: string;
     createdAt: string;
@@ -121,6 +122,7 @@ interface AuditItemData {
     categoryItemId: number;
     inspectionDate: string;
     itemStatus: number;
+    itemStatusEdit: number;
     remarks: string;
     createdBy: number;
     createdAt: string;

@@ -46,6 +46,8 @@ import {
 } from "@/components/ui/field";
 import { getSession } from "next-auth/react";
 import Branch from "./components/Branch"
+import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 
 const formSchema = z.object({
@@ -59,6 +61,7 @@ const formSchema = z.object({
   DistrictManager: z.string().nonempty("กรุณาเลือกผู้จัดการเขต"),
   BranchManager: z.string().optional(),
   AdditionalNotes: z.string().optional(),
+  Type: z.enum(["visit", "online"]),
 });
 
 export default function CreateAuditJobPage() {
@@ -94,6 +97,7 @@ export default function CreateAuditJobPage() {
       DistrictManager: "",
       BranchManager: "",
       AdditionalNotes: "",
+      Type: "visit",
     },
   });
 
@@ -251,6 +255,7 @@ export default function CreateAuditJobPage() {
         districtManagerUserId: parseInt(values.DistrictManager),
         branchManagerUserId: parseInt(branchManager?.UserID || "0"),
         additionalNotes: values.AdditionalNotes || "",
+        positionType: values.Type,
         status: 1,
         createdBy: session?.user?.UserID,
       };
@@ -317,7 +322,7 @@ export default function CreateAuditJobPage() {
         <div className="mb-6">
           <Button variant="ghost" onClick={() => router.back()} className="mb-4">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            ย้อนกลับ
+            Back
           </Button>
           <div className="flex items-center justify-between">
             <div>
@@ -538,6 +543,30 @@ export default function CreateAuditJobPage() {
                               {fieldState.error.message}
                             </p>
                           )}
+                        </Field>
+                      )}
+                    />
+
+                    <Controller
+                      name="Type"
+                      control={form.control}
+                      render={({ field }) => (
+                        <Field className="mx-2">
+                          <FieldLabel className="mb-2">ประเภทการตรวจ</FieldLabel>
+                          <RadioGroup
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            className="flex gap-6 mt-1"
+                          >
+                            <div className="flex items-center gap-3">
+                              <RadioGroupItem value="visit" id="create-type-visit" />
+                              <Label htmlFor="create-type-visit" className="cursor-pointer">Visit</Label>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <RadioGroupItem value="online" id="create-type-online" />
+                              <Label htmlFor="create-type-online" className="cursor-pointer">Online</Label>
+                            </div>
+                          </RadioGroup>
                         </Field>
                       )}
                     />

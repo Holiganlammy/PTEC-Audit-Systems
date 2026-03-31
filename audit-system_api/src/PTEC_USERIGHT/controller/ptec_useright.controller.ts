@@ -124,6 +124,23 @@ export class AppController {
         });
       }
 
+      console.log('=== LOGIN START ===');
+      console.log(
+        '🍪 Portal Login Set-Cookie:',
+        response.headers['set-cookie'],
+      );
+
+      const portalCookies = response.headers['set-cookie'];
+      if (portalCookies && Array.isArray(portalCookies)) {
+        portalCookies.forEach((cookie) => {
+          res.setHeader('Set-Cookie', cookie);
+        });
+      }
+      if (portalCookies) {
+        console.log('✅ Login Cookies received:', portalCookies.length);
+      } else {
+        console.log('ℹ️  No cookies (normal for first login)');
+      }
       // Handle success login
       if (success === true && access_token) {
         // ดึง role_id จาก Audit_User_Roles แทนค่าจาก Portal
@@ -316,11 +333,19 @@ export class AppController {
 
       const data = response.data;
 
-      //  Success - OTP ถูกต้อง
-      if (data.success && data.access_token) {
-        console.log('✅ OTP verified successfully for user:', usercode);
+      console.log('=== VERIFY OTP START ===');
+      console.log('📥 Request Body:', { usercode, otpCode, trustDevice });
+      console.log('🍪 Portal Set-Cookie:', response.headers['set-cookie']);
+      const portalCookies = response.headers['set-cookie'];
+      if (portalCookies && Array.isArray(portalCookies)) {
+        portalCookies.forEach((cookie) => {
+          res.setHeader('Set-Cookie', cookie);
+        });
+      }
 
-        // ดึง role_id จาก Audit_User_Roles แทนค่าจาก Portal
+      // Success - OTP ถูกต้อง
+      if (data.success && data.access_token) {
+        // ดึง role_id จาก Audit_User_Roles
         let auditRoleId = data.user?.role_id ?? null;
         let auditRoleName: string | null = null;
         if (data.user?.UserCode) {
@@ -347,16 +372,14 @@ export class AppController {
         });
       }
 
-      //  Failed - OTP ผิด
+      // Failed - OTP ผิด
       return res.status(HttpStatus.UNAUTHORIZED).json({
         success: false,
-        // error: data.error ?? 'OTP_INVALID',
         message: data.message ?? 'Invalid or expired OTP',
       });
     } catch (error: unknown) {
       console.error('❌ Verify OTP error:', error);
 
-      // Handle network errors
       if (error && typeof error === 'object' && 'code' in error) {
         const err = error as { code?: string };
 
@@ -375,7 +398,6 @@ export class AppController {
         }
       }
 
-      // Handle Axios errors
       if (error && typeof error === 'object' && 'isAxiosError' in error) {
         const axiosError = error as AxiosError<PortalVerifyOtpResponse>;
 

@@ -100,6 +100,7 @@ export class AuditItemsService {
         'job',
         'categoryItem',
         'itemStatusRelation',
+        'itemStatusEditRelation',
         'amDetails',
         'auditDetails',
         'otherDetails',
@@ -124,6 +125,7 @@ export class AuditItemsService {
         'auditDetails',
         'otherDetails',
         'itemStatusRelation',
+        'itemStatusEditRelation',
       ],
       order: { inspectionDate: 'ASC' },
     });
@@ -178,7 +180,12 @@ export class AuditItemsService {
   async findByCategoryId(categoryItemId: number): Promise<AuditItem[]> {
     return await this.auditItemsRepository.find({
       where: { categoryItemId, active: true },
-      relations: ['job', 'categoryItem', 'itemStatusRelation'],
+      relations: [
+        'job',
+        'categoryItem',
+        'itemStatusRelation',
+        'itemStatusEditRelation',
+      ],
     });
   }
 
@@ -190,14 +197,11 @@ export class AuditItemsService {
     const auditItem = await this.auditItemsRepository.findOne({
       where: { itemId: id },
     });
-    console.log('Found audit item for update:', auditItem);
-    console.log('Update DTO:', updateAuditItemDto);
     if (!auditItem) {
       throw new NotFoundException(`Audit Item with ID ${id} not found`);
     }
 
-    const updatedAuditItem = Object.assign(auditItem, updateAuditItemDto);
-    console.log('Updated audit item before save:', updatedAuditItem);
+    Object.assign(auditItem, updateAuditItemDto);
 
     return await this.auditItemsRepository.save(auditItem);
   }

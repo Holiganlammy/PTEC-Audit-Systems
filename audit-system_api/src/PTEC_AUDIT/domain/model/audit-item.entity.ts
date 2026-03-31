@@ -51,6 +51,9 @@ export class AuditItem {
   @Column({ name: 'active', type: 'bit', default: 1 })
   active: boolean;
 
+  @Column({ name: 'item_status_edit', type: 'int', nullable: true })
+  itemStatusEdit: number;
+
   // Relations
   @ManyToOne(() => AuditJobsHeader, (job) => job.items)
   @JoinColumn({ name: 'job_id' })
@@ -75,4 +78,8 @@ export class AuditItem {
   @ManyToOne(() => AuditItemStatus, (status) => status.items)
   @JoinColumn({ name: 'item_status' })
   itemStatusRelation: AuditItemStatus;
+
+  @ManyToOne(() => AuditItemStatus, (status) => status.items)
+  @JoinColumn({ name: 'item_status_edit' })
+  itemStatusEditRelation: AuditItemStatus;
 }
