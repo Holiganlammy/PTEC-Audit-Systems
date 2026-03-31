@@ -79,6 +79,7 @@ interface AuditItemData {
   categoryItemId: number;
   inspectionDate: string;
   itemStatus: number;
+  itemStatusEdit: number;
   remarks: string;
   createdBy: number;
   createdAt: string;
@@ -100,6 +101,7 @@ function transformItems(data: AuditItemData[]): AuditItem[] {
     category_name: item.categoryItem?.categoryName ?? "",
     inspection_date: item.inspectionDate,
     item_status: item.itemStatus,
+    item_status_edit: item.itemStatusEdit, // default to same as item_status
     remarks: item.remarks || "",
     note_1: (item.auditDetails || []).map((c) => ({
       id: c.auditDetailId,
