@@ -10,14 +10,13 @@ import { format } from "date-fns"
 import { th } from "date-fns/locale"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
-
 // Status color config (key = audit_status_id)
 const statusColorConfig: Record<number, string> = {
   1: "bg-blue-100 text-blue-800",
   2: "bg-green-100 text-green-800",
 };
 
-export const AuditListColumn: ColumnDef<AuditList>[] = [
+export const createAuditListColumns = (onDelete: (jobId: number) => void): ColumnDef<AuditList>[] => [
   {
     id: "select",
     header: ({ table }) => (
@@ -267,13 +266,37 @@ export const AuditListColumn: ColumnDef<AuditList>[] = [
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           className="font-semibold"
         >
-          Created
+          Created At
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       )
     },
     cell: ({ row }) => {
       const date = row.getValue("createdAt") as string;
+      return (
+        <div className="text-sm text-muted-foreground">
+          {date ? format(new Date(date), "dd/MM/yyyy HH:mm", { locale: th }) : "-"}
+        </div>
+      );
+    },
+  },
+    {
+    accessorKey: "updatedAt",
+    id: "updatedAt",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="font-semibold"
+        >
+          Updated At
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      )
+    },
+    cell: ({ row }) => {
+      const date = row.getValue("updatedAt") as string;
       return (
         <div className="text-sm text-muted-foreground">
           {date ? format(new Date(date), "dd/MM/yyyy HH:mm", { locale: th }) : "-"}
@@ -305,9 +328,12 @@ export const AuditListColumn: ColumnDef<AuditList>[] = [
                 Edit
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-red-600">
+            <DropdownMenuItem
+              className="text-red-600"
+              onClick={() => onDelete(AuditList.jobId)}
+            >
               <Trash2 className="mr-2 h-4 w-4" />
-              Delete Asset
+              Delete Audit Jobs
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

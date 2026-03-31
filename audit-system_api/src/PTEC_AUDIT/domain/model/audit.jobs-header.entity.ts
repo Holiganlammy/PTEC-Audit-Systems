@@ -184,6 +184,15 @@ export class AuditJobsHeader {
   @UpdateDateColumn({ name: 'updated_at', type: 'datetime' })
   updatedAt: Date;
 
+  @Column({ name: 'deleted_at', type: 'datetime', nullable: true })
+  deletedAt: Date | null;
+
+  @Column({ name: 'deleted_by', type: 'int', nullable: true })
+  deletedBy?: number;
+
+  @Column({ name: 'delete_reason', type: 'nvarchar', nullable: true })
+  deleteReason: string;
+
   @Column({ name: 'active', type: 'bit', default: 1 })
   active: boolean;
 

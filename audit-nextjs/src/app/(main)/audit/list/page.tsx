@@ -15,19 +15,21 @@ import {
 import { Plus, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+
 import { DataTable } from "@/components/DataTable";
-import { AuditListColumn } from "./DataTable/Column";
+import { createAuditListColumns } from "./DataTable/Column";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { useSession } from "next-auth/react";
 
 // Types
 interface AuditStatusInfo {
@@ -105,7 +107,9 @@ export default function AuditJobsListPage() {
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
   const [deleteJobId, setDeleteJobId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteNote, setDeleteNote] = useState("");
   const [itemsPerPage, setItemsPerPage] = useState(20);
+  const session = useSession();
 
   // Fetch jobs from API
   useEffect(() => {
@@ -158,8 +162,9 @@ export default function AuditJobsListPage() {
 
     setIsDeleting(true);
     try {
-      await client.delete(`/audit-jobs/${deleteJobId}`, {
+      await client.delete(`/audit-jobs/${deleteJobId}`,{
         headers: dataConfig().headers,
+        data:{ delete_reason: deleteNote , deleted_by: session.data?.user.UserID }
       });
 
       toast.success("ลบงานสำเร็จ");
@@ -177,6 +182,7 @@ export default function AuditJobsListPage() {
     } finally {
       setIsDeleting(false);
       setDeleteJobId(null);
+      setDeleteNote("");
     }
   };
 
@@ -345,7 +351,7 @@ export default function AuditJobsListPage() {
               </div>
             ) : (
               <DataTable
-                columns={AuditListColumn}
+                columns={createAuditListColumns(setDeleteJobId)}
                 data={jobs}
                 searchKey="jobNo"
                 searchPlaceholder="Search by Job No, Branch, or Auditor..."
@@ -367,39 +373,61 @@ export default function AuditJobsListPage() {
         </Card> */}
 
         {/* Delete Confirmation Dialog */}
-        <AlertDialog
+        <Dialog
           open={deleteJobId !== null}
-          onOpenChange={() => setDeleteJobId(null)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeleteJobId(null);
+              setDeleteNote("");
+            }
+          }}
         >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to delete this job? This action cannot be
-                undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={isDeleting}>
-                Cancel
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDelete}
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>ยืนยันการลบ Audit Job</DialogTitle>
+              <DialogDescription>
+                การลบนี้ไม่สามารถย้อนกลับได้ กรุณาระบุหมายเหตุก่อนดำเนินการ
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-2 py-2">
+              <Label htmlFor="delete-note">หมายเหตุ <span className="text-red-500">*</span></Label>
+              <Textarea
+                id="delete-note"
+                placeholder="กรอกหมายเหตุการลบ..."
+                value={deleteNote}
+                onChange={(e) => setDeleteNote(e.target.value)}
+                rows={3}
                 disabled={isDeleting}
-                className="bg-red-600 hover:bg-red-700"
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeleteJobId(null);
+                  setDeleteNote("");
+                }}
+                disabled={isDeleting}
+              >
+                ยกเลิก
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={isDeleting || !deleteNote.trim()}
               >
                 {isDeleting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Deleting...
+                    กำลังลบ...
                   </>
                 ) : (
-                  "Delete"
+                  "ยืนยันการลบ"
                 )}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

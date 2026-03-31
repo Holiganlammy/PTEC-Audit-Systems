@@ -437,7 +437,7 @@ export class AuditJobsService {
   }
 
   // Soft delete
-  async remove(id: number): Promise<void> {
+  async remove(id: number, deleteReason?: string): Promise<void> {
     const auditJob = await this.auditJobsRepository.findOne({
       where: { jobId: id },
     });
@@ -447,6 +447,9 @@ export class AuditJobsService {
     }
 
     auditJob.active = false;
+    if (deleteReason) {
+      auditJob.deleteReason = deleteReason;
+    }
     await this.auditJobsRepository.save(auditJob);
   }
 
