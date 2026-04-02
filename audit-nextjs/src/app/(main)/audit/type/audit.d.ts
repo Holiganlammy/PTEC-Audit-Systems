@@ -54,6 +54,7 @@ interface AuditJobData {
     branchManager: branchManager;
     districtManager: districtManager;
     createdByUser: CreatedByUser;
+    positionType: string;
 }
 
 interface Auditor {

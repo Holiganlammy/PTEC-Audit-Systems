@@ -37,6 +37,9 @@ export class AuditCategoryItem {
   @Column({ name: 'updated_by', type: 'int', nullable: true })
   updatedBy: number;
 
+  @Column({ name: 'position_type', type: 'nvarchar', nullable: true })
+  positionType: string;
+
   // Relations
   @OneToMany(() => AuditItem, (item) => item.categoryItem)
   items: AuditItem[];

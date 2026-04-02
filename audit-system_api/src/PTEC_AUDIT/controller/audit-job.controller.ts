@@ -301,10 +301,15 @@ export class AuditJobsController {
   @Delete(':id')
   async remove(
     @Param('id', ParseIntPipe) id: number,
+    @Body() body: { delete_reason?: string; deleted_by?: number },
     @Res() res: express.Response,
   ) {
     try {
-      await this.auditJobsService.remove(id);
+      await this.auditJobsService.remove(
+        id,
+        body.delete_reason,
+        body.deleted_by,
+      );
       return res.status(HttpStatus.OK).json({
         success: true,
         message: `Audit job ${id} has been deactivated`,

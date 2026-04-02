@@ -56,6 +56,7 @@ function ActionsCell({
               แก้ไข
             </DropdownMenuItem>
           : null}
+          {session.data?.user.role_id === 1 || session.data?.user.role_id === 2 ?
           <DropdownMenuItem
             onClick={() => onDelete(item)}
             className="text-red-600 focus:text-red-600"
@@ -63,6 +64,7 @@ function ActionsCell({
             <Trash2 className="mr-2 h-4 w-4" />
             ลบ
           </DropdownMenuItem>
+          : null}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

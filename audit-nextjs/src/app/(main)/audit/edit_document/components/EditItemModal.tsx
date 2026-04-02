@@ -10,7 +10,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -48,12 +47,14 @@ interface CategoryItem {
   categoryCode: number;
   description: string;
   active: boolean;
+  positionType: string | null;
 }
 
 interface EditItemModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   item: AuditItem | null;
+  jobData?: AuditJobData;
   onItemUpdated: () => void;
 }
 
@@ -68,6 +69,7 @@ export default function EditItemModal({
   open,
   onOpenChange,
   item,
+  jobData,
   onItemUpdated,
 }: EditItemModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -82,7 +84,7 @@ export default function EditItemModal({
       categoryItemId: "",
       inspectionDate: new Date(),
       itemStatus: "1",
-      itemStatusEdit: "1",
+      itemStatusEdit: "",
       remarks: "",
     },
   });
@@ -94,7 +96,7 @@ export default function EditItemModal({
         categoryItemId: item.category_item_id.toString(),
         inspectionDate: new Date(item.inspection_date),
         itemStatus: item.item_status.toString(),
-        itemStatusEdit: item.item_status_edit.toString(),
+        itemStatusEdit: item.item_status_edit != null ? item.item_status_edit.toString() : "",
         remarks: item.remarks || "",
       });
     }
@@ -103,16 +105,37 @@ export default function EditItemModal({
   // Fetch categories
   useEffect(() => {
     if (!open) return;
+    
     const fetchCategories = async () => {
       try {
         setIsLoadingCategories(true);
         const response = await client.get("/audit-categories", {
           headers: dataConfig().headers,
         });
+        
         if (response.data.success) {
-          setCategories(
-            response.data.data.filter((c: CategoryItem) => c.active === true)
-          );
+          // Filter: active = true AND positionType ตรงกับ jobData
+          const filtered = response.data.data.filter((c: CategoryItem) => {
+            const isActive = c.active === true;
+            
+            // ถ้า category ไม่มี positionType (null) แสดงทั้ง visit และ online
+            if (c.positionType === null) {
+              return isActive;
+            }
+            
+            // ถ้า category มี positionType  ต้องตรงกับ jobData.positionType
+            const matchPositionType = c.positionType === jobData?.positionType;
+            
+            return isActive && matchPositionType;
+          });
+          
+          setCategories(filtered);
+          
+          console.log('📋 Edit Modal - Filtered categories:', {
+            jobPositionType: jobData?.positionType,
+            totalCategories: response.data.data.length,
+            filteredCount: filtered.length,
+          });
         }
       } catch (error) {
         console.error("Error fetching categories:", error);
@@ -121,8 +144,9 @@ export default function EditItemModal({
         setIsLoadingCategories(false);
       }
     };
+    
     fetchCategories();
-  }, [open]);
+  }, [open, jobData]);
 
   const onSubmit = async (values: FormValues) => {
     if (!item) return;

@@ -44,7 +44,7 @@ import {
   FieldLegend,
   FieldSet,
 } from "@/components/ui/field";
-import { getSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import Branch from "./components/Branch"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -66,6 +66,7 @@ const formSchema = z.object({
 
 export default function CreateAuditJobPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingBranches, setIsLoadingBranches] = useState(true);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
@@ -97,7 +98,7 @@ export default function CreateAuditJobPage() {
       DistrictManager: "",
       BranchManager: "",
       AdditionalNotes: "",
-      Type: "visit",
+      Type: undefined,
     },
   });
 
@@ -235,10 +236,7 @@ export default function CreateAuditJobPage() {
     return user ? `${user.Fullname}` : placeholder;
   };
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    console.log('🎯 Form submitted with values:', values); 
-    
     setIsSubmitting(true);
-    const session = await getSession();
     
     try {
       
@@ -357,19 +355,58 @@ export default function CreateAuditJobPage() {
           <Card>
             <CardContent className="pt-6">
               <FieldSet>
-                <FieldLegend>สร้าง Audit Report</FieldLegend>
-                <FieldDescription>
-                  กรุณากรอกข้อมูลให้ครบถ้วนเพื่อสร้างงานตรวจสอบ
-                </FieldDescription>
+                <div className="flex items-center justify-between">
+                      <div>
+                          <FieldLegend>สร้าง Audit Report</FieldLegend>
+                          <FieldDescription>
+                            กรุณากรอกข้อมูลให้ครบถ้วนเพื่อสร้างงานตรวจสอบ
+                          </FieldDescription>
+                      </div>
+                    <Controller
+                      name="Type"
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <Field className="mx-2 w-auto">
+                          <FieldLabel className="justify-center">
+                            ประเภทการตรวจ <span className="text-red-500">*</span>
+                          </FieldLabel>
+                          <RadioGroup
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            className="flex gap-6"
+                          >
+                            <div className="flex items-center gap-2">
+                              <RadioGroupItem value="visit" id="create-type-visit" />
+                              <Label htmlFor="create-type-visit" className="cursor-pointer font-normal">
+                                Visit
+                              </Label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <RadioGroupItem value="online" id="create-type-online" />
+                              <Label htmlFor="create-type-online" className="cursor-pointer font-normal">
+                                Online
+                              </Label>
+                            </div>
+                          </RadioGroup>
+                          {fieldState.error && (
+                            <p className="text-sm text-red-500 mt-1">
+                              {fieldState.error.message}
+                            </p>
+                          )}
+                        </Field>
+                      )}
+                    />
+                </div>
 
                 <div className="space-y-6 mt-6">
                   {/* Row 1: Branch, Date, PM Code */}
+                  
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        {/* PM Code */}
+                    {/* PM Code */}
                     <Controller
                       name="PMCode"
                       control={form.control}
-                      render={({ field }) => (
+                      render={({ field, fieldState }) => (
                         <Field>
                           <FieldLabel>
                             PM Code <span className="text-red-500">*</span>
@@ -413,8 +450,8 @@ export default function CreateAuditJobPage() {
                                               // Auto-fill Branch and Address from user's BranchID
                                               const matchedBranch = branches.find((b) => b.branchid === u.BranchID);
                                               if (matchedBranch) {
-                                                form.setValue("Branch", matchedBranch.branchid.toString());
-                                                form.setValue("Address", matchedBranch.FullAddress || "");
+                                                // form.setValue("Branch", matchedBranch.branchid.toString());
+                                                // form.setValue("Address", matchedBranch.FullAddress || "");
                                               }
                                               // Auto-fill Firstname and Lastname
                                               form.setValue("Firstname", u.fristName || "");
@@ -438,6 +475,11 @@ export default function CreateAuditJobPage() {
                                 </Command>
                               </PopoverContent>
                             </Popover>
+                          )}
+                          {fieldState.error && (
+                            <p className="text-sm text-red-500 mt-1">
+                              {fieldState.error.message}
+                            </p>
                           )}
                         </Field>
                       )}
@@ -543,30 +585,6 @@ export default function CreateAuditJobPage() {
                               {fieldState.error.message}
                             </p>
                           )}
-                        </Field>
-                      )}
-                    />
-
-                    <Controller
-                      name="Type"
-                      control={form.control}
-                      render={({ field }) => (
-                        <Field className="mx-2">
-                          <FieldLabel className="mb-2 text-center">ประเภทการตรวจ</FieldLabel>
-                          <RadioGroup
-                            value={field.value}
-                            onValueChange={field.onChange}
-                            className="flex gap-6 mt-1"
-                          >
-                            <div className="flex items-center gap-3">
-                              <RadioGroupItem value="visit" id="create-type-visit" />
-                              <Label htmlFor="create-type-visit" className="cursor-pointer">Visit</Label>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <RadioGroupItem value="online" id="create-type-online" />
-                              <Label htmlFor="create-type-online" className="cursor-pointer">Online</Label>
-                            </div>
-                          </RadioGroup>
                         </Field>
                       )}
                     />

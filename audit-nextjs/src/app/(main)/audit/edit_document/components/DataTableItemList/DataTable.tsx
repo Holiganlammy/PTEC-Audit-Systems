@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useSession } from "next-auth/react";
 import {
   DndContext,
   closestCenter,
@@ -37,6 +38,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -117,6 +128,7 @@ export default function DataTableItemList({
   isLocked = false,
   onItemsChange,
 }: DataTableItemListProps) {
+  const { data: session } = useSession();
   const [orderedItems, setOrderedItems] = useState<AuditItem[]>(items);
   const [search, setSearch] = useState("");
   const [pageSize, setPageSize] = useState(20);
@@ -128,6 +140,7 @@ export default function DataTableItemList({
   const [openAddModal, setOpenAddModal] = useState(false);
   const [openEditModal, setOpenEditModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<AuditItem | null>(null);
+  const [deleteItem, setDeleteItem] = useState<AuditItem | null>(null);
 
   // Sync when parent refreshes items
   useEffect(() => {
@@ -172,23 +185,53 @@ export default function DataTableItemList({
     setTaggedUsersMap((prev) => ({ ...prev, [itemId]: tags }));
   };
 
-  const handleDelete = async (item: AuditItem) => {
-    if (!confirm(`ยืนยันการลบรายการ "${item.category_name}"?`)) return;
+  // ── Permission filter ──────────────────────────────────────────────────────
+  const visibleItems = useMemo(() => {
+    const roleId = session?.user?.role_id;
+    const userId = session?.user?.UserID;
+    if (!userId) return [];
+
+    // role 1 หรือ 2: เห็นทุก item
+    if (roleId === 1 || roleId === 2) return orderedItems;
+
+    // role 3: ต้องเป็น districtManager ของ job นี้
+    if (roleId === 3) {
+      const isJobMember =
+        userId === jobData?.districtManager?.userId
+      return isJobMember ? orderedItems : [];
+    }
+
+    // อื่นๆ: เห็นเฉพาะ item ที่ถูก tag
+    return orderedItems.filter((item) =>
+      (taggedUsersMap[item.item_id] ?? []).some(
+        (t) => t.userId === String(userId)
+      )
+    );
+  }, [orderedItems, taggedUsersMap, session, jobData]);
+
+  const handleDelete = (item: AuditItem) => {
+    setDeleteItem(item);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteItem) return;
     try {
-      await client.delete(`/audit-items/${item.item_id}`, {
+      await client.delete(`/audit-items/${deleteItem.item_id}`, {
         headers: dataConfig().headers,
       });
       toast.success("ลบรายการสำเร็จ");
       onItemsChange();
     } catch {
       toast.error("ไม่สามารถลบรายการได้");
+    } finally {
+      setDeleteItem(null);
     }
   };
 
   const columns = createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, jobData, isLocked);
 
   const table = useReactTable({
-    data: orderedItems,
+    data: visibleItems,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -258,7 +301,7 @@ export default function DataTableItemList({
         onDragEnd={handleDragEnd}
       >
         <SortableContext
-          items={orderedItems.map((item) => item.item_id)}
+          items={visibleItems.map((item) => item.item_id)}
           strategy={verticalListSortingStrategy}
         >
           <div className="rounded-md border overflow-x-auto">
@@ -397,11 +440,34 @@ export default function DataTableItemList({
         open={openEditModal}
         onOpenChange={setOpenEditModal}
         item={selectedItem}
+        jobData={jobData}
         onItemUpdated={() => {
           setOpenEditModal(false);
           onItemsChange();
         }}
       />
+
+      {/* Delete Confirm Dialog */}
+      <AlertDialog open={!!deleteItem} onOpenChange={(open) => { if (!open) setDeleteItem(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ยืนยันการลบรายการ</AlertDialogTitle>
+            <AlertDialogDescription>
+              คุณต้องการลบรายการ <span className="font-medium text-foreground">&quot;{deleteItem?.category_name}&quot;</span> ใช่หรือไม่?<br />
+              การดำเนินการนี้ไม่สามารถย้อนกลับได้
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              ลบรายการ
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

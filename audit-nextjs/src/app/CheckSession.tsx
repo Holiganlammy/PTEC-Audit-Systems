@@ -20,13 +20,22 @@ export function CheckSession({ children }: CheckSessionProps) {
   const mustCheck = !PUBLIC_ROUTES.includes(pathname);
 
   useEffect(() => {
-    // ถ้าไม่ต้อง check ให้ข้ามไป
     if (!mustCheck) {
       hasRedirected.current = false;
       return;
     }
 
     if (status === "loading") return;
+
+    // Token หมดอายุ → signOut ทันที
+    if ((session as { error?: string })?.error === "TokenExpired" && !hasRedirected.current) {
+      hasRedirected.current = true;
+      console.log("⚠️ Token expired, signing out...");
+      signOut({ redirect: false }).then(() => {
+        router.push("/login");
+      });
+      return;
+    }
 
     // ถ้า unauthenticated ให้ redirect
     if (status === "unauthenticated" && !hasRedirected.current) {
@@ -43,7 +52,7 @@ export function CheckSession({ children }: CheckSessionProps) {
     if (status === "authenticated") {
       hasRedirected.current = false;
     }
-  }, [mustCheck, status, router]);
+  }, [mustCheck, status, session, router]);
 
   // แสดง loading เมื่อ checking
   if (mustCheck && status === "loading") {

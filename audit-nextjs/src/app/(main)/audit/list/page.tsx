@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { dataConfig } from "@/config/config";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -111,12 +110,7 @@ export default function AuditJobsListPage() {
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const session = useSession();
 
-  // Fetch jobs from API
-  useEffect(() => {
-    fetchJobs();
-  }, [currentPage, statusFilter, branchFilter, itemsPerPage]);
-
-  const fetchJobs = async () => {
+  const fetchJobs = useCallback(async () => {
     try {
       setIsLoading(true);
       const params: FetchJobsParams = {
@@ -154,7 +148,12 @@ export default function AuditJobsListPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentPage, statusFilter, branchFilter, itemsPerPage]);
+
+  // Fetch jobs from API
+  useEffect(() => {
+    fetchJobs();
+  }, [fetchJobs]);
 
   // Handle delete job
   const handleDelete = async () => {

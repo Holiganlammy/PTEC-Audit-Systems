@@ -6,7 +6,7 @@ import { Plus, MessageSquare, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
-import { getSession, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import type { TaggedUser } from "../TagCell/TagCell";
 import ThreadModal from "./ThreadModal";
 
@@ -85,7 +85,7 @@ export default function NoteCell({
   if (threadType === 2) {
     const isDistrictManager =
       String(session?.user?.UserID) === String(jobData?.districtManager?.userId);
-    return roleId === 1 || roleId === 3 || isDistrictManager;
+    return roleId === 1 || roleId === 2 || roleId === 3 || isDistrictManager;
   }
     
     // Thread Type 3 (Other): เฉพาะคนที่ถูก tag หรือ role 1, 2
@@ -160,7 +160,6 @@ export default function NoteCell({
 
   const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
     const endpoint = getEndpoint();
-    const session = await getSession();
 
     const payload = {
       itemId,

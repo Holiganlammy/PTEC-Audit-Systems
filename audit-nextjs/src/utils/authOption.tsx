@@ -191,11 +191,11 @@ export const authOptions: AuthOptions = {
           console.log("⚠️ Token expired in JWT callback");
           isTokenExpired = true;
         }
-        return {};
+        return { error: "TokenExpired" };
       }
 
       if (isTokenExpired) {
-        return {};
+        return { error: "TokenExpired" };
       }
 
       if (trigger === "update" && token.UserCode) {
@@ -260,12 +260,13 @@ export const authOptions: AuthOptions = {
     },
 
     async session({ session, token }) {
-      if (!token || Object.keys(token).length === 0) {
-        console.log("Empty token in session callback");
+      if (!token || Object.keys(token).length === 0 || token.error === "TokenExpired") {
+        console.log("Empty or expired token in session callback");
         return {
           ...session,
           user: undefined,
           expires: new Date(0).toISOString(),
+          error: "TokenExpired",
         };
       }
 

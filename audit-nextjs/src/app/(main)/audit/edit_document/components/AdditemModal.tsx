@@ -28,7 +28,7 @@ import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { getSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import * as z from "zod";
 
 const formSchema = z.object({
@@ -44,6 +44,7 @@ interface CategoryItem {
   categoryCode: number;
   description: string;
   active: boolean;
+  positionType: string | null;
 }
 
 interface AddItemModalProps {
@@ -63,6 +64,7 @@ export default function AddItemModal({
   jobData,
   onItemAdded,
 }: AddItemModalProps) {
+  const { data: session } = useSession();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
@@ -81,13 +83,24 @@ export default function AddItemModal({
     const fetchCategories = async () => {
       try {
         setIsLoadingCategories(true);
-        
         const response = await client.get("/audit-categories", {
           headers: dataConfig().headers,
         });
-
+  
         if (response.data.success) {
-          setCategories(response.data.data.filter((c: CategoryItem) => c.active));
+          const filtered = response.data.data.filter((c: CategoryItem) => {
+            const isActive = c.active === true;
+            
+            if (c.positionType === null) {
+              return isActive;
+            }
+            
+            const matchPositionType = c.positionType === jobData?.positionType;
+            
+            return isActive && matchPositionType;
+          });
+          
+          setCategories(filtered);
         }
       } catch (error) {
         console.error("Error fetching categories:", error);
@@ -96,7 +109,7 @@ export default function AddItemModal({
         setIsLoadingCategories(false);
       }
     };
-
+  
     if (open) {
       fetchCategories();
       form.reset({
@@ -106,12 +119,11 @@ export default function AddItemModal({
         auditCommentStatus: "null",
       });
     }
-  }, [open, form]);
+  }, [open, form, jobData]); 
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       setIsSubmitting(true);
-      const session = await getSession();
 
       const payload = {
         jobId: jobId,

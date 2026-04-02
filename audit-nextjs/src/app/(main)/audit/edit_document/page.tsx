@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { dataConfig } from "@/config/config";
 import { Button } from "@/components/ui/button";
@@ -64,7 +64,7 @@ import {
   FieldLegend,
   FieldSet,
 } from "@/components/ui/field";
-import { getSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import DataTableItemList from "./components/DataTableItemList/DataTable";
 import { Label } from "@/components/ui/label"
@@ -90,6 +90,7 @@ export default function EditAuditJobPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const jobNo = searchParams.get("jobNo") ?? "";
+  const { data: session } = useSession();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -141,11 +142,10 @@ export default function EditAuditJobPage() {
   const [watchFirstname, watchLastname] = form.watch(["Firstname", "Lastname"]);
 
   // Fetch existing job data
-  useEffect(() => {
-    const fetchJobData = async () => {
-      try {
-        setIsLoadingData(true);
-        setLoadError(null);
+  const fetchJobData = useCallback(async () => {
+    try {
+      setIsLoadingData(true);
+      setLoadError(null);
         
         // console.log('🔍 Fetching audit job with jobNo:', jobNo); // jobNo ในที่นี้คือ jobNo จาก URL
         
@@ -192,7 +192,7 @@ export default function EditAuditJobPage() {
         }
         
         form.setValue("AdditionalNotes", jobData.additionalNotes || "");
-        form.setValue("Type", jobData.auditType === "online" ? "online" : "visit");
+        form.setValue("Type", jobData.positionType === "online" ? "online" : "visit");
 
         // Set formData
         setFormData({
@@ -223,13 +223,15 @@ export default function EditAuditJobPage() {
       } finally {
         setIsLoadingData(false);
       }
-    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobNo, form, users]);
 
+  useEffect(() => {
     // เรียก fetchJobData หลังจากโหลด users เสร็จแล้ว
     if (jobNo && !isLoadingUsers && users.length > 0) {
       fetchJobData();
     }
-  }, [jobNo, form, users, isLoadingUsers]);
+  }, [jobNo, fetchJobData, isLoadingUsers, users.length]);
 
    useEffect(() => {
     const fetchAuditItems = async () => {
@@ -514,7 +516,6 @@ export default function EditAuditJobPage() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
-    const session = await getSession();
 
     try {
       const selectedBranch = branches.find((b) => b.branchid.toString() === values.Branch);
@@ -534,7 +535,7 @@ export default function EditAuditJobPage() {
         updatedBy: session?.user?.UserID,
       };
 
-      await client.put(`/audit-jobs/${jobData?.jobNo}`, payload, {
+      await client.put(`/audit-jobs/${jobData?.jobId}`, payload, {
         headers: dataConfig().headers,
       });
 
@@ -546,7 +547,8 @@ export default function EditAuditJobPage() {
         description: "ข้อมูลงานถูกอัพเดทเรียบร้อยแล้ว",
       });
 
-      router.push("/audit-jobs");
+      await fetchJobData();
+
     } catch (error: unknown) {
       console.error("Error updating audit job:", error);
       const errorMessage =
@@ -581,7 +583,6 @@ export default function EditAuditJobPage() {
   const handleConfirm = async () => {
     if (!jobData?.jobId) return;
     setIsConfirming(true);
-    const session = await getSession();
     try {
       await client.patch(`/audit-jobs/${jobData.jobId}/confirm`, {
         confirmedBy: session?.user?.UserID || 0,
@@ -790,11 +791,12 @@ export default function EditAuditJobPage() {
                       control={form.control}
                       render={({ field }) => (
                         <Field className="mx-2 w-auto text-center">
-                          <FieldLabel className="mb-2">ประเภทการตรวจ</FieldLabel>
+                          <FieldLabel className="mb-2 justify-center">ประเภทการตรวจ</FieldLabel>
                           <RadioGroup
                             value={field.value}
                             onValueChange={field.onChange}
                             className="flex gap-6 mt-1"
+                            disabled
                           >
                             <div className="flex items-center gap-3">
                               <RadioGroupItem value="visit" id="type-visit" />
@@ -822,7 +824,80 @@ export default function EditAuditJobPage() {
                     </div>
                   ) : (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        {/* PM Code */}
+
+                    {/* Branch */}
+                    <Controller
+                      name="Branch"
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <Field>
+                          <FieldLabel>
+                            Branch <span className="text-red-500">*</span>
+                          </FieldLabel>
+                          {isLoadingBranches ? (
+                            <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
+                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            </div>
+                          ) : (
+                            <Popover open={openBranch} onOpenChange={setOpenBranch}>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  aria-expanded={openBranch}
+                                  className={cn(
+                                    "w-full justify-between",
+                                    fieldState.error && "border-red-500"
+                                  )}
+                                >
+                                  {getSelectedBranchText()}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-full p-0" align="start">
+                                <Command>
+                                  <CommandInput placeholder="ค้นหาสาขา..." />
+                                  <CommandList>
+                                    <CommandEmpty>ไม่พบข้อมูลสาขา</CommandEmpty>
+                                    <CommandGroup>
+                                      {branches.map((branch) => (
+                                        <CommandItem
+                                          key={branch.branchid}
+                                          value={`${branch.code || branch.branchid} ${branch.name}`}
+                                          onSelect={() =>
+                                            handleBranchChange(
+                                              branch.branchid.toString()
+                                            )
+                                          }
+                                        >
+                                          <Check
+                                            className={cn(
+                                              "mr-2 h-4 w-4",
+                                              field.value ===
+                                                branch.branchid.toString()
+                                                ? "opacity-100"
+                                                : "opacity-0"
+                                            )}
+                                          />
+                                          {branch.name}
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                          )}
+                          {fieldState.error && (
+                            <p className="text-sm text-red-500 mt-1">
+                              {fieldState.error.message}
+                            </p>
+                          )}
+                        </Field>
+                      )}
+                    />
+
+                     {/* PM Code */}
                     <Controller
                       name="PMCode"
                       control={form.control}
@@ -898,79 +973,6 @@ export default function EditAuditJobPage() {
                             </Popover>
                           {fieldState.error && (
                             <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
-                          )}
-                        </Field>
-                      )}
-                    />
-
-
-                    {/* Branch */}
-                    <Controller
-                      name="Branch"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <Field>
-                          <FieldLabel>
-                            Branch <span className="text-red-500">*</span>
-                          </FieldLabel>
-                          {isLoadingBranches ? (
-                            <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
-                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                            </div>
-                          ) : (
-                            <Popover open={openBranch} onOpenChange={setOpenBranch}>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  role="combobox"
-                                  aria-expanded={openBranch}
-                                  className={cn(
-                                    "w-full justify-between",
-                                    fieldState.error && "border-red-500"
-                                  )}
-                                >
-                                  {getSelectedBranchText()}
-                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-full p-0" align="start">
-                                <Command>
-                                  <CommandInput placeholder="ค้นหาสาขา..." />
-                                  <CommandList>
-                                    <CommandEmpty>ไม่พบข้อมูลสาขา</CommandEmpty>
-                                    <CommandGroup>
-                                      {branches.map((branch) => (
-                                        <CommandItem
-                                          key={branch.branchid}
-                                          value={`${branch.code || branch.branchid} ${branch.name}`}
-                                          onSelect={() =>
-                                            handleBranchChange(
-                                              branch.branchid.toString()
-                                            )
-                                          }
-                                        >
-                                          <Check
-                                            className={cn(
-                                              "mr-2 h-4 w-4",
-                                              field.value ===
-                                                branch.branchid.toString()
-                                                ? "opacity-100"
-                                                : "opacity-0"
-                                            )}
-                                          />
-                                          {branch.name}
-                                        </CommandItem>
-                                      ))}
-                                    </CommandGroup>
-                                  </CommandList>
-                                </Command>
-                              </PopoverContent>
-                            </Popover>
-                          )}
-                          {fieldState.error && (
-                            <p className="text-sm text-red-500 mt-1">
-                              {fieldState.error.message}
-                            </p>
                           )}
                         </Field>
                       )}

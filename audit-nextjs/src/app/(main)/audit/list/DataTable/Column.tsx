@@ -1,20 +1,66 @@
 "use client"
 
-import { ColumnDef } from "@tanstack/react-table"
+import { useState } from "react"
+import { ColumnDef, Row } from "@tanstack/react-table"
 import { Button } from "@/components/ui/button"
-import { ArrowUpDown, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, Pencil, Trash2, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { th } from "date-fns/locale"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { useSession } from "next-auth/react"
+
 
 // Status color config (key = audit_status_id)
 const statusColorConfig: Record<number, string> = {
   1: "bg-blue-100 text-blue-800",
   2: "bg-green-100 text-green-800",
 };
+
+function ActionsCell({ row, onDelete }: { row: Row<AuditList>; onDelete: (jobId: number) => void }) {
+  const { data: session, status } = useSession();
+  const isLoadingSession = status === "loading";
+
+  const auditList = row.original;
+  const canDelete = session?.user?.role_id === 1 || session?.user?.role_id === 2;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="h-8 w-8 p-0 mx-auto">
+          <span className="sr-only">Open menu</span>
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href={`/audit/edit_document?jobNo=${auditList.jobNo}`}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Edit
+          </Link>
+        </DropdownMenuItem>
+        {isLoadingSession ? (
+          <DropdownMenuItem disabled>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <span className="opacity-50">Delete Audit Jobs</span>
+          </DropdownMenuItem>
+        ) : canDelete && (
+          <DropdownMenuItem
+            className="text-red-600"
+            onClick={() => onDelete(auditList.jobId)}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete Audit Jobs
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 export const createAuditListColumns = (onDelete: (jobId: number) => void): ColumnDef<AuditList>[] => [
   {
@@ -306,38 +352,9 @@ export const createAuditListColumns = (onDelete: (jobId: number) => void): Colum
   },
  {
     id: "actions",
-    header: ({ column }) => (
+    header: () => (
       <div className="text-[13px] 3xl:text-sm text-center">การจัดการ</div>
     ),
-    cell: ({ row }) => {
-      const AuditList = row.original
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0 mx-auto">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href={`/audit/edit_document?jobNo=${AuditList.jobNo}`}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-red-600"
-              onClick={() => onDelete(AuditList.jobId)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete Audit Jobs
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )
-    },
+    cell: ({ row }) => <ActionsCell row={row} onDelete={onDelete} />,
   },
 ]
