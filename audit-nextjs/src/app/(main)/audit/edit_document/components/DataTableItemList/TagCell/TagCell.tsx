@@ -39,6 +39,7 @@ interface TagCellProps {
   initialTags?: TaggedUser[];
   onTagChange?: (tags: TaggedUser[]) => void;
   isLocked?: boolean;
+  forceRefresh?: boolean;
 }
 
 export default function TagCell({
@@ -47,6 +48,7 @@ export default function TagCell({
   initialTags = [],
   onTagChange,
   isLocked = false,
+  forceRefresh = false,
 }: TagCellProps) {
   const { data: session } = useSession();
   const [tags, setTags] = useState<TaggedUser[]>(initialTags);
@@ -54,8 +56,24 @@ export default function TagCell({
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [pendingUser, setPendingUser] = useState<ApiUser | null>(null);
+  const [pendingRemoveTag, setPendingRemoveTag] = useState<TaggedUser | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+
+    useEffect(() => {
+    if (forceRefresh) {
+      client
+        .get(`/audit-items/${itemId}/tagged-users`, {
+          headers: dataConfig().headers,
+        })
+        .then((res) => {
+          if (Array.isArray(res.data)) {
+            setTags(res.data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [forceRefresh, itemId]);
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -75,7 +93,7 @@ export default function TagCell({
     ? users
         .filter(
           (u) =>
-            !tags.some((t) => t.userId === u.UserID) &&
+            !tags.some((t) => String(t.userId) === String(u.UserID)) &&
             (u.UserCode.toLowerCase().includes(search.toLowerCase()) ||
               u.Fullname.toLowerCase().includes(search.toLowerCase()))
         )
@@ -168,7 +186,7 @@ export default function TagCell({
                   type="button"
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    removeTag(t);
+                    setPendingRemoveTag(t);
                   }}
                   className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20 transition-colors"
                   aria-label={`ลบ ${t.userCode}`}
@@ -239,7 +257,7 @@ export default function TagCell({
       </div>
       )}
 
-      {/* Confirm Alert Dialog */}
+      {/* Confirm Alert Dialog - Add Tag */}
       <AlertDialog open={!!pendingUser} onOpenChange={(open) => { if (!open) setPendingUser(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -261,6 +279,34 @@ export default function TagCell({
               }}
             >
               ยืนยัน
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirm Alert Dialog - Remove Tag */}
+      <AlertDialog open={!!pendingRemoveTag} onOpenChange={(open) => { if (!open) setPendingRemoveTag(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ยืนยันการลบแท็ก</AlertDialogTitle>
+            <AlertDialogDescription>
+              คุณต้องการลบแท็ก{" "}
+              <span className="font-semibold text-foreground">
+                {pendingRemoveTag?.userCode} — {pendingRemoveTag?.fullname}
+              </span>{" "}
+              ออกใช่หรือไม่?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingRemoveTag(null)}>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              onClick={() => {
+                if (pendingRemoveTag) removeTag(pendingRemoveTag);
+                setPendingRemoveTag(null);
+              }}
+            >
+              ลบ
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

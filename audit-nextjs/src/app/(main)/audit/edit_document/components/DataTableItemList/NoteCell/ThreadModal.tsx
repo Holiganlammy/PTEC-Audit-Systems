@@ -271,7 +271,7 @@ export default function ThreadModal({
         </DialogHeader>
 
         {/* Comments */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 max-h-[50vh]">
+        <div className="h-[40vh] overflow-y-auto px-4 py-3">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

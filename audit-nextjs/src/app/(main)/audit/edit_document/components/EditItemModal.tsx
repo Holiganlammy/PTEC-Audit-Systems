@@ -65,6 +65,11 @@ const statusOptions = [
   { value: "4", label: "ปิดเคส" },
 ];
 
+const statusEditOptions = [
+  { value: "2", label: "อยู่ระหว่างดำเนินการ" },
+  { value: "4", label: "ปิดเคส" },
+];
+
 export default function EditItemModal({
   open,
   onOpenChange,
@@ -131,11 +136,6 @@ export default function EditItemModal({
           
           setCategories(filtered);
           
-          console.log('📋 Edit Modal - Filtered categories:', {
-            jobPositionType: jobData?.positionType,
-            totalCategories: response.data.data.length,
-            filteredCount: filtered.length,
-          });
         }
       } catch (error) {
         console.error("Error fetching categories:", error);
@@ -198,9 +198,9 @@ export default function EditItemModal({
               <span className="font-medium">{item.category_name}</span>
             </div>
             <div className="flex gap-2">
-              <span className="text-muted-foreground w-32 shrink-0">วันที่ตรวจสอบ</span>
+              <span className="text-muted-foreground w-32 shrink-0">วันที่แก้ไข(ล่าสุด)</span>
               <span className="font-medium">
-                {format(new Date(item.inspection_date), "dd MMM yyyy", { locale: th })}
+                {format(new Date(item.updated_at), "dd MMM yyyy HH:mm", { locale: th })}
               </span>
             </div>
           </div>
@@ -221,7 +221,7 @@ export default function EditItemModal({
                     <Loader2 className="h-4 w-4 animate-spin" />
                   </div>
                 ) : (
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select value={field.value} onValueChange={field.onChange} disabled>
                     <SelectTrigger className={cn(fieldState.error && "border-red-500")}>
                       <SelectValue placeholder="เลือกหมวดหมู่" />
                     </SelectTrigger>
@@ -295,9 +295,9 @@ export default function EditItemModal({
             render={({ field, fieldState }) => (
               <Field>
                 <FieldLabel>
-                  สถานะที่ตรวจพบ (ครั้งแรก) <span className="text-red-500">*</span>
+                  สถานะที่ตรวจพบ <span className="text-red-500">*</span>
                 </FieldLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select value={field.value} onValueChange={field.onChange} disabled>
                   <SelectTrigger className={cn(fieldState.error && "border-red-500")}>
                     <SelectValue placeholder="เลือกสถานะ" />
                   </SelectTrigger>
@@ -330,7 +330,7 @@ export default function EditItemModal({
                     <SelectValue placeholder="เลือกสถานะ" />
                   </SelectTrigger>
                   <SelectContent>
-                    {statusOptions.map((s) => (
+                    {statusEditOptions.map((s) => (
                       <SelectItem key={s.value} value={s.value}>
                         {s.label}
                       </SelectItem>

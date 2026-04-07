@@ -22,6 +22,7 @@ export class AuditItemOtherDetailsService {
       note: createDto.note,
       approverStatus: createDto.approverStatus,
       createdBy: createDto.createdBy,
+      createdAt: new Date(),
       active: true,
     });
 

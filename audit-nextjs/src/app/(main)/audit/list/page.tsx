@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { dataConfig } from "@/config/config";
 import { Button } from "@/components/ui/button";
@@ -193,6 +193,24 @@ export default function AuditJobsListPage() {
   };
 
   const hasActiveFilters = statusFilter !== "all" || branchFilter !== "all";
+
+  // // ── Permission filter ──────────────────────────────────────────────────────
+  // const visibleJobs = useMemo(() => {
+  //   const roleId = session.data?.user?.role_id;
+  //   const userCode = session.data?.user?.UserCode;
+  //   if (!userCode) return jobs;
+  //   console.log("Filtering jobs for user:", userCode, "with role:", roleId);
+  //   // role 1 หรือ 2: เห็นทุก job
+  //   if (roleId === 1 || roleId === 2) return jobs;
+
+  //   // role 3: เห็นเฉพาะ job ที่ตัวเองเป็น districtManager
+  //   if (roleId === 3) {
+  //     return jobs.filter((job) => job.districtManager?.userCode === userCode);
+  //   }
+
+  //   // อื่นๆ: ไม่เห็น job ใด
+  //   return [];
+  // }, [jobs, session.data]);
 
   // Get filter labels
   const getStatusLabel = (value: string) => {

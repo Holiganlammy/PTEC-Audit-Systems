@@ -22,7 +22,7 @@ import { ConfigModule } from '@nestjs/config';
         encrypt: false,
         trustServerCertificate: true,
       },
-      logging: true,
+      // logging: true,
     }),
     PTEC_USERRIGHT_Module,
   ],

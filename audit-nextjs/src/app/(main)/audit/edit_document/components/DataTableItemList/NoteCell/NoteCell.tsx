@@ -10,14 +10,23 @@ import { useSession } from "next-auth/react";
 import type { TaggedUser } from "../TagCell/TagCell";
 import ThreadModal from "./ThreadModal";
 
+interface ApiUser {
+  UserID: string;
+  UserCode: string;
+  Fullname: string;
+}
+
 interface NoteCellProps {
   itemId: number;
   threadType: 1 | 2 | 3; // 1=Audit, 2=AM, 3=Other
   label: string;
   initialComments?: AuditComment[];
   onRefresh?: () => void;
+  onTagChange?: (itemId: number, tags: TaggedUser[]) => void;
+  onCommentsChange?: (itemId: number, threadType: 1 | 2 | 3, comments: AuditComment[]) => void;
   taggedUsers?: TaggedUser[];
   jobData?: AuditJobData;
+  users?: ApiUser[];
   isLocked?: boolean;
 }
 
@@ -49,13 +58,6 @@ interface AuditDetailsComment {
   };
 }
 
-interface AuditJobData {
-  jobid: number;
-  jobNo: string;
-  districtManager?: {
-    userId: number;
-  };
-}
 
 // ── Main NoteCell Component ──────────────────────────────────────────────────
 export default function NoteCell({
@@ -63,9 +65,12 @@ export default function NoteCell({
   threadType,
   label,
   initialComments = [],
-  onRefresh,
+  // onRefresh is kept for potential future use (currently unused after modal-close fix)
+  onTagChange,
+  onCommentsChange,
   taggedUsers = [],
   jobData,
+  users = [],
   isLocked = false,
 }: NoteCellProps) {
   const { data: session } = useSession();
@@ -143,7 +148,6 @@ export default function NoteCell({
             })
           );
           
-          console.log("✅ Fetched comments:", transformedComments);
           setComments(transformedComments);
         }
       } catch (error) {
@@ -160,7 +164,7 @@ export default function NoteCell({
 
   const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
     const endpoint = getEndpoint();
-
+  
     const payload = {
       itemId,
       userId: session?.user?.UserID,
@@ -168,18 +172,87 @@ export default function NoteCell({
       createdBy: session?.user?.UserID,
       approverStatus,
     };
-
-    await client.post(`/audit-items/${itemId}/${endpoint}`, payload, {
-      headers: dataConfig().headers,
-    });
-
-    // Refetch comments
+  
+    // 1. Save comment
+    await client.post(
+      `/audit-items/${itemId}/${endpoint}`,
+      payload,
+      { headers: dataConfig().headers }
+    );
+  
+    // 2. Fetch comments (ทำครั้งเดียว)
     const response = await client.get(`/audit-items/${itemId}/${endpoint}`, {
       headers: dataConfig().headers,
     });
-
+  
     if (response.data.success) {
-      const transformedComments: AuditComment[] = response.data.data.map(
+      const latestComments = response.data.data;
+  
+      // ✅ Auto-tag approver (ถ้าส่งเพื่ออนุมัติ)
+      if (approverStatus === 0) {
+        // หา comment ที่เพิ่งสร้าง
+        const myPendingComments = latestComments.filter(
+          (c: AuditDetailsComment) =>
+            c.createdBy === session?.user?.UserID &&
+            c.approverStatus === 0 &&
+            c.requireApprovalFrom
+        );
+  
+        // เก็บ approver ที่ต้อง tag
+        const approversToTag = new Set<string>();
+  
+        myPendingComments.forEach((c: AuditDetailsComment) => {
+          if (c.requireApprovalFrom) {
+            const approverUser = users.find(
+              (u: ApiUser) => u.UserCode === c.requireApprovalFrom!.userCode
+            );
+  
+            if (approverUser) {
+              approversToTag.add(approverUser.UserID);
+            }
+          }
+        });
+  
+        // Tag approvers
+        for (const approverUserId of approversToTag) {
+          const alreadyTagged = taggedUsers.some(
+            (t) => String(t.userId) === String(approverUserId)
+          );
+  
+          if (!alreadyTagged) {
+            try {
+              await client.post(
+                `/audit-items/${itemId}/tagged-user`,
+                {
+                  userId: approverUserId,
+                  createdBy: session?.user?.UserID,
+                },
+                { headers: dataConfig().headers }
+              );
+              console.log('✅ Auto-tagged approver:', approverUserId);
+            } catch (error) {
+              console.error('❌ Failed to auto-tag:', error);
+            }
+          }
+        }
+
+        // Update TagCell UI immediately without refresh
+        if (onTagChange) {
+          const newlyTagged = [...approversToTag]
+            .filter(uid => !taggedUsers.some(t => String(t.userId) === String(uid)))
+            .map(uid => {
+              const u = users.find(u => u.UserID === uid);
+              return u ? { userId: u.UserID, userCode: u.UserCode, fullname: u.Fullname } : null;
+            })
+            .filter((t): t is TaggedUser => t !== null);
+          if (newlyTagged.length > 0) {
+            onTagChange(itemId, [...taggedUsers, ...newlyTagged]);
+          }
+        }
+      }
+  
+      // Update UI
+      const transformedComments: AuditComment[] = latestComments.map(
         (c: AuditDetailsComment) => ({
           id:
             threadType === 1
@@ -203,12 +276,10 @@ export default function NoteCell({
           updatedAt: c.updatedAt,
         })
       );
-
+  
       setComments(transformedComments);
+      onCommentsChange?.(itemId, threadType, transformedComments);
     }
-
-    // Notify parent to refresh
-    if (onRefresh) onRefresh();
   };
 
   // Approve/Reject comment
@@ -260,10 +331,8 @@ export default function NoteCell({
         })
       );
       setComments(transformedComments);
+      onCommentsChange?.(itemId, threadType, transformedComments);
     }
-
-    // Notify parent to refresh
-    if (onRefresh) onRefresh();
   };
 
   const latest = comments[comments.length - 1];

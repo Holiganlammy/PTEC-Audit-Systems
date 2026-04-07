@@ -20,8 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import NoteCell from "../NoteCell/NoteCell";
 import TagCell, { TaggedUser } from "../TagCell/TagCell";
-export type { TaggedUser };
-import { useSession } from "next-auth/react";
+export type { TaggedUser };import { useSession } from "next-auth/react";
 
 export const DragHandleContext = createContext<{
   listeners?: SyntheticListenerMap;
@@ -134,6 +133,7 @@ export const createAuditItemsColumns = (
   users: { UserID: string; UserCode: string; Fullname: string }[] = [],
   taggedUsersMap: Record<number, TaggedUser[]> = {},
   onTagChange?: (itemId: number, tags: TaggedUser[]) => void,
+  onCommentsChange?: (itemId: number, threadType: 1 | 2 | 3, comments: AuditComment[]) => void,
   jobData?: AuditJobData,
   isLocked?: boolean
 ): ColumnDef<AuditItem>[] => [
@@ -181,7 +181,7 @@ export const createAuditItemsColumns = (
     accessorKey: "item_status",
     header: (table) => (
       <div className="text-center">
-        สถานะที่ตรวจพบ (ครั้งแรก)
+        สถานะที่ตรวจพบ
       </div>
     ),
     cell: ({ row }) => {
@@ -215,6 +215,8 @@ export const createAuditItemsColumns = (
         label="Audit Unit"
         initialComments={row.original.note_1}
         onRefresh={onRefresh}
+        onTagChange={onTagChange}
+        onCommentsChange={onCommentsChange}
         isLocked={isLocked}
       />
     ),
@@ -229,6 +231,8 @@ export const createAuditItemsColumns = (
         label="AM Unit"
         initialComments={row.original.note_2}
         onRefresh={onRefresh}
+        onTagChange={onTagChange}
+        onCommentsChange={onCommentsChange}
         isLocked={isLocked}
       />
     ),
@@ -242,7 +246,11 @@ export const createAuditItemsColumns = (
         threadType={3}
         label="Other Agencies"
         initialComments={row.original.note_3}
+        jobData={jobData}
+        users={users}
         onRefresh={onRefresh}
+        onTagChange={onTagChange}
+        onCommentsChange={onCommentsChange}
         taggedUsers={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []}
         isLocked={isLocked}
       />
@@ -271,7 +279,6 @@ export const createAuditItemsColumns = (
       </div>
     ),
     cell: ({ row }) => {
-      console.log("item_status_edit:", row);
       return(
         <div className="text-center">
           {getStatusBadge(row.getValue("item_status_edit") as number)}

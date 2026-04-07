@@ -116,6 +116,7 @@ interface DataTableItemListProps {
   jobData?: AuditJobData;
   isLoading?: boolean;
   isLocked?: boolean;
+  showAddButton?: boolean;
   onItemsChange: () => void;
 }
 
@@ -126,6 +127,7 @@ export default function DataTableItemList({
   jobData,
   isLoading = false,
   isLocked = false,
+  showAddButton = false,
   onItemsChange,
 }: DataTableItemListProps) {
   const { data: session } = useSession();
@@ -185,28 +187,41 @@ export default function DataTableItemList({
     setTaggedUsersMap((prev) => ({ ...prev, [itemId]: tags }));
   };
 
+  const handleCommentsChange = (itemId: number, threadType: 1 | 2 | 3, comments: AuditComment[]) => {
+    const noteKey = threadType === 1 ? "note_1" : threadType === 2 ? "note_2" : "note_3";
+    setOrderedItems((prev) =>
+      prev.map((item) =>
+        item.item_id === itemId ? { ...item, [noteKey]: comments } : item
+      )
+    );
+  };
+
   // ── Permission filter ──────────────────────────────────────────────────────
-  const visibleItems = useMemo(() => {
+  const { visibleItems, accessDenied } = useMemo(() => {
     const roleId = session?.user?.role_id;
     const userId = session?.user?.UserID;
-    if (!userId) return [];
+    if (!userId) return { visibleItems: [], accessDenied: false };
 
     // role 1 หรือ 2: เห็นทุก item
-    if (roleId === 1 || roleId === 2) return orderedItems;
+    if (roleId === 1 || roleId === 2)
+      return { visibleItems: orderedItems, accessDenied: false };
 
     // role 3: ต้องเป็น districtManager ของ job นี้
     if (roleId === 3) {
-      const isJobMember =
-        userId === jobData?.districtManager?.userId
-      return isJobMember ? orderedItems : [];
+      const isJobMember = userId == jobData?.districtManager?.userId;
+      if (!isJobMember) return { visibleItems: [], accessDenied: true };
+      return { visibleItems: orderedItems, accessDenied: false };
     }
 
     // อื่นๆ: เห็นเฉพาะ item ที่ถูก tag
-    return orderedItems.filter((item) =>
-      (taggedUsersMap[item.item_id] ?? []).some(
-        (t) => t.userId === String(userId)
-      )
-    );
+    return {
+      visibleItems: orderedItems.filter((item) =>
+        (taggedUsersMap[item.item_id] ?? []).some(
+          (t) => t.userId == String(userId)
+        )
+      ),
+      accessDenied: false,
+    };
   }, [orderedItems, taggedUsersMap, session, jobData]);
 
   const handleDelete = (item: AuditItem) => {
@@ -228,11 +243,12 @@ export default function DataTableItemList({
     }
   };
 
-  const columns = createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, jobData, isLocked);
+  const columns = createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked);
 
   const table = useReactTable({
     data: visibleItems,
     columns,
+    getRowId: (row) => String(row.item_id),
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -271,6 +287,7 @@ export default function DataTableItemList({
   };
 
   const rows = table.getRowModel().rows;
+  const noPermission = !isLoading && (accessDenied || (orderedItems.length > 0 && visibleItems.length === 0));
 
   return (
     <div className="space-y-4">
@@ -286,7 +303,7 @@ export default function DataTableItemList({
           className="max-w-sm"
           disabled={isLoading}
         />
-        {!isLocked && (
+        {!isLocked && showAddButton && (
           <Button onClick={() => setOpenAddModal(true)}>
             <Plus className="mr-2 h-4 w-4" />
             เพิ่มรายการ
@@ -339,9 +356,11 @@ export default function DataTableItemList({
                   <TableRow>
                     <TableCell
                       colSpan={columns.length}
-                      className="h-24 text-center"
+                      className="h-24 text-center text-muted-foreground"
                     >
-                      ไม่พบรายการ
+                      {noPermission
+                        ? "🔒 คุณไม่มีสิทธิ์ในการดูรายการเหล่านี้"
+                        : "ไม่พบรายการ"}
                     </TableCell>
                   </TableRow>
                 )}

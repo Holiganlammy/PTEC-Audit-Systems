@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import * as sql from 'mssql';
 import { AuditJobsHeader } from '../domain/model/audit.jobs-header.entity';
 import { AuditItem } from '../domain/model/audit-item.entity';
+import { AuditItemOtherDetailsUser } from '../domain/model/audit-item-other-details-users.entity';
 import { CreateAuditJobDto } from '../dto/create-audit-job.dto';
 import { UpdateAuditJobDto } from '../dto/update-audit-job.dto';
 import { DatabaseManagerService } from '../../database/database-manager.service';
@@ -267,14 +268,13 @@ export class AuditJobsService {
 
     const query = this.auditJobsRepository.createQueryBuilder('job');
 
+    // Filter by status, branchId, auditorUserId, active (เหมือนเดิม)
     if (params.status !== undefined) {
       query.andWhere('job.status = :status', { status: params.status });
     }
 
     if (params.branchId !== undefined) {
-      query.andWhere('job.branchId = :branchId', {
-        branchId: params.branchId,
-      });
+      query.andWhere('job.branchId = :branchId', { branchId: params.branchId });
     }
 
     if (params.auditorUserId !== undefined) {
@@ -289,11 +289,43 @@ export class AuditJobsService {
       query.andWhere('job.active = :active', { active: true });
     }
 
-    if (!user.is_admin) {
-      query.andWhere(
-        '(job.auditorUserId = :userId OR job.districtManagerUserId = :userId OR job.branchManagerUserId = :userId)',
-        { userId: user.user_id },
-      );
+    // Permission Filter ตาม role_id
+    const roleId = user.role_id;
+    const userId = user.user_id;
+
+    if (roleId === 1 || roleId === 2) {
+      // Role 1, 2: เห็นทุก job
+      // ไม่ต้อง filter
+    } else if (roleId === 3) {
+      // Role 3 (District Manager): เห็นเฉพาะ job ที่ตัวเองเป็น district_manager
+      query.andWhere('job.districtManagerUserId = :userId', { userId });
+    } else if (roleId === 4) {
+      // Role 4 (Manager DM): เห็นทุก job
+      // ไม่ต้อง filter
+    } else if (roleId === 5) {
+      // Role 5 (User): เห็นเฉพาะ job ที่ถูก tag
+      query.andWhere((qb) => {
+        const subQuery = qb
+          .subQuery()
+          .select('1')
+          .from(AuditItem, 'item')
+          .innerJoin(
+            AuditItemOtherDetailsUser,
+            'tag',
+            'tag.itemId = item.itemId AND tag.active = :tagActive',
+            { tagActive: true },
+          )
+          .where('item.jobId = job.jobId')
+          .andWhere('tag.userId = :userId', { userId })
+          .getQuery();
+        return `EXISTS ${subQuery}`;
+      });
+    } else if (roleId === 6) {
+      // Role 6 (Branch Manager): เห็นเฉพาะ job ที่ตัวเองเป็น branch_manager
+      query.andWhere('job.branchManagerUserId = :userId', { userId });
+    } else {
+      // ไม่ใช่ role ที่กำหนด → ไม่เห็นอะไร
+      query.andWhere('1 = 0');
     }
 
     const total = await query.getCount();
@@ -372,7 +404,7 @@ export class AuditJobsService {
     return await this.transformAuditJobWithUsers(auditJob);
   }
 
-  // ✅ Update audit job - อัพเดท Snapshot ถ้าเปลี่ยน user
+  // Update audit job - อัพเดท Snapshot ถ้าเปลี่ยน user
   async update(
     id: number,
     updateAuditJobDto: UpdateAuditJobDto,

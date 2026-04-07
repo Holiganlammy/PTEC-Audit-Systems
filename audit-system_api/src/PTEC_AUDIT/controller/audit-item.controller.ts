@@ -11,16 +11,24 @@ import {
   Patch,
   HttpStatus,
   Res,
+  Req,
 } from '@nestjs/common';
 import express from 'express';
 import { AuditItemsService } from '../service/audit-item.service';
 import { CreateAuditItemDto } from '../dto/create-audit-item.dto';
 import { UpdateAuditItemDto } from '../dto/update-audit-item.dto';
-import { AuditItem } from '../domain/model/audit-item.entity';
+import { AuditUserRolesService } from '../../PTEC_USERIGHT/service/audit-user-roles.service';
+import { JwtService } from '@nestjs/jwt';
+import { UnauthorizedException } from '@nestjs/common';
+import { UserInfo } from '../domain/type/audit-job.interface';
 
 @Controller('audit-items')
 export class AuditItemsController {
-  constructor(private readonly auditItemsService: AuditItemsService) {}
+  constructor(
+    private readonly auditItemsService: AuditItemsService,
+    private readonly jwtService: JwtService,
+    private readonly auditUserRolesService: AuditUserRolesService,
+  ) {}
 
   // POST /audit-items - Create single audit item
   @Post()
@@ -71,21 +79,21 @@ export class AuditItemsController {
   @Get()
   async findAll(
     @Query('jobId') jobId?: string,
-    @Query('categoryItemId') categoryItemId?: string,
-    @Query('itemStatus') itemStatus?: string,
-    @Query('active') active?: string,
+    @Query('search') search?: string,
+    @Req() req?: express.Request,
     @Res() res?: express.Response,
   ) {
     try {
-      const filters: Partial<AuditItem> = {};
+      const filters: {
+        jobId?: number;
+        search?: string;
+      } = {};
 
       if (jobId !== undefined) filters.jobId = Number(jobId);
-      if (categoryItemId !== undefined)
-        filters.categoryItemId = Number(categoryItemId);
-      if (itemStatus !== undefined) filters.itemStatus = Number(itemStatus);
-      if (active !== undefined) filters.active = active === 'true';
+      if (search !== undefined) filters.search = search;
+      const user = await this.getUserFromJWT(req);
 
-      const auditItems = await this.auditItemsService.findAll(filters);
+      const auditItems = await this.auditItemsService.findAll(filters, user);
       return res?.status(HttpStatus.OK).json({
         success: true,
         data: auditItems,
@@ -130,18 +138,58 @@ export class AuditItemsController {
   @Get('job/:jobId')
   async findByItemsJobAuditId(
     @Param('jobId', ParseIntPipe) jobId: number,
-    @Res() res: express.Response,
+    @Query('search') search?: string,
+    @Req() req?: express.Request,
+    @Res() res?: express.Response,
   ) {
     try {
-      const auditItems =
-        await this.auditItemsService.findByItemsJobAuditId(jobId);
-      return res.status(HttpStatus.OK).json({
+      // Get user from JWT
+      const user = req ? await this.getUserFromJWT(req) : undefined;
+
+      if (!user) {
+        return res?.status(HttpStatus.UNAUTHORIZED).json({
+          success: false,
+          message: 'User authentication required',
+        });
+      }
+
+      // ✅ Build filters object
+      const filters: {
+        jobId?: number;
+        search?: string;
+      } = {
+        jobId: jobId, // ✅ Put jobId in object
+      };
+
+      // Add search if exists
+      if (search !== undefined && search.trim()) {
+        filters.search = search.trim();
+      }
+
+      // ✅ Pass filters object (not just jobId)
+      const auditItems = await this.auditItemsService.findByItemsJobAuditId(
+        filters, // ✅ object
+        user,
+      );
+
+      return res?.status(HttpStatus.OK).json({
         success: true,
+        code: HttpStatus.OK,
         data: auditItems,
+        total: auditItems.length,
+        message: `Audit items for job ID ${jobId} fetched successfully`,
       });
     } catch (error) {
       console.error('Error fetching audit items by job ID:', error);
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+
+      if (error instanceof UnauthorizedException) {
+        return res?.status(HttpStatus.UNAUTHORIZED).json({
+          success: false,
+          message: error.message,
+        });
+      }
+
+      return res?.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: 'Error fetching audit items by job ID',
       });
@@ -258,6 +306,72 @@ export class AuditItemsController {
         success: false,
         message: 'Error deleting audit item',
       });
+    }
+  }
+  private async getUserFromJWT(
+    req: express.Request | undefined,
+  ): Promise<UserInfo | undefined> {
+    if (!req) {
+      return undefined;
+    }
+
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader?.startsWith('Bearer ')) {
+      throw new UnauthorizedException('No token provided');
+    }
+
+    const token = authHeader.substring(7);
+
+    try {
+      // 1. Decode JWT
+      const decoded = this.jwtService.verify<{
+        userId: string;
+        username: string;
+        role: string;
+      }>(token, {
+        secret: process.env.NEXTAUTH_SECRET,
+      });
+      // console.log(' Verifying user role for:', decoded);
+
+      if (!decoded.username) {
+        throw new Error('Username is missing from JWT');
+      }
+
+      // 2. Get Audit role
+      // console.log('Fetching Audit role for:', decoded.username);
+
+      const auditRole = await this.auditUserRolesService.getRoleByUserCode(
+        decoded.username,
+      );
+
+      if (!auditRole) {
+        throw new UnauthorizedException(
+          `User ${decoded.username} is not registered in Audit System`,
+        );
+      }
+
+      // console.log('User authorized:', {
+      //   username: decoded.username,
+      //   Audit_role: auditRole.roleId,
+      //   role_name: auditRole.roleName,
+      // });
+      return {
+        user_id: parseInt(decoded.userId, 10),
+        role_id: auditRole.roleId,
+        username: decoded.username,
+        is_admin: auditRole.roleId === 1,
+      };
+    } catch (error) {
+      console.error('❌ Authorization failed:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+
+      throw new UnauthorizedException(
+        `Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   }
 }

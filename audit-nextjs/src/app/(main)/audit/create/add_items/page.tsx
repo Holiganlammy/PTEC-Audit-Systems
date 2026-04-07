@@ -253,6 +253,7 @@ export default function AddItemsPage() {
             jobId={jobId}
             jobData={jobData ?? undefined}
             isLoading={isLoadingItems}
+            showAddButton
             onItemsChange={fetchItems}
           />
         )}

@@ -42,28 +42,23 @@ export class AppService {
     if (auditRole?.roleId !== undefined && auditRole?.roleId !== null) {
       return Number(auditRole.roleId);
     }
-
-    const users = await this.userRightService.getUsersFromProcedure(
-      userCode,
-      null,
-    );
-    const roleId = users?.[0]?.role_id;
-    if (roleId === undefined || roleId === null) return null;
-    return Number(roleId);
+    return null;
   }
 
-  async getMenusByUserCode(userCode: string): Promise<MenuAuditResponseDto[]> {
-    const roleId = await this.getRoleIdByUserCode(userCode);
-    if (roleId === null) {
-      return [];
-    }
-    return this.getMenusByRole(roleId);
-  }
+  // async getMenusByUserCode(userCode: string): Promise<MenuAuditResponseDto[]> {
+  //   const roleId = await this.getRoleIdByUserCode(userCode);
+  //   console.log(`UserCode ${userCode} has roleId:`, roleId);
+  //   if (roleId === null) {
+  //     return [];
+  //   }
+  //   return this.getMenusByRole(roleId);
+  // }
 
   async getMenuTreeByUserCode(
     userCode: string,
   ): Promise<MenuAuditResponseDto[]> {
     const roleId = await this.getRoleIdByUserCode(userCode);
+    console.log(`UserCode ${userCode} has roleId:`, roleId);
     if (roleId === null) {
       return [];
     }
@@ -113,14 +108,14 @@ export class AppService {
 
     const rows = await this.menuAuditRepository
       .createQueryBuilder('menu')
-      .leftJoin(
+      .innerJoin(
         MenuAuditPermission,
         'perm',
         'perm.menu_id = menu.menu_id AND perm.role_id = :roleId',
         { roleId },
       )
       .where('menu.is_active = 1')
-      .andWhere('(perm.can_view = 1 OR perm.can_view IS NULL)')
+      .andWhere('perm.can_view = 1')
       .select([
         'menu.menu_id AS menuId',
         'menu.name AS name',
@@ -129,7 +124,7 @@ export class AppService {
         'menu.parent_id AS parentId',
         'menu.order_no AS orderNo',
         'menu.is_active AS isActive',
-        'ISNULL(perm.can_view, 1) AS canView',
+        'perm.can_view AS canView',
       ])
       .orderBy('menu.order_no', 'ASC')
       .getRawMany<RawMenuResult>();

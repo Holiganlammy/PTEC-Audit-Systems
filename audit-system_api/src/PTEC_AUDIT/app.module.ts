@@ -5,6 +5,7 @@ import { AuthMiddleware } from '../auth/auth.middleware';
 import { MenuAudit } from './domain/model/menu-audit.entity';
 import { MenuAuditPermission } from './domain/model/menu-audit-permission.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { JwtModule } from '@nestjs/jwt';
 // Entities
 import { AuditJobsHeader } from './domain/model/audit.jobs-header.entity';
 import { AuditItem } from './domain/model/audit-item.entity';
@@ -63,6 +64,9 @@ import { AuditItemOtherUserDetailController } from './controller/audit-item-audi
     ]),
     DatabaseManagerModule,
     PTEC_USERRIGHT_Module,
+    JwtModule.register({
+      secret: process.env.JWT_SECRET,
+    }),
   ],
   providers: [
     AuditItemAMDetailsService,

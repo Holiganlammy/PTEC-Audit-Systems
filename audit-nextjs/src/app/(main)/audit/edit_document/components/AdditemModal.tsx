@@ -279,7 +279,7 @@ const statusOptions = [
             render={({ field, fieldState }) => (
               <Field>
                 <FieldLabel>
-                  สถานะที่ตรวจพบ (ครั้งแรก) <span className="text-red-500">*</span>
+                  สถานะที่ตรวจพบ <span className="text-red-500">*</span>
                 </FieldLabel>
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger className={cn(fieldState.error && "border-red-500")}>

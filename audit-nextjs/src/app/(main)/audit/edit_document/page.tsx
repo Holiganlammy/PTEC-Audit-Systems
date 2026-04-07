@@ -314,7 +314,6 @@ export default function EditAuditJobPage() {
           }));
  
           setAuditItems(items);
-          console.log('Loaded audit items:', items);
         }
       } catch (error) {
         console.error("Error fetching audit items:", error);
@@ -474,11 +473,13 @@ export default function EditAuditJobPage() {
 
   const { isDirty } = form.formState;
 
+  const isFormLocked = jobData?.status === 2;
+
   const canConfirm =
     !isLoadingItems &&
     !isDirty &&
     auditItems.length > 0 &&
-    auditItems.every((item) => item.item_status === 1);
+    auditItems.every((item) => item.item_status_edit === 4);
 
   // Handle branch selection
   const handleBranchChange = (value: string) => {
@@ -650,7 +651,6 @@ export default function EditAuditJobPage() {
   //     </div>
   //   );
   // }
- console.log("Loaded job data:", jobData);
   return (
     <div className="mb-10">
       <div className="max-w-[1400px] mx-auto px-4">
@@ -720,7 +720,7 @@ export default function EditAuditJobPage() {
                             <p>
                               {isDirty
                                 ? "กรุณา Save Changes ก่อนยืนยันเอกสาร"
-                                : "รายการตรวจสอบทั้งหมดต้องมีสถานะ \"ปกติ\" ก่อนยืนยันเอกสาร"}
+                                : "รายการตรวจสอบทั้งหมดต้องมีสถานะ \"ปิดเคส\" ก่อนยืนยันเอกสาร"}
                             </p>
                           </TooltipContent>
                         )}
@@ -758,7 +758,7 @@ export default function EditAuditJobPage() {
         </div>
 
         <form onSubmit={form.handleSubmit(onSubmit, handleFormError)} className="space-y-6">
-          <fieldset disabled={jobData?.status === 2} className="contents">
+          <fieldset disabled={isFormLocked} className="contents">
           {/* Main Card with all fields */}
           <Card>
             <CardContent className="pt-6">
@@ -1334,67 +1334,3 @@ export default function EditAuditJobPage() {
     </div>
   );
 }
-
-// // ── Mock data (ลบออกเมื่อต่อ API จริง) ──────────────────────────────────────
-// const MOCK_ITEMS: AuditItem[] = [
-//   {
-//     item_id: 1,
-//     job_id: 1,
-//     category_item_id: 101,
-//     category_name: "ความสะอาดและความเป็นระเบียบ",
-//     inspection_date: "2026-03-01T00:00:00.000Z",
-//     item_status: 1,
-//     remarks: "ผ่านการตรวจสอบ",
-//     created_at: "2026-03-01T08:00:00.000Z",
-//     updated_at: "2026-03-01T08:00:00.000Z",
-//     active: true,
-//   },
-//   {
-//     item_id: 2,
-//     job_id: 1,
-//     category_item_id: 102,
-//     category_name: "ระบบความปลอดภัยและอัคคีภัย",
-//     inspection_date: "2026-03-01T00:00:00.000Z",
-//     item_status: 2,
-//     remarks: "พบข้อบกพร่อง ต้องแก้ไข",
-//     created_at: "2026-03-01T08:00:00.000Z",
-//     updated_at: "2026-03-01T08:00:00.000Z",
-//     active: true,
-//   },
-//   {
-//     item_id: 3,
-//     job_id: 1,
-//     category_item_id: 103,
-//     category_name: "การจัดเก็บสินค้าและวัสดุ",
-//     inspection_date: "2026-03-01T00:00:00.000Z",
-//     item_status: 3,
-//     remarks: "",
-//     created_at: "2026-03-01T08:00:00.000Z",
-//     updated_at: "2026-03-01T08:00:00.000Z",
-//     active: true,
-//   },
-//   {
-//     item_id: 4,
-//     job_id: 1,
-//     category_item_id: 104,
-//     category_name: "อุปกรณ์และเครื่องมือ",
-//     inspection_date: "2026-03-01T00:00:00.000Z",
-//     item_status: 1,
-//     remarks: "",
-//     created_at: "2026-03-01T08:00:00.000Z",
-//     updated_at: "2026-03-01T08:00:00.000Z",
-//     active: true,
-//   },
-//   {
-//     item_id: 5,
-//     job_id: 1,
-//     category_item_id: 105,
-//     category_name: "การบริการลูกค้า",
-//     inspection_date: "2026-03-01T00:00:00.000Z",
-//     item_status: 1,
-//     remarks: "ดีเยี่ยม",
-//     created_at: "2026-03-01T08:00:00.000Z",
-//     updated_at: "2026-03-01T08:00:00.000Z",
-//     active: true,
-//   },
-// ];

@@ -17,15 +17,25 @@ import {
 } from '@nestjs/common';
 import express from 'express';
 import { AuditJobsService } from '../service/audit-job.service';
-import { PaginatedResponse } from '../domain/type/audit-job.interface';
+import {
+  PaginatedResponse,
+  UserInfo,
+} from '../domain/type/audit-job.interface';
 import { CreateAuditJobDto } from '../dto/create-audit-job.dto';
 import { UpdateAuditJobDto } from '../dto/update-audit-job.dto';
 // import { AuditJobsHeader } from '../domain/audit.jobs-header.entity';
+import { JwtService } from '@nestjs/jwt';
+import { UnauthorizedException } from '@nestjs/common';
+import { AuditUserRolesService } from '../../PTEC_USERIGHT/service/audit-user-roles.service';
 
 @Controller('audit-jobs')
 // @UseGuards(JwtAuthGuard) // Uncomment when auth is ready
 export class AuditJobsController {
-  constructor(private readonly auditJobsService: AuditJobsService) {}
+  constructor(
+    private readonly auditJobsService: AuditJobsService,
+    private readonly jwtService: JwtService,
+    private readonly auditUserRolesService: AuditUserRolesService,
+  ) {}
 
   // POST /audit-jobs/create - Create new audit job
   @Post('/create')
@@ -70,12 +80,12 @@ export class AuditJobsController {
       active: active ? active === 'true' : undefined,
     };
 
-    const user = (typeof req?.user === 'object' ? req.user : null) || {
-      role_id: 1,
-      is_admin: true,
-      user_id: 0,
-      username: 'system',
-    };
+    const user = req ? await this.getUserFromJWT(req) : undefined;
+    // console.log('🔍 Fetching audit jobs with params:', params, 'User:', user);
+
+    if (!user) {
+      throw new UnauthorizedException('User information is required');
+    }
 
     return await this.auditJobsService.findAll(params, user);
   }
@@ -341,6 +351,73 @@ export class AuditJobsController {
         success: false,
         message: 'Error deleting audit job',
       });
+    }
+  }
+
+  private async getUserFromJWT(
+    req: express.Request | undefined,
+  ): Promise<UserInfo | undefined> {
+    if (!req) {
+      return undefined;
+    }
+
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader?.startsWith('Bearer ')) {
+      throw new UnauthorizedException('No token provided');
+    }
+
+    const token = authHeader.substring(7);
+
+    try {
+      // 1. Decode JWT
+      const decoded = this.jwtService.verify<{
+        userId: string;
+        username: string;
+        role: string;
+      }>(token, {
+        secret: process.env.NEXTAUTH_SECRET,
+      });
+      // console.log(' Verifying user role for:', decoded);
+
+      if (!decoded.username) {
+        throw new Error('Username is missing from JWT');
+      }
+
+      // 2. Get Audit role
+      // console.log('Fetching Audit role for:', decoded.username);
+
+      const auditRole = await this.auditUserRolesService.getRoleByUserCode(
+        decoded.username,
+      );
+
+      if (!auditRole) {
+        throw new UnauthorizedException(
+          `User ${decoded.username} is not registered in Audit System`,
+        );
+      }
+
+      // console.log('User authorized:', {
+      //   username: decoded.username,
+      //   Audit_role: auditRole.roleId,
+      //   role_name: auditRole.roleName,
+      // });
+      return {
+        user_id: parseInt(decoded.userId, 10),
+        role_id: auditRole.roleId,
+        username: decoded.username,
+        is_admin: auditRole.roleId === 1,
+      };
+    } catch (error) {
+      console.error('❌ Authorization failed:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+
+      throw new UnauthorizedException(
+        `Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   }
 }

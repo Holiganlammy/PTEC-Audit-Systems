@@ -5,7 +5,8 @@ import { AuditItem } from '../domain/model/audit-item.entity';
 import { CreateAuditItemDto } from '../dto/create-audit-item.dto';
 import { UpdateAuditItemDto } from '../dto/update-audit-item.dto';
 import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec_useright.service';
-import { UserData } from '../domain/type/audit-job.interface';
+import { UserData, UserInfo } from '../domain/type/audit-job.interface';
+import { AuditItemOtherDetailsUser } from '../domain/model/audit-item-other-details-users.entity';
 
 @Injectable()
 export class AuditItemsService {
@@ -58,38 +59,76 @@ export class AuditItemsService {
   }
 
   // Get all audit items with filters
-  async findAll(filters?: {
-    jobId?: number;
-    categoryItemId?: number;
-    itemStatus?: number;
-    active?: boolean;
-  }): Promise<AuditItem[]> {
+  async findAll(
+    filters?: {
+      jobId?: number;
+      search?: string;
+    },
+    user?: UserInfo,
+  ): Promise<AuditItem[]> {
     const query = this.auditItemsRepository.createQueryBuilder('item');
 
     if (filters?.jobId !== undefined) {
       query.andWhere('item.jobId = :jobId', { jobId: filters.jobId });
     }
 
-    if (filters?.categoryItemId !== undefined) {
-      query.andWhere('item.categoryItemId = :categoryItemId', {
-        categoryItemId: filters.categoryItemId,
-      });
+    // Search (category name, remarks)
+    if (filters?.search && filters.search.trim()) {
+      query.andWhere(
+        `(
+        categoryItem.category_name LIKE :search 
+        OR item.remarks LIKE :search
+      )`,
+        { search: `%${filters.search}%` },
+      );
     }
 
-    if (filters?.itemStatus !== undefined) {
-      query.andWhere('item.itemStatus = :itemStatus', {
-        itemStatus: filters.itemStatus,
-      });
-    }
-
-    if (filters?.active !== undefined) {
-      query.andWhere('item.active = :active', { active: filters.active });
-    }
-
-    query.leftJoinAndSelect('item.categoryItem', 'categoryItem');
     query.leftJoinAndSelect('item.job', 'job');
 
-    return await query.getMany();
+    // Permission Filter (ถ้ามี user)
+    if (user) {
+      const roleId = user.role_id;
+      const userId = user.user_id;
+
+      if (roleId === 1 || roleId === 2) {
+        // Role 1, 2: เห็นทุก item
+      } else if (roleId === 3) {
+        // Role 3: เห็น item ของ job ที่เป็น district_manager
+        query.andWhere('job.districtManagerUserId = :userId', { userId });
+      } else if (roleId === 4) {
+        // Role 4: เห็นทุก item
+      } else if (roleId === 5) {
+        // Role 5: เห็นเฉพาะ item ที่ถูก tag
+        query.andWhere((qb) => {
+          const subQuery = qb
+            .subQuery()
+            .select('1')
+            .from(AuditItem, 'item')
+            .innerJoin(
+              AuditItemOtherDetailsUser,
+              'tag',
+              'tag.itemId = item.itemId AND tag.active = :tagActive',
+              { tagActive: true },
+            )
+            .where('item.jobId = job.jobId')
+            .andWhere('tag.userId = :userId', { userId })
+            .getQuery();
+          return `EXISTS ${subQuery}`;
+        });
+      } else if (roleId === 6) {
+        // Role 6: เห็น item ของ job ที่เป็น branch_manager
+        query.andWhere('job.branchManagerUserId = :userId', { userId });
+      } else {
+        // ไม่ใช่ role ที่กำหนด
+        query.andWhere('1 = 0');
+      }
+    }
+    query.leftJoinAndSelect('item.categoryItem', 'categoryItem');
+    query.orderBy('item.createdAt', 'DESC');
+
+    const items = await query.getMany();
+
+    return items;
   }
 
   // Get audit item by ID with all relations
@@ -116,53 +155,120 @@ export class AuditItemsService {
   }
 
   // Get all items for a specific job with comments
-  async findByItemsJobAuditId(jobId: number): Promise<any[]> {
-    const items = await this.auditItemsRepository.find({
-      where: { jobId, active: true },
-      relations: [
-        'categoryItem',
-        'amDetails',
-        'auditDetails',
-        'otherDetails',
-        'itemStatusRelation',
+  async findByItemsJobAuditId(
+    filters?: {
+      jobId?: number;
+      search?: string;
+    },
+    user?: UserInfo,
+  ): Promise<any[]> {
+    const query = this.auditItemsRepository.createQueryBuilder('item');
+
+    const roleId = user?.role_id;
+    const userId = user?.user_id;
+
+    // console.log('🔒 Filtering items:', { roleId, userId, filters });
+
+    if (roleId === 1 || roleId === 2) {
+      // เห็นทุก item
+      query.where('item.jobId = :jobId', { jobId: filters?.jobId });
+    } else if (roleId === 3) {
+      // เห็น item ถ้าเป็น district_manager ของ job
+      query
+        .innerJoin('item.job', 'job')
+        .where('item.jobId = :jobId', { jobId: filters?.jobId })
+        .andWhere('job.districtManagerUserId = :userId', { userId });
+    } else if (roleId === 4) {
+      // เห็นทุก item
+      query.where('item.jobId = :jobId', { jobId: filters?.jobId });
+    } else if (roleId === 5) {
+      // เห็นเฉพาะ item ที่ถูก tag
+      query
+        .where('item.jobId = :jobId', { jobId: filters?.jobId })
+        .andWhere((qb) => {
+          const subQuery = qb
+            .subQuery()
+            .select('1')
+            .from(AuditItemOtherDetailsUser, 'tag')
+            .where('tag.itemId = item.itemId')
+            .andWhere('tag.userId = :userId', { userId })
+            .andWhere('tag.active = :tagActive', { tagActive: true })
+            .getQuery();
+          return `EXISTS ${subQuery}`;
+        });
+    } else if (roleId === 6) {
+      // เห็น item ถ้าเป็น branch_manager ของ job
+      query
+        .innerJoin('item.job', 'job')
+        .where('item.jobId = :jobId', { jobId: filters?.jobId })
+        .andWhere('job.branchManagerUserId = :userId', { userId });
+    } else {
+      query.where('1 = 0'); // ไม่เห็นอะไร
+    }
+    if (filters?.search && filters.search.trim()) {
+      query.andWhere(
+        `(
+          categoryItem.category_name LIKE :search 
+          OR item.remarks LIKE :search
+        )`,
+        { search: `%${filters.search.trim()}%` },
+      );
+      // console.log('🔍 Searching for:', filters.search.trim());
+    }
+    query
+      .andWhere('item.active = :active', { active: true })
+      .leftJoinAndSelect('item.categoryItem', 'categoryItem')
+      .leftJoinAndSelect('item.amDetails', 'amDetails')
+      .leftJoinAndSelect('item.auditDetails', 'auditDetails')
+      .leftJoinAndSelect('item.otherDetails', 'otherDetails')
+      .leftJoinAndSelect('item.itemStatusRelation', 'itemStatusRelation')
+      .leftJoinAndSelect(
+        'item.itemStatusEditRelation',
         'itemStatusEditRelation',
-      ],
-      order: { inspectionDate: 'ASC' },
-    });
+      )
+      .orderBy('item.inspectionDate', 'ASC');
+
+    const items = await query.getMany();
 
     return await Promise.all(
       items.map(async (item) => {
         const [amDetailsEnriched, auditDetailsEnriched, otherDetailsEnriched] =
           await Promise.all([
             Promise.all(
-              (item.amDetails || []).map(async (detail) => {
-                const { userId, approverBy, ...rest } = detail;
-                const [OwnerCommentUser, approverByUser] = await Promise.all([
-                  this.getUserData(userId),
-                  this.getUserData(approverBy),
-                ]);
-                return { ...rest, OwnerCommentUser, approverByUser };
-              }),
+              (item.amDetails || [])
+                .filter((d) => d.active)
+                .map(async (detail) => {
+                  const { userId, approverBy, ...rest } = detail;
+                  const [OwnerCommentUser, approverByUser] = await Promise.all([
+                    this.getUserData(userId),
+                    this.getUserData(approverBy),
+                  ]);
+                  return { ...rest, OwnerCommentUser, approverByUser };
+                }),
             ),
             Promise.all(
-              (item.auditDetails || []).map(async (detail) => {
-                const { userId, approverBy, ...rest } = detail;
-                const [OwnerCommentUser, approverByUser] = await Promise.all([
-                  this.getUserData(userId),
-                  this.getUserData(approverBy),
-                ]);
-                return { ...rest, OwnerCommentUser, approverByUser };
-              }),
+              (item.auditDetails || [])
+                .filter((d) => d.active)
+                .map(async (detail) => {
+                  const { userId, approverBy, ...rest } = detail;
+                  const [OwnerCommentUser, approverByUser] = await Promise.all([
+                    this.getUserData(userId),
+                    this.getUserData(approverBy),
+                  ]);
+                  return { ...rest, OwnerCommentUser, approverByUser };
+                }),
             ),
             Promise.all(
-              (item.otherDetails || []).map(async (detail) => {
-                const { userId, approverBy, ...rest } = detail;
-                const [OwnerCommentUser, approverByUser] = await Promise.all([
-                  this.getUserData(userId),
-                  this.getUserData(approverBy),
-                ]);
-                return { ...rest, OwnerCommentUser, approverByUser };
-              }),
+              (item.otherDetails || [])
+                .filter((d) => d.active)
+                .map(async (detail) => {
+                  const { userId, approverBy, ...rest } = detail;
+                  const [OwnerCommentUser, approverByUser] = await Promise.all([
+                    this.getUserData(userId),
+                    this.getUserData(approverBy),
+                  ]);
+                  return { ...rest, OwnerCommentUser, approverByUser };
+                }),
             ),
           ]);
 

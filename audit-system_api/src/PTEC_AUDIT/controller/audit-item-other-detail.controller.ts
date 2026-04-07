@@ -89,22 +89,28 @@ export class AuditItemOtherDetailsController {
             this.getUserData(approverBy),
           ]);
 
-          const requireApprovalFrom = OwnerCommentUser?.empUpperId
-            ? await this.getUserData(OwnerCommentUser.empUpperId)
-            : null;
-
           // approverStatus: null = comment ธรรมดา, 0 = รออนุมัติ, อื่นๆ = อนุมัติแล้ว
           const isApprovalComment = detail.approverStatus !== null;
           const isPendingApproval = detail.approverStatus === 0;
 
-          return {
+          const requireApprovalFrom =
+            isApprovalComment && OwnerCommentUser?.empUpperId
+              ? await this.getUserData(OwnerCommentUser.empUpperId)
+              : null;
+
+          const result: Record<string, unknown> = {
             ...rest,
             isApprovalComment,
             isPendingApproval,
             OwnerCommentUser,
             approverByUser: approverByUserData,
-            requireApprovalFrom,
           };
+
+          if (isApprovalComment) {
+            result.requireApprovalFrom = requireApprovalFrom;
+          }
+
+          return result;
         }),
       );
       return res.status(HttpStatus.OK).json({
