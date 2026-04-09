@@ -62,6 +62,10 @@ interface AuditItem {
   created_at: string;
   updated_at: string;
   active: boolean;
+  amChecklistStatus?: number;
+  amChecklistDetail?: string;
+  amChecklistBy?: number;
+  amChecklistAt?: string;
 }
 
 // ... rest of the code remains the same ...

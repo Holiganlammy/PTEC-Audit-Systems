@@ -79,6 +79,8 @@ export default function AddItemModal({
     },
   });
 
+  const watchedItemStatus = form.watch("itemStatus");
+
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -317,8 +319,8 @@ const statusOptions = [
             )}
           />
 
-          {/* Audit Comment Approval Status */}
-          <Controller
+          {/* Audit Comment Approval Status - แสดงเฉพาะเมื่อเลือก ผิดปกติ */}
+          {watchedItemStatus === "3" && <Controller
             name="auditCommentStatus"
             control={form.control}
             render={({ field }) => (
@@ -358,7 +360,7 @@ const statusOptions = [
                 </RadioGroup>
               </Field>
             )}
-          />
+          />}
         </div>
 
         <DialogFooter>

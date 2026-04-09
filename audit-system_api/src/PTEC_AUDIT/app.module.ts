@@ -16,6 +16,7 @@ import { AuditItemAuditDetail } from './domain/model/audit-item-audit-detail.ent
 import { AuditItemOtherDetails } from './domain/model/audit-item-other-details.entity';
 import { AuditItemOtherDetailsUser } from './domain/model/audit-item-other-details-users.entity';
 import { DatabaseManagerModule } from 'src/database/database-manager.module';
+import { AuditFile } from './domain/model/audit-file.entity';
 // Services
 import { AuditJobsService } from './service/audit-job.service';
 import { AuditItemsService } from './service/audit-item.service';
@@ -25,6 +26,7 @@ import { AuditItemAuditDetailsService } from './service/audit-item-audit-detail.
 import { AuditItemOtherDetailsService } from './service/audit-item-other-detail.service';
 import { AuditCategoryService } from './service/audit-category.service';
 import { AuditItemOtherUserDetailService } from './service/audit-item-other-user-detail.service';
+import { AuditFilesService } from './service/audit-files.service';
 
 // Controllers
 import { AuditJobsController } from './controller/audit-job.controller';
@@ -36,6 +38,7 @@ import { AuditItemOtherDetailsController } from './controller/audit-item-other-d
 import { AuditCategoryController } from './controller/audit-category.controller';
 import { PTEC_USERRIGHT_Module } from '../PTEC_USERIGHT/app.module';
 import { AuditItemOtherUserDetailController } from './controller/audit-item-audit-user-detail.controller';
+import { AuditFilesController } from './controller/audit-files.controller';
 
 @Module({
   controllers: [
@@ -48,6 +51,7 @@ import { AuditItemOtherUserDetailController } from './controller/audit-item-audi
     AuditItemOtherDetailsController,
     AuditCategoryController,
     AuditItemOtherUserDetailController,
+    AuditFilesController,
   ],
   imports: [
     TypeOrmModule.forFeature([
@@ -61,6 +65,7 @@ import { AuditItemOtherUserDetailController } from './controller/audit-item-audi
       AuditItemAuditDetail,
       AuditItemOtherDetails,
       AuditItemOtherDetailsUser,
+      AuditFile,
     ]),
     DatabaseManagerModule,
     PTEC_USERRIGHT_Module,
@@ -78,6 +83,7 @@ import { AuditItemOtherUserDetailController } from './controller/audit-item-audi
     AuditItemsService,
     CategoryItemsService,
     AuditItemOtherUserDetailService,
+    AuditFilesService,
   ],
 })
 export class PTEC_AUDIT_Module implements NestModule {

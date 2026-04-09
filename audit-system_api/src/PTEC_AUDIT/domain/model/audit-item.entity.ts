@@ -15,6 +15,7 @@ import { AuditItemAuditDetail } from './audit-item-audit-detail.entity';
 import { AuditItemOtherDetails } from './audit-item-other-details.entity';
 import { AuditItemOtherDetailsUser } from './audit-item-other-details-users.entity';
 import { AuditItemStatus } from './audit-item-status.entity';
+import { AuditAmCheckerStatus } from './audit_am_checker_status.entity';
 
 @Entity('AuditItems')
 export class AuditItem {
@@ -54,6 +55,23 @@ export class AuditItem {
   @Column({ name: 'item_status_edit', type: 'int', nullable: true })
   itemStatusEdit: number;
 
+  @Column({ name: 'am_checklist_status', type: 'int', nullable: true })
+  amChecklistStatus: number | null;
+
+  @Column({
+    name: 'am_checklist_detail',
+    type: 'nvarchar',
+    length: 'MAX',
+    nullable: true,
+  })
+  amChecklistDetail: string | null;
+
+  @Column({ name: 'am_checklist_by', type: 'int', nullable: true })
+  amChecklistBy: number | null;
+
+  @Column({ name: 'am_checklist_at', type: 'datetime', nullable: true })
+  amChecklistAt: Date | null;
+
   // Relations
   @ManyToOne(() => AuditJobsHeader, (job) => job.items)
   @JoinColumn({ name: 'job_id' })
@@ -82,4 +100,8 @@ export class AuditItem {
   @ManyToOne(() => AuditItemStatus, (status) => status.items)
   @JoinColumn({ name: 'item_status_edit' })
   itemStatusEditRelation: AuditItemStatus;
+
+  @ManyToOne(() => AuditAmCheckerStatus, (status) => status.items)
+  @JoinColumn({ name: 'am_checklist_status' })
+  amChecklistStatusRelation: AuditAmCheckerStatus;
 }

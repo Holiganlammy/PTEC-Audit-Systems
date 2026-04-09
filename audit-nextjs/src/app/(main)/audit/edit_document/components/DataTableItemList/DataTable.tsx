@@ -69,6 +69,7 @@ import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
 import { toast } from "sonner";
 import type { TaggedUser } from "./TagCell/TagCell";
+import AMChecklistModal from "./Amchecklist/modal";
 
 interface ApiUser {
   UserID: string;
@@ -143,6 +144,8 @@ export default function DataTableItemList({
   const [openEditModal, setOpenEditModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<AuditItem | null>(null);
   const [deleteItem, setDeleteItem] = useState<AuditItem | null>(null);
+  const [openAMChecklistModal, setOpenAMChecklistModal] = useState(false);
+  const [selectedAMChecklistItem, setSelectedAMChecklistItem] = useState<AuditItem | null>(null);
 
   // Sync when parent refreshes items
   useEffect(() => {
@@ -196,6 +199,18 @@ export default function DataTableItemList({
     );
   };
 
+  const handleAMChecklistClick = (item: AuditItem) => {
+    setSelectedAMChecklistItem(item);
+    setOpenAMChecklistModal(true);
+  };
+
+  const isAMChecklistAllowed = (() => {
+    const roleId = session?.user?.role_id;
+    const userId = String(session?.user?.UserID ?? "");
+    if (roleId === 1) return true;
+    return userId !== "" && userId === String(jobData?.districtManager?.userId ?? "");
+  })();
+
   // ── Permission filter ──────────────────────────────────────────────────────
   const { visibleItems, accessDenied } = useMemo(() => {
     const roleId = session?.user?.role_id;
@@ -243,7 +258,19 @@ export default function DataTableItemList({
     }
   };
 
-  const columns = createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked);
+  const columns = createAuditItemsColumns(
+    handleEdit, 
+    handleDelete, 
+    onItemsChange, 
+    users, 
+    taggedUsersMap, 
+    handleTagChange, 
+    handleCommentsChange, 
+    jobData, 
+    isLocked, 
+    handleAMChecklistClick,
+    isAMChecklistAllowed
+  );
 
   const table = useReactTable({
     data: visibleItems,
@@ -462,6 +489,17 @@ export default function DataTableItemList({
         jobData={jobData}
         onItemUpdated={() => {
           setOpenEditModal(false);
+          onItemsChange();
+        }}
+      />
+
+      {/* AM Checklist Modal */}
+      <AMChecklistModal
+        open={openAMChecklistModal}
+        onOpenChange={setOpenAMChecklistModal}
+        item={selectedAMChecklistItem}
+        onUpdated={() => {
+          setOpenAMChecklistModal(false);
           onItemsChange();
         }}
       />

@@ -133,6 +133,10 @@ interface AuditItemData {
     categoryItem?: AuditCategoryItem;
     auditDetails: auditDetails[];
     otherDetails: OtherDetails[];
+    amChecklistStatus?: number;
+    amChecklistDetail?: string;
+    amChecklistBy?: number;
+    amChecklistAt?: Date;
 }
 
 interface AuditCategoryItem {

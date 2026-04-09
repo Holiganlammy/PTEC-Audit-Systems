@@ -21,6 +21,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import NoteCell from "../NoteCell/NoteCell";
 import TagCell, { TaggedUser } from "../TagCell/TagCell";
 export type { TaggedUser };import { useSession } from "next-auth/react";
+import { CheckCircle2, XCircle, Clock, AlertCircle, FileEdit } from "lucide-react";
+import { useState } from "react";
+ 
 
 export const DragHandleContext = createContext<{
   listeners?: SyntheticListenerMap;
@@ -108,6 +111,84 @@ const getStatusBadge = (status: number) => {
   }
 };
 
+const getAMChecklistBadge = (status: number | null, interactive: boolean, onClick?: () => void) => {
+  const clickableClass = "cursor-pointer transition-colors";
+  const readonlyClass = "cursor-default opacity-75";
+  const baseClass = interactive ? clickableClass : readonlyClass;
+  const handleClick = interactive ? onClick : undefined;
+
+  if (status === null) {
+    return (
+      <Badge
+        variant="outline"
+        className={`${baseClass} border-muted-foreground/40 text-muted-foreground${interactive ? " hover:border-muted-foreground hover:bg-muted" : ""}`}
+        onClick={handleClick}
+        title={interactive ? "คลิกเพื่อบันทึก AM Check" : undefined}
+      >
+        <FileEdit className="mr-1 h-3 w-3" />
+        ยังไม่เช็ค
+      </Badge>
+    );
+  }
+
+  switch (status) {
+    case 1:
+      return (
+        <Badge
+          className={`${baseClass} bg-yellow-100 text-yellow-800${interactive ? " hover:bg-yellow-200" : ""} dark:bg-yellow-900/40 dark:text-yellow-300${interactive ? " dark:hover:bg-yellow-900/70" : ""} border-transparent`}
+          onClick={handleClick}
+          title={interactive ? "คลิกเพื่อแก้ไข AM Check" : undefined}
+        >
+          <Clock className="mr-1 h-3 w-3" />
+          รอตรวจสอบ
+        </Badge>
+      );
+    case 2:
+      return (
+        <Badge
+          className={`${baseClass} bg-green-100 text-green-800${interactive ? " hover:bg-green-200" : ""} dark:bg-green-900/40 dark:text-green-300${interactive ? " dark:hover:bg-green-900/70" : ""} border-transparent`}
+          onClick={handleClick}
+          title={interactive ? "คลิกเพื่อแก้ไข AM Check" : undefined}
+        >
+          <CheckCircle2 className="mr-1 h-3 w-3" />
+          ผ่าน
+        </Badge>
+      );
+    case 3:
+      return (
+        <Badge
+          className={`${baseClass} bg-red-100 text-red-800${interactive ? " hover:bg-red-200" : ""} dark:bg-red-900/40 dark:text-red-300${interactive ? " dark:hover:bg-red-900/70" : ""} border-transparent`}
+          onClick={handleClick}
+          title={interactive ? "คลิกเพื่อแก้ไข AM Check" : undefined}
+        >
+          <XCircle className="mr-1 h-3 w-3" />
+          ไม่ผ่าน
+        </Badge>
+      );
+    case 4:
+      return (
+        <Badge
+          className={`${baseClass} bg-orange-100 text-orange-800${interactive ? " hover:bg-orange-200" : ""} dark:bg-orange-900/40 dark:text-orange-300${interactive ? " dark:hover:bg-orange-900/70" : ""} border-transparent`}
+          onClick={handleClick}
+          title={interactive ? "คลิกเพื่อแก้ไข AM Check" : undefined}
+        >
+          <AlertCircle className="mr-1 h-3 w-3" />
+          ต้องแก้ไข
+        </Badge>
+      );
+    default:
+      return (
+        <Badge
+          variant="outline"
+          className={`${baseClass} border-muted-foreground/40 text-muted-foreground${interactive ? " hover:bg-muted" : ""}`}
+          onClick={handleClick}
+        >
+          ไม่ทราบ
+        </Badge>
+      );
+  }
+};
+
 // Drag Handle 
 function DragHandle() {
   const { attributes, listeners } = useContext(DragHandleContext);
@@ -135,7 +216,9 @@ export const createAuditItemsColumns = (
   onTagChange?: (itemId: number, tags: TaggedUser[]) => void,
   onCommentsChange?: (itemId: number, threadType: 1 | 2 | 3, comments: AuditComment[]) => void,
   jobData?: AuditJobData,
-  isLocked?: boolean
+  isLocked?: boolean,
+  onAMChecklistClick?: (item: AuditItem) => void,
+  isAMChecklistAllowed?: boolean
 ): ColumnDef<AuditItem>[] => [
   {
     id: "drag",
@@ -284,6 +367,33 @@ export const createAuditItemsColumns = (
           {getStatusBadge(row.getValue("item_status_edit") as number)}
         </div>
       )
+    },
+  },
+    {
+    id: "am_checklist",
+    header: () => (
+      <div className="text-center">
+        AM Check
+      </div>
+    ),
+    cell: ({ row }) => {
+      const item = row.original;
+      const interactive = !!isAMChecklistAllowed;
+      return (
+        <div className="flex justify-center">
+          {interactive ? (
+            <div
+              className="group relative inline-flex items-center gap-1 cursor-pointer"
+              onClick={() => onAMChecklistClick?.(item)}
+            >
+              {getAMChecklistBadge(item.amChecklistStatus ?? null, true)}
+              <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+            </div>
+          ) : (
+            getAMChecklistBadge(item.amChecklistStatus ?? null, false)
+          )}
+        </div>
+      );
     },
   },
   // {

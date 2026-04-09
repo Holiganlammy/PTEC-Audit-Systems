@@ -140,6 +140,7 @@ export class AuditItemsService {
         'categoryItem',
         'itemStatusRelation',
         'itemStatusEditRelation',
+        'amChecklistStatusRelation',
         'amDetails',
         'auditDetails',
         'otherDetails',
@@ -222,6 +223,10 @@ export class AuditItemsService {
       .leftJoinAndSelect('item.auditDetails', 'auditDetails')
       .leftJoinAndSelect('item.otherDetails', 'otherDetails')
       .leftJoinAndSelect('item.itemStatusRelation', 'itemStatusRelation')
+      .leftJoinAndSelect(
+        'item.amChecklistStatusRelation',
+        'amChecklistStatusRelation',
+      )
       .leftJoinAndSelect(
         'item.itemStatusEditRelation',
         'itemStatusEditRelation',
@@ -379,5 +384,84 @@ export class AuditItemsService {
       )
       .getCount();
     return result;
+  }
+  async updateAMChecklist(
+    itemId: number,
+    data: {
+      status: number;
+      detail?: string;
+      checkedBy: number;
+    },
+  ): Promise<AuditItem> {
+    const auditItem = await this.auditItemsRepository.findOne({
+      where: { itemId },
+    });
+
+    if (!auditItem) {
+      throw new NotFoundException(`Audit Item with ID ${itemId} not found`);
+    }
+
+    // Update AM Checklist fields
+    auditItem.amChecklistStatus = data.status;
+    auditItem.amChecklistDetail = data.detail || null;
+    auditItem.amChecklistBy = data.checkedBy;
+    auditItem.amChecklistAt = new Date();
+
+    return await this.auditItemsRepository.save(auditItem);
+  }
+
+  async getAMChecklist(itemId: number): Promise<{
+    status: number | null;
+    detail: string | null;
+    checkedBy: number | null;
+    checkedAt: Date | null;
+    checkedByUser?: UserData;
+  }> {
+    const auditItem = await this.auditItemsRepository.findOne({
+      where: { itemId },
+      select: [
+        'itemId',
+        'amChecklistStatus',
+        'amChecklistDetail',
+        'amChecklistBy',
+        'amChecklistAt',
+      ],
+    });
+
+    if (!auditItem) {
+      throw new NotFoundException(`Audit Item with ID ${itemId} not found`);
+    }
+
+    // Get user data ถ้ามี checkedBy
+    let checkedByUser: UserData | undefined;
+    if (auditItem.amChecklistBy) {
+      checkedByUser = await this.getUserData(auditItem.amChecklistBy);
+    }
+
+    return {
+      status: auditItem.amChecklistStatus,
+      detail: auditItem.amChecklistDetail,
+      checkedBy: auditItem.amChecklistBy,
+      checkedAt: auditItem.amChecklistAt,
+      checkedByUser,
+    };
+  }
+
+  async clearAMChecklist(itemId: number): Promise<AuditItem> {
+    const auditItem = await this.auditItemsRepository.findOne({
+      where: { itemId },
+    });
+
+    if (!auditItem) {
+      throw new NotFoundException(`Audit Item with ID ${itemId} not found`);
+    }
+
+    // Clear all AM Checklist fields
+    auditItem.amChecklistStatus = null;
+    auditItem.amChecklistDetail = null;
+    auditItem.amChecklistBy = null;
+    auditItem.amChecklistAt = null;
+
+    return await this.auditItemsRepository.save(auditItem);
   }
 }

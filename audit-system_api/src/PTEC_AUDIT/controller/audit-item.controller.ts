@@ -21,6 +21,7 @@ import { AuditUserRolesService } from '../../PTEC_USERIGHT/service/audit-user-ro
 import { JwtService } from '@nestjs/jwt';
 import { UnauthorizedException } from '@nestjs/common';
 import { UserInfo } from '../domain/type/audit-job.interface';
+import { NotFoundException } from '@nestjs/common';
 
 @Controller('audit-items')
 export class AuditItemsController {
@@ -372,6 +373,133 @@ export class AuditItemsController {
       throw new UnauthorizedException(
         `Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
+    }
+  }
+  @Patch(':id/am-checklist')
+  async updateAMChecklist(
+    @Param('id', ParseIntPipe) id: number,
+    @Body()
+    body: {
+      status: number;
+      detail?: string;
+      checkedBy: number;
+    },
+    @Req() req: express.Request,
+    @Res() res: express.Response,
+  ) {
+    try {
+      // ✅ Verify user is AM (optional - depends on requirements)
+      const user = await this.getUserFromJWT(req);
+
+      if (!user) {
+        return res.status(HttpStatus.UNAUTHORIZED).json({
+          success: false,
+          message: 'User authentication required',
+        });
+      }
+
+      // Optional: Check if user is AM
+      // const isAM = user.position?.includes('AM') || user.role_id === X;
+      // if (!isAM) {
+      //   return res.status(HttpStatus.FORBIDDEN).json({
+      //     success: false,
+      //     message: 'Only AM can update checklist',
+      //   });
+      // }
+
+      const auditItem = await this.auditItemsService.updateAMChecklist(id, {
+        status: body.status,
+        detail: body.detail,
+        checkedBy: body.checkedBy,
+      });
+
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        data: auditItem,
+        message: 'AM Checklist updated successfully',
+      });
+    } catch (error) {
+      console.error('Error updating AM checklist:', error);
+
+      if (error instanceof NotFoundException) {
+        return res.status(HttpStatus.NOT_FOUND).json({
+          success: false,
+          message: error.message,
+        });
+      }
+
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Error updating AM checklist',
+      });
+    }
+  }
+
+  @Get(':id/am-checklist')
+  async getAMChecklist(
+    @Param('id', ParseIntPipe) id: number,
+    @Res() res: express.Response,
+  ) {
+    try {
+      const checklist = await this.auditItemsService.getAMChecklist(id);
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        data: checklist,
+      });
+    } catch (error) {
+      console.error('Error fetching AM checklist:', error);
+
+      if (error instanceof NotFoundException) {
+        return res.status(HttpStatus.NOT_FOUND).json({
+          success: false,
+          message: error.message,
+        });
+      }
+
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Error fetching AM checklist',
+      });
+    }
+  }
+  @Delete(':id/am-checklist')
+  async clearAMChecklist(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: express.Request,
+    @Res() res: express.Response,
+  ) {
+    try {
+      // Verify user
+      const user = await this.getUserFromJWT(req);
+
+      if (!user) {
+        return res.status(HttpStatus.UNAUTHORIZED).json({
+          success: false,
+          message: 'User authentication required',
+        });
+      }
+
+      const auditItem = await this.auditItemsService.clearAMChecklist(id);
+
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        data: auditItem,
+        message: 'AM Checklist cleared successfully',
+      });
+    } catch (error) {
+      console.error('Error clearing AM checklist:', error);
+
+      if (error instanceof NotFoundException) {
+        return res.status(HttpStatus.NOT_FOUND).json({
+          success: false,
+          message: error.message,
+        });
+      }
+
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Error clearing AM checklist',
+      });
     }
   }
 }
