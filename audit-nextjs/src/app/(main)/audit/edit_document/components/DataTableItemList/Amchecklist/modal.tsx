@@ -99,7 +99,9 @@ function FilePreviewModal({
         responseType: "blob",
       })
       .then((res) => {
-        objectUrl = URL.createObjectURL(res.data);
+        const ext = file.fileName.split('.').pop()?.toLowerCase();
+        const mimeType = ext === 'pdf' ? 'application/pdf' : (res.data.type || 'application/octet-stream');
+        objectUrl = URL.createObjectURL(new Blob([res.data], { type: mimeType }));
         setBlobUrl(objectUrl);
       })
       .catch(() => setError(true))

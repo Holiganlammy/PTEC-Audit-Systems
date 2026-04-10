@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { dataConfig } from "@/config/config";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,13 @@ import {
   ChevronsUpDown,
   Lock,
   ShieldCheck,
+  FileText,
+  FileSpreadsheet,
+  ImageIcon,
+  Paperclip,
+  X,
+  Eye,
+  Download,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -69,8 +76,136 @@ import { Skeleton } from "@/components/ui/skeleton";
 import DataTableItemList from "./components/DataTableItemList/DataTable";
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
+const getFileIcon = (fileName: string) => {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  
+  if (ext === 'pdf') {
+    return <FileText className="h-4 w-4 text-red-500" />;
+  }
+  if (ext === 'xlsx' || ext === 'xls') {
+    return <FileSpreadsheet className="h-4 w-4 text-green-600" />;
+  }
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) {
+    return <ImageIcon className="h-4 w-4 text-blue-500" />;
+  }
+  
+  return <Paperclip className="h-4 w-4 text-muted-foreground" />;
+};
+ 
+const canPreviewFile = (fileName: string) => {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'].includes(ext || '');
+};
+ 
+// ✅ Preview Modal Component
+function FilePreviewModal({
+  open,
+  onOpenChange,
+  file,
+  jobId,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  file: { fileId: number; fileName: string } | null;
+  jobId: number;
+}) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!open || !file || !jobId) return;
+
+    let objectUrl: string | null = null;
+
+    const load = async () => {
+      setIsLoading(true);
+      setError(false);
+      setBlobUrl(null);
+      try {
+        const response = await client.get(
+          `/audit-jobs/${jobId}/header-attachments/${file.fileId}/download`,
+          { headers: dataConfig().headers, responseType: "blob" }
+        );
+        const ext = file.fileName.split('.').pop()?.toLowerCase();
+        const mimeType = ext === 'pdf' ? 'application/pdf' : (response.data.type || 'application/octet-stream');
+        objectUrl = window.URL.createObjectURL(new Blob([response.data], { type: mimeType }));
+        setBlobUrl(objectUrl);
+      } catch {
+        setError(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    load();
+
+    return () => {
+      if (objectUrl) {
+        window.URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [open, file, jobId]);
+
+  if (!file) return null;
+
+  const isPdf = file.fileName.split('.').pop()?.toLowerCase() === 'pdf';
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {getFileIcon(file.fileName)}
+            {file.fileName}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="relative w-full h-[70vh] bg-muted rounded-md overflow-hidden">
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          )}
+
+          {error && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+              <X className="h-12 w-12 text-destructive" />
+              <p className="text-sm text-muted-foreground">ไม่สามารถแสดงตัวอย่างได้</p>
+            </div>
+          )}
+
+          {!error && blobUrl && (
+            <>
+              {isPdf ? (
+                <iframe
+                  src={blobUrl}
+                  className="w-full h-full border-0"
+                  title={file.fileName}
+                />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={blobUrl}
+                  alt={file.fileName}
+                  className="w-full h-full object-contain"
+                />
+              )}
+            </>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            ปิด
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 const formSchema = z.object({
   Branch: z.string().nonempty("กรุณาเลือกสาขา"),
@@ -100,6 +235,20 @@ export default function EditAuditJobPage() {
 
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const [existingJobHeaderFiles, setExistingJobHeaderFiles] = useState<
+    Array<{
+      fileId: number;
+      fileName: string;
+      fileSize: number;
+      uploadedAt: string;
+    }>
+  >([]);
+  const [newJobHeaderFiles, setNewJobHeaderFiles] = useState<File[]>([]);
+  const jobHeaderFileInputRef = useRef<HTMLInputElement>(null);
+
+  const [previewFile, setPreviewFile] = useState<{ fileId: number; fileName: string } | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+    
   // Popover states
   const [openBranch, setOpenBranch] = useState(false);
   const [openAuditor, setOpenAuditor] = useState(false);
@@ -146,85 +295,150 @@ export default function EditAuditJobPage() {
     try {
       setIsLoadingData(true);
       setLoadError(null);
-        
-        // console.log('🔍 Fetching audit job with jobNo:', jobNo); // jobNo ในที่นี้คือ jobNo จาก URL
-        
-        // เรียก API ด้วย query parameter
-        const response = await client.get('/audit-jobs/detail', {
-          params: { jobNo: jobNo },
-          headers: dataConfig().headers,
-        });
-
-
-        // ดึง data ออกมา
-        const jobData = response.data.data;
-        
-
-        setJobData(jobData);
-
-        // Set form values
-        if (jobData.branchId) {
-          form.setValue("Branch", jobData.branchId.toString());
-        }
-        
-        if (jobData.auditDate) {
-          form.setValue("Date", new Date(jobData.auditDate));
-        }
-        
-        form.setValue("PMCode", jobData.pmCode || "");
-        form.setValue("Address", jobData.address || "");
-
-        // ใช้ข้อมูล branchManager จาก detail API โดยตรง
-        form.setValue("Firstname", jobData.branchManager?.firstName || "");
-        form.setValue("Lastname", jobData.branchManager?.lastName || "");
-
-        // ใช้ userId จาก detail API โดยตรง ไม่ต้อง lookup จาก users list
-        if (jobData.auditor?.userId) {
-          form.setValue("Auditor", jobData.auditor.userId.toString());
-        }
-
-        if (jobData.districtManager?.userId) {
-          form.setValue("DistrictManager", jobData.districtManager.userId.toString());
-        }
-
-        if (jobData.branchManager?.userId) {
-          form.setValue("BranchManager", jobData.branchManager.userId.toString());
-        }
-        
-        form.setValue("AdditionalNotes", jobData.additionalNotes || "");
-        form.setValue("Type", jobData.positionType === "online" ? "online" : "visit");
-
-        // Set formData
-        setFormData({
-          branchId: jobData.branchId?.toString() || "",
-          branchName: jobData.branchName || "",
-          address: jobData.address || "",
-        })
-
-      } catch (error: unknown) {
-        console.error("Error fetching job data:", error);
-        
-        if (error && typeof error === 'object' && 'response' in error) {
-          const axiosError = error as { response?: { data?: { message?: string; code?: number } } };
-          console.error('Response error:', axiosError.response?.data);
-        }
-        
-        const errorMessage =
-          error instanceof Error && "response" in error
-            ? (error as { response?: { data?: { message?: string } } })
-                .response?.data?.message
-            : undefined;
-            
-        setLoadError(errorMessage || "ไม่สามารถโหลดข้อมูลงานได้");
-        
-        toast.error("ไม่สามารถโหลดข้อมูลงานได้", {
-          description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
-        });
-      } finally {
-        setIsLoadingData(false);
+ 
+      const response = await client.get('/audit-jobs/detail', {
+        params: { jobNo: jobNo },
+        headers: dataConfig().headers,
+      });
+ 
+      const jobData = response.data.data;
+      setJobData(jobData);
+ 
+      // Set form values
+      if (jobData.branchId) {
+        form.setValue("Branch", jobData.branchId.toString());
       }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+      
+      if (jobData.auditDate) {
+        form.setValue("Date", new Date(jobData.auditDate));
+      }
+      
+      form.setValue("PMCode", jobData.pmCode || "");
+      form.setValue("Address", jobData.address || "");
+      form.setValue("Firstname", jobData.branchManager?.firstName || "");
+      form.setValue("Lastname", jobData.branchManager?.lastName || "");
+ 
+      if (jobData.auditor?.userId) {
+        form.setValue("Auditor", jobData.auditor.userId.toString());
+      }
+ 
+      if (jobData.districtManager?.userId) {
+        form.setValue("DistrictManager", jobData.districtManager.userId.toString());
+      }
+ 
+      if (jobData.branchManager?.userId) {
+        form.setValue("BranchManager", jobData.branchManager.userId.toString());
+      }
+      
+      form.setValue("AdditionalNotes", jobData.additionalNotes || "");
+      form.setValue("Type", jobData.positionType === "online" ? "online" : "visit");
+ 
+      setFormData({
+        branchId: jobData.branchId?.toString() || "",
+        branchName: jobData.branchName || "",
+        address: jobData.address || "",
+      });
+ 
+      const filesResponse = await client.get(
+        `/audit-jobs/${jobData.jobId}/header-attachments`,
+        { headers: dataConfig().headers }
+      );
+ 
+      if (filesResponse.data.success) {
+        setExistingJobHeaderFiles(filesResponse.data.data);
+      }
+ 
+    } catch (error: unknown) {
+      console.error("Error fetching job data:", error);
+      
+      const errorMessage =
+        error instanceof Error && "response" in error
+          ? (error as { response?: { data?: { message?: string } } })
+              .response?.data?.message
+          : undefined;
+          
+      setLoadError(errorMessage || "ไม่สามารถโหลดข้อมูลงานได้");
+      
+      toast.error("ไม่สามารถโหลดข้อมูลงานได้", {
+        description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
+      });
+    } finally {
+      setIsLoadingData(false);
+    }
   }, [jobNo, form, users]);
+
+    const handleNewJobHeaderFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const selectedFiles = Array.from(e.target.files);
+      
+      setNewJobHeaderFiles((prev) => [
+        ...prev,
+        ...selectedFiles.filter(
+          (newFile) => !prev.some(
+            (existingFile) => 
+              existingFile.name === newFile.name && 
+              existingFile.size === newFile.size
+          )
+        ),
+      ]);
+      
+      e.target.value = "";
+    }
+  };
+
+  const removeNewJobHeaderFile = (index: number) => {
+    setNewJobHeaderFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handlePreviewFile = (fileId: number, fileName: string) => {
+    setPreviewFile({ fileId, fileName });
+    setShowPreview(true);
+  };
+
+    const handleDownloadFile = async (fileId: number, fileName: string) => {
+    if (!jobData?.jobId) return;
+ 
+    try {
+      const response = await client.get(
+        `/audit-jobs/${jobData.jobId}/header-attachments/${fileId}/download`,
+        {
+          headers: dataConfig().headers,
+          responseType: 'blob',
+        }
+      );
+ 
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+ 
+      toast.success('ดาวน์โหลดไฟล์สำเร็จ');
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      toast.error('ไม่สามารถดาวน์โหลดไฟล์ได้');
+    }
+  };
+
+    const handleDeleteExistingFile = async (fileId: number) => {
+    if (!jobData?.jobId) return;
+ 
+    try {
+      await client.delete(
+        `/audit-jobs/${jobData.jobId}/header-attachments/${fileId}`,
+        { headers: dataConfig().headers }
+      );
+ 
+      setExistingJobHeaderFiles((prev) => prev.filter((f) => f.fileId !== fileId));
+      toast.success("ลบไฟล์สำเร็จ");
+    } catch (error) {
+      console.error("Error deleting file:", error);
+      toast.error("ไม่สามารถลบไฟล์ได้");
+    }
+  };
 
   useEffect(() => {
     // เรียก fetchJobData หลังจากโหลด users เสร็จแล้ว
@@ -330,7 +544,7 @@ export default function EditAuditJobPage() {
     fetchAuditItems();
   }, [jobData?.jobId]);
 
-    const handleItemsChange = async () => {
+  const handleItemsChange = async () => {
     // Refetch items
     if (!jobData?.jobId) return;
     
@@ -525,11 +739,11 @@ export default function EditAuditJobPage() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
-
+ 
     try {
       const selectedBranch = branches.find((b) => b.branchid.toString() === values.Branch);
       const branchManager = branchManagers.find((u) => u.BranchID === selectedBranch?.branchid);
-
+ 
       const payload = {
         branchId: parseInt(values.Branch),
         branchName: formData.branchName,
@@ -543,27 +757,44 @@ export default function EditAuditJobPage() {
         positionType: values.Type,
         updatedBy: session?.user?.UserID,
       };
-
+ 
       await client.put(`/audit-jobs/${jobData?.jobId}`, payload, {
         headers: dataConfig().headers,
       });
-
-      if (excelFile) {
-        console.log("File to upload:", excelFile.name);
+ 
+      if (newJobHeaderFiles.length > 0) {
+        const formData = new FormData();
+        newJobHeaderFiles.forEach((file) => {
+          formData.append("files", file);
+        });
+        formData.append("uploadedBy", String(session?.user?.UserID ?? ""));
+ 
+        await client.post(
+          `/audit-jobs/${jobData?.jobId}/header-attachments`,
+          formData,
+          {
+            headers: {
+              ...dataConfig().headers,
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
       }
-
+ 
       toast.success("อัพเดทงานสำเร็จ", {
         description: "ข้อมูลงานถูกอัพเดทเรียบร้อยแล้ว",
       });
-
+ 
+      // Clear new files
+      setNewJobHeaderFiles([]);
+      
       await fetchJobData();
-
+ 
     } catch (error: unknown) {
       console.error("Error updating audit job:", error);
       const errorMessage =
         error instanceof Error && "response" in error
-          ? (error as { response?: { data?: { message?: string } } }).response
-              ?.data?.message
+          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
           : undefined;
       toast.error("เกิดข้อผิดพลาด", {
         description: errorMessage || "ไม่สามารถอัพเดทงานได้",
@@ -1273,26 +1504,122 @@ export default function EditAuditJobPage() {
                   {/* Row 5: Excel File (Full Width) */}
                   <div className="grid grid-cols-1">
                     <Field>
-                      <FieldLabel>ไฟล์ Excel</FieldLabel>
-                      <div className="flex items-center gap-4">
-                        <div className="flex-1">
-                          <Input
-                            type="file"
-                            accept=".xlsx,.xls"
-                            onChange={handleFileChange}
-                            className="cursor-pointer"
-                          />
-                        </div>
-                        {excelFile && (
-                          <div className="flex items-center gap-2 px-4 py-2 bg-muted rounded-md">
-                            <Upload className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">{excelFile.name}</span>
-                          </div>
-                        )}
-                      </div>
+                      <FieldLabel>แนบไฟล์เอกสาร (Header)</FieldLabel>
                       <FieldDescription>
-                        อัพโหลดไฟล์ใหม่เพื่อแทนที่ไฟล์เดิม (ถ้ามี)
+                        รองรับไฟล์รูปภาพ, PDF, Excel (สูงสุด 10 ไฟล์, แต่ละไฟล์ไม่เกิน 10MB)
                       </FieldDescription>
+
+                      {/* ✅ Existing Files */}
+                      {existingJobHeaderFiles.length > 0 && (
+                        <div className="space-y-2 mb-4">
+                          <p className="text-sm text-muted-foreground">
+                            ไฟล์ที่แนบไว้ ({existingJobHeaderFiles.length})
+                          </p>
+                          <ul className="space-y-2">
+                            {existingJobHeaderFiles.map((file) => (
+                              <li
+                                key={file.fileId}
+                                className="flex items-center justify-between gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm"
+                              >
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  {getFileIcon(file.fileName)}
+                                  <div className="flex flex-col min-w-0 flex-1">
+                                    <span className="truncate font-medium">{file.fileName}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {(file.fileSize / 1024).toFixed(1)} KB
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {canPreviewFile(file.fileName) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handlePreviewFile(file.fileId, file.fileName)}
+                                      className="p-1.5 text-muted-foreground hover:text-primary transition-colors rounded"
+                                      title="ดูไฟล์"
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDownloadFile(file.fileId, file.fileName)}
+                                    className="p-1.5 text-muted-foreground hover:text-primary transition-colors rounded"
+                                    title="ดาวน์โหลด"
+                                  >
+                                    <Download className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteExistingFile(file.fileId)}
+                                    className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded"
+                                    disabled={isSubmitting}
+                                    title="ลบ"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* ✅ Upload New Files */}
+                      <input
+                        ref={jobHeaderFileInputRef}
+                        type="file"
+                        multiple
+                        accept=".jpg,.jpeg,.png,.gif,.pdf,.xlsx,.xls"
+                        onChange={handleNewJobHeaderFilesChange}
+                        className="hidden"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => jobHeaderFileInputRef.current?.click()}
+                        className="flex items-center gap-2 w-full border border-dashed border-muted-foreground/40 rounded-md px-4 py-3 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                      >
+                        <Upload className="h-4 w-4" />
+                        คลิกเพื่อเลือกไฟล์ใหม่
+                      </button>
+
+                      {/* ✅ New Files List */}
+                      {newJobHeaderFiles.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <p className="text-sm text-muted-foreground">
+                            ไฟล์ใหม่ที่เลือก ({newJobHeaderFiles.length})
+                          </p>
+                          <ul className="space-y-2">
+                            {newJobHeaderFiles.map((file, idx) => (
+                              <li
+                                key={idx}
+                                className="flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-2 text-sm"
+                              >
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  {getFileIcon(file.name)}
+                                  <div className="flex flex-col min-w-0 flex-1">
+                                    <span className="truncate font-medium">{file.name}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {(file.size / 1024).toFixed(1)} KB
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => removeNewJobHeaderFile(idx)}
+                                  className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded"
+                                  title="ลบ"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </Field>
                   </div>
                 </div>
@@ -1339,6 +1666,13 @@ export default function EditAuditJobPage() {
           />
         </div>
       </div>
+
+      <FilePreviewModal
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        file={previewFile}
+        jobId={jobData?.jobId ?? 0}
+      />
     </div>
   );
 }

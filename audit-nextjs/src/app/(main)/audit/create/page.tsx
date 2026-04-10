@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { dataConfig } from "@/config/config";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,11 @@ import {
   Loader2,
   Check,
   ChevronsUpDown,
+  Paperclip,
+  ImageIcon,
+  FileText,
+  FileSpreadsheet,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -64,6 +69,23 @@ const formSchema = z.object({
   Type: z.enum(["visit", "online"]),
 });
 
+const getFileIcon = (fileName: string) => {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  
+  if (ext === 'pdf') {
+    return <FileText className="h-4 w-4 text-red-500" />;
+  }
+  if (ext === 'xlsx' || ext === 'xls') {
+    return <FileSpreadsheet className="h-4 w-4 text-green-600" />;
+  }
+  if (['jpg', 'jpeg', 'png', 'gif'].includes(ext || '')) {
+    return <ImageIcon className="h-4 w-4 text-blue-500" />;
+  }
+  
+  return <Paperclip className="h-4 w-4 text-muted-foreground" />;
+};
+ 
+
 export default function CreateAuditJobPage() {
   const router = useRouter();
   const { data: session } = useSession();
@@ -71,6 +93,8 @@ export default function CreateAuditJobPage() {
   const [isLoadingBranches, setIsLoadingBranches] = useState(true);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [isLoadingPMCodes, setIsLoadingPMCodes] = useState(true);
+  const [jobHeaderFiles, setJobHeaderFiles] = useState<File[]>([]);
+  const jobHeaderFileInputRef = useRef<HTMLInputElement>(null);
 
   // Popover states
   const [openBranch, setOpenBranch] = useState(false);
@@ -201,6 +225,30 @@ export default function CreateAuditJobPage() {
   const districtManagers = users.filter((u) =>
     ["TNM", "KTK", "PRH", "STJ", "TKA"].includes(u.UserCode)
   );
+    const handleJobHeaderFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const selectedFiles = Array.from(e.target.files);
+      
+      // เพิ่มไฟล์ใหม่ (ไม่ซ้ำ)
+      setJobHeaderFiles((prev) => [
+        ...prev,
+        ...selectedFiles.filter(
+          (newFile) => !prev.some(
+            (existingFile) => 
+              existingFile.name === newFile.name && 
+              existingFile.size === newFile.size
+          )
+        ),
+      ]);
+      
+      // Reset input
+      e.target.value = "";
+    }
+  };
+
+  const removeJobHeaderFile = (index: number) => {
+    setJobHeaderFiles((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const branchManagers = users.filter(
     (u) =>
@@ -239,10 +287,9 @@ export default function CreateAuditJobPage() {
     setIsSubmitting(true);
     
     try {
-      
       const selectedBranch = branches.find((b) => b.branchid.toString() === values.Branch);
       const branchManager = branchManagers.find((u) => u.BranchID === selectedBranch?.branchid);
-
+ 
       const payload = {
         branchId: parseInt(values.Branch),
         branchName: selectedBranch?.name || "",
@@ -257,38 +304,56 @@ export default function CreateAuditJobPage() {
         status: 1,
         createdBy: session?.user?.UserID,
       };
-  
-      // console.log('Payload:', payload);
-  
+ 
       const result = await client.post("/audit-jobs/create", payload, {
         headers: dataConfig().headers,
       });
-  
-      // console.log('Result:', result.data);
-  
-      if (excelFile) {
-        console.log("File to upload:", excelFile.name);
-      }
-  
+ 
       const createdJobNo = result.data.jobNo ?? result.data.data?.jobNo ?? "";
       const createdJobId = result.data.jobId ?? result.data.data?.jobId ?? "";
-  
+ 
+      if (jobHeaderFiles.length > 0) {
+        const formData = new FormData();
+        jobHeaderFiles.forEach((file) => {
+          formData.append("files", file);
+        });
+        formData.append("uploadedBy", String(session?.user?.UserID ?? ""));
+ 
+        try {
+          await client.post(
+            `/audit-jobs/${createdJobId}/header-attachments`,
+            formData,
+            {
+              headers: {
+                ...dataConfig().headers,
+                "Content-Type": "multipart/form-data",
+              },
+            }
+          );
+          console.log(`✅ Uploaded ${jobHeaderFiles.length} files for job ${createdJobNo}`);
+        } catch (uploadError) {
+          console.error("Error uploading job header files:", uploadError);
+          toast.warning("สร้างงานสำเร็จ แต่ไม่สามารถอัพโหลดไฟล์ได้", {
+            description: "กรุณาอัพโหลดไฟล์ใหม่ในหน้ารายละเอียดงาน",
+          });
+        }
+      }
+ 
       toast.success("สร้างงานสำเร็จ", {
         description: `งาน ${createdJobNo} ถูกสร้างเรียบร้อยแล้ว`,
       });
-  
+ 
       router.push(
         `/audit/create/add_items?jobNo=${encodeURIComponent(createdJobNo)}&jobId=${createdJobId}`
       );
     } catch (error: unknown) {
       console.error("Error creating audit job:", error);
-     
+      
       const errorMessage =
         error instanceof Error && "response" in error
-          ? (error as { response?: { data?: { message?: string } } }).response
-              ?.data?.message
+          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
           : undefined;
-          
+      
       toast.error("เกิดข้อผิดพลาด", {
         description: errorMessage || "ไม่สามารถสร้างงานได้",
       });
@@ -814,26 +879,68 @@ export default function CreateAuditJobPage() {
                   {/* Row 5: Excel File (Full Width) */}
                   <div className="grid grid-cols-1">
                     <Field>
-                      <FieldLabel>ไฟล์ Excel</FieldLabel>
-                      <div className="flex items-center gap-4">
-                        <div className="flex-1">
-                          <Input
-                            type="file"
-                            accept=".xlsx,.xls"
-                            onChange={handleFileChange}
-                            className="cursor-pointer"
-                          />
-                        </div>
-                        {excelFile && (
-                          <div className="flex items-center gap-2 px-4 py-2 bg-muted rounded-md">
-                            <Upload className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">{excelFile.name}</span>
-                          </div>
-                        )}
-                      </div>
+                      <FieldLabel>แนบไฟล์เอกสาร (Header)</FieldLabel>
                       <FieldDescription>
-                        รองรับไฟล์ .xlsx หรือ .xls เท่านั้น
+                        รองรับไฟล์รูปภาพ, PDF, Excel (สูงสุด 10 ไฟล์, แต่ละไฟล์ไม่เกิน 10MB)
                       </FieldDescription>
+                      
+                      {/* Hidden file input */}
+                      <input
+                        ref={jobHeaderFileInputRef}
+                        type="file"
+                        multiple
+                        accept=".jpg,.jpeg,.png,.gif,.pdf,.xlsx,.xls"
+                        onChange={handleJobHeaderFilesChange}
+                        className="hidden"
+                      />
+ 
+                      {/* Upload button */}
+                      <button
+                        type="button"
+                        onClick={() => jobHeaderFileInputRef.current?.click()}
+                        className="flex items-center gap-2 w-full border border-dashed border-muted-foreground/40 rounded-md px-4 py-3 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                      >
+                        <Upload className="h-4 w-4" />
+                        คลิกเพื่อเลือกไฟล์
+                      </button>
+ 
+                      {/* File list */}
+                      {jobHeaderFiles.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <p className="text-sm text-muted-foreground">
+                            ไฟล์ที่เลือก ({jobHeaderFiles.length})
+                          </p>
+                          <ul className="space-y-2">
+                            {jobHeaderFiles.map((file, idx) => (
+                              <li
+                                key={idx}
+                                className="flex items-center justify-between gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm"
+                              >
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  {getFileIcon(file.name)}
+                                  <div className="flex flex-col min-w-0 flex-1">
+                                    <span className="truncate font-medium">
+                                      {file.name}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {(file.size / 1024).toFixed(1)} KB
+                                    </span>
+                                  </div>
+                                </div>
+                                
+                                <button
+                                  type="button"
+                                  onClick={() => removeJobHeaderFile(idx)}
+                                  className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded"
+                                  title="ลบไฟล์"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </Field>
                   </div>
                 </div>

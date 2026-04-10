@@ -1,3 +1,5 @@
+// Version: 2.0.0 | Date: 2025-04-07 17:00:00 | Updated: เพิ่ม Job Header File Upload endpoints
+
 import {
   Controller,
   Get,
@@ -14,7 +16,16 @@ import {
   Req,
   BadRequestException,
   NotFoundException,
+  UseInterceptors,
+  UploadedFiles,
+  OnModuleInit,
+  StreamableFile,
+  InternalServerErrorException,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import { existsSync, mkdirSync, createReadStream } from 'fs';
 import express from 'express';
 import { AuditJobsService } from '../service/audit-job.service';
 import {
@@ -23,21 +34,55 @@ import {
 } from '../domain/type/audit-job.interface';
 import { CreateAuditJobDto } from '../dto/create-audit-job.dto';
 import { UpdateAuditJobDto } from '../dto/update-audit-job.dto';
-// import { AuditJobsHeader } from '../domain/audit.jobs-header.entity';
 import { JwtService } from '@nestjs/jwt';
 import { UnauthorizedException } from '@nestjs/common';
 import { AuditUserRolesService } from '../../PTEC_USERIGHT/service/audit-user-roles.service';
+import { AuditFilesService } from '../service/audit-files.service';
+import { AuditFileType } from '../domain/enum/audit-file-type.enum';
+
+const BASE_UPLOAD_PATH = 'D:\\files\\Audit_file';
+const JOB_HEADER_PATH = join(BASE_UPLOAD_PATH, 'job-header');
+const AM_CHECKLIST_PATH = join(BASE_UPLOAD_PATH, 'am-checklist');
 
 @Controller('audit-jobs')
-// @UseGuards(JwtAuthGuard) // Uncomment when auth is ready
-export class AuditJobsController {
+export class AuditJobsController implements OnModuleInit {
   constructor(
     private readonly auditJobsService: AuditJobsService,
     private readonly jwtService: JwtService,
     private readonly auditUserRolesService: AuditUserRolesService,
+    private readonly auditFilesService: AuditFilesService,
   ) {}
 
-  // POST /audit-jobs/create - Create new audit job
+  onModuleInit() {
+    this.ensureUploadDirectories();
+  }
+
+  private ensureUploadDirectories() {
+    const directories = [BASE_UPLOAD_PATH, JOB_HEADER_PATH, AM_CHECKLIST_PATH];
+
+    directories.forEach((dir) => {
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+        console.log(`✅ Created directory: ${dir}`);
+      } else {
+        console.log(`✓ Directory exists: ${dir}`);
+      }
+    });
+  }
+
+  private extractFileInfo(file: Express.Multer.File) {
+    return {
+      fileName: file.originalname,
+      filePath: file.path,
+      fileSize: file.size,
+      mimeType: file.mimetype,
+    };
+  }
+
+  // ==========================================
+  // Job CRUD Endpoints (existing)
+  // ==========================================
+
   @Post('/create')
   async create(
     @Body() createAuditJobDto: CreateAuditJobDto,
@@ -59,7 +104,6 @@ export class AuditJobsController {
     }
   }
 
-  // GET /audit-jobs - Get all audit jobs with optional filters or single job by job_id
   @Get('/list')
   async findAll(
     @Query('page') page?: string,
@@ -70,7 +114,6 @@ export class AuditJobsController {
     @Query('active') active?: string,
     @Req() req?: express.Request,
   ): Promise<PaginatedResponse> {
-    // Parse query params
     const params = {
       page: page ? parseInt(page, 10) : 1,
       limit: limit ? parseInt(limit, 10) : 20,
@@ -81,7 +124,6 @@ export class AuditJobsController {
     };
 
     const user = req ? await this.getUserFromJWT(req) : undefined;
-    // console.log('🔍 Fetching audit jobs with params:', params, 'User:', user);
 
     if (!user) {
       throw new UnauthorizedException('User information is required');
@@ -90,7 +132,6 @@ export class AuditJobsController {
     return await this.auditJobsService.findAll(params, user);
   }
 
-  // POST /audit-jobs/edit - Get job data for edit screen (by jobcode/jobNo)
   @Post('edit')
   async findOneByJobCode(
     @Body('jobcode') jobcode: string,
@@ -139,7 +180,6 @@ export class AuditJobsController {
     }
   }
 
-  // GET /audit-jobs/detail?jobNo=IAO... - Get job detail for edit screen (preferred)
   @Get('detail')
   async findOneByJobCodeQuery(
     @Query('jobNo') jobNo: string,
@@ -186,7 +226,6 @@ export class AuditJobsController {
     }
   }
 
-  // GET /audit-jobs/status/:status - Get jobs by status
   @Get('status/:status')
   async findByStatus(
     @Param('status', ParseIntPipe) status: number,
@@ -207,7 +246,6 @@ export class AuditJobsController {
     }
   }
 
-  // GET /audit-jobs/:id - Get job by jobId
   @Get(':id')
   async findOne(
     @Param('id', ParseIntPipe) id: number,
@@ -217,12 +255,6 @@ export class AuditJobsController {
       console.log('🔍 Fetching audit job:', id);
 
       const auditJob = await this.auditJobsService.findOne(id);
-
-      // console.log('✅ Found audit job:', {
-      //   jobId: auditJob.jobId,
-      //   jobNo: auditJob.jobNo,
-      //   branchId: auditJob.branchId,
-      // });
 
       return res.status(HttpStatus.OK).json({
         code: 200,
@@ -249,7 +281,6 @@ export class AuditJobsController {
     }
   }
 
-  // PUT /audit-jobs/:id - Update audit job
   @Put(':id')
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -275,7 +306,6 @@ export class AuditJobsController {
     }
   }
 
-  // PATCH /audit-jobs/:id/confirm - Confirm (lock) audit job
   @Patch(':id/confirm')
   async confirm(
     @Param('id', ParseIntPipe) id: number,
@@ -307,7 +337,6 @@ export class AuditJobsController {
     }
   }
 
-  // DELETE /audit-jobs/:id - Soft delete (set active = false)
   @Delete(':id')
   async remove(
     @Param('id', ParseIntPipe) id: number,
@@ -333,7 +362,6 @@ export class AuditJobsController {
     }
   }
 
-  // DELETE /audit-jobs/:id/hard - Hard delete
   @Delete(':id/hard')
   async hardDelete(
     @Param('id', ParseIntPipe) id: number,
@@ -354,6 +382,194 @@ export class AuditJobsController {
     }
   }
 
+  // ==========================================
+  // Job Header File Upload Endpoints
+  // ==========================================
+
+  // POST /audit-jobs/:id/header-attachments - Upload Files
+  @Post(':id/header-attachments')
+  @UseInterceptors(
+    FilesInterceptor('files', 10, {
+      storage: diskStorage({
+        destination: JOB_HEADER_PATH,
+        filename: (req, file, cb) => {
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+      fileFilter: (req, file, cb) => {
+        const allowedMimes = [
+          'image/jpeg',
+          'image/png',
+          'image/gif',
+          'application/pdf',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/vnd.ms-excel',
+        ];
+        if (allowedMimes.includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException('File type not allowed'), false);
+        }
+      },
+    }),
+  )
+  async uploadJobHeaderAttachments(
+    @Param('id', ParseIntPipe) jobId: number,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body('uploadedBy') uploadedBy: string,
+  ) {
+    try {
+      if (!files || files.length === 0) {
+        throw new BadRequestException('No files uploaded');
+      }
+
+      const uploadedFiles = await Promise.all(
+        files.map((file) =>
+          this.auditFilesService.uploadFile({
+            fileType: AuditFileType.JOB_HEADER,
+            referenceId: jobId,
+            ...this.extractFileInfo(file),
+            uploadedBy: uploadedBy ? parseInt(uploadedBy, 10) : undefined,
+          }),
+        ),
+      );
+
+      return {
+        success: true,
+        data: uploadedFiles,
+        message: `${uploadedFiles.length} files uploaded successfully`,
+      };
+    } catch (error) {
+      console.error('Error uploading job header attachments:', error);
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error uploading files');
+    }
+  }
+
+  // GET /audit-jobs/:id/header-attachments - Get Files
+  @Get(':id/header-attachments')
+  async getJobHeaderAttachments(@Param('id', ParseIntPipe) jobId: number) {
+    try {
+      const files = await this.auditFilesService.getFiles(
+        AuditFileType.JOB_HEADER,
+        jobId,
+      );
+
+      return {
+        success: true,
+        data: files,
+      };
+    } catch (error) {
+      console.error('Error fetching job header attachments:', error);
+      throw new InternalServerErrorException('Error fetching files');
+    }
+  }
+
+  // GET /audit-jobs/:id/header-attachments/:fileId/download - Download File
+  @Get(':id/header-attachments/:fileId/download')
+  async downloadJobHeaderAttachment(
+    @Param('id', ParseIntPipe) jobId: number,
+    @Param('fileId', ParseIntPipe) fileId: number,
+    @Res({ passthrough: true }) res: express.Response,
+  ) {
+    try {
+      const file = await this.auditFilesService.getFile(fileId);
+
+      if (!file || !existsSync(file.filePath)) {
+        throw new NotFoundException('File not found');
+      }
+
+      const fileStream = createReadStream(file.filePath);
+
+      res.set({
+        'Content-Type': file.mimeType || 'application/octet-stream',
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(
+          file.fileName,
+        )}"`,
+      });
+
+      return new StreamableFile(fileStream);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new NotFoundException('File not found');
+    }
+  }
+
+  // GET /audit-jobs/:id/header-attachments/:fileId/view - Preview File
+  @Get(':id/header-attachments/:fileId/view')
+  async viewJobHeaderAttachment(
+    @Param('id', ParseIntPipe) jobId: number,
+    @Param('fileId', ParseIntPipe) fileId: number,
+    @Res({ passthrough: true }) res: express.Response,
+  ) {
+    try {
+      const file = await this.auditFilesService.getFile(fileId);
+
+      if (!file || !existsSync(file.filePath)) {
+        throw new NotFoundException('File not found');
+      }
+
+      const fileStream = createReadStream(file.filePath);
+
+      res.set({
+        'Content-Type': file.mimeType || 'application/octet-stream',
+        'Content-Disposition': `inline; filename="${encodeURIComponent(
+          file.fileName,
+        )}"`,
+      });
+
+      return new StreamableFile(fileStream);
+    } catch (error) {
+      console.error('Error viewing file:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new NotFoundException('File not found');
+    }
+  }
+
+  // DELETE /audit-jobs/:id/header-attachments/:fileId - Delete File
+  @Delete(':id/header-attachments/:fileId')
+  async deleteJobHeaderAttachment(
+    @Param('id', ParseIntPipe) jobId: number,
+    @Param('fileId', ParseIntPipe) fileId: number,
+    @Req() req: express.Request,
+  ) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '');
+      if (!token) {
+        throw new BadRequestException('No authorization token provided');
+      }
+
+      const userId = 1;
+
+      await this.auditFilesService.deleteFile(fileId, userId);
+
+      return {
+        success: true,
+        message: 'File deleted successfully',
+      };
+    } catch (error) {
+      console.error('Error deleting job header attachment:', error);
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error deleting file');
+    }
+  }
+
+  // ==========================================
+  // Helper Methods
+  // ==========================================
+
   private async getUserFromJWT(
     req: express.Request | undefined,
   ): Promise<UserInfo | undefined> {
@@ -370,7 +586,6 @@ export class AuditJobsController {
     const token = authHeader.substring(7);
 
     try {
-      // 1. Decode JWT
       const decoded = this.jwtService.verify<{
         userId: string;
         username: string;
@@ -378,14 +593,10 @@ export class AuditJobsController {
       }>(token, {
         secret: process.env.NEXTAUTH_SECRET,
       });
-      // console.log(' Verifying user role for:', decoded);
 
       if (!decoded.username) {
         throw new Error('Username is missing from JWT');
       }
-
-      // 2. Get Audit role
-      // console.log('Fetching Audit role for:', decoded.username);
 
       const auditRole = await this.auditUserRolesService.getRoleByUserCode(
         decoded.username,
@@ -397,11 +608,6 @@ export class AuditJobsController {
         );
       }
 
-      // console.log('User authorized:', {
-      //   username: decoded.username,
-      //   Audit_role: auditRole.roleId,
-      //   role_name: auditRole.roleName,
-      // });
       return {
         user_id: parseInt(decoded.userId, 10),
         role_id: auditRole.roleId,
@@ -410,11 +616,6 @@ export class AuditJobsController {
       };
     } catch (error) {
       console.error('❌ Authorization failed:', error);
-      console.error('Error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-
       throw new UnauthorizedException(
         `Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
