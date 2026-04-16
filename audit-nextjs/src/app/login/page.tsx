@@ -28,6 +28,14 @@ import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
 import PageLoading from "@/components/PageLoading";
 
+interface AxiosErrorResponse {
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+}
+
 const formSchema = z.object({
   username: z
     .string()
@@ -108,7 +116,7 @@ export default function LoginPage() {
       });
 
       const result = response.data;
-      console.log("Login response:", result);
+      // console.log("Login response:", result);
 
       // เช็ค error ก่อน
       if (!result.success) {
@@ -131,7 +139,7 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error("Login error:", err);
-      const errorMessage = err instanceof Error ? err.message : "เกิดข้อผิดพลาด";
+      const errorMessage = err instanceof Error ? (err as AxiosErrorResponse).response?.data?.message || err.message : "เกิดข้อผิดพลาด";
       setError(errorMessage);
       toast.error("เข้าสู่ระบบไม่สำเร็จ", {
         description: errorMessage,
