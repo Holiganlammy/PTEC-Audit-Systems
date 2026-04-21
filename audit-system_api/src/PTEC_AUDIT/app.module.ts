@@ -15,7 +15,7 @@ import { AuditItemAMDetail } from './domain/model/audit-item-am-detail.entity';
 import { AuditItemAuditDetail } from './domain/model/audit-item-audit-detail.entity';
 import { AuditItemOtherDetails } from './domain/model/audit-item-other-details.entity';
 import { AuditItemOtherDetailsUser } from './domain/model/audit-item-other-details-users.entity';
-import { DatabaseManagerModule } from 'src/database/database-manager.module';
+import { DatabaseManagerModule } from '../database/database-manager.module';
 import { AuditFile } from './domain/model/audit-file.entity';
 // Services
 import { AuditJobsService } from './service/audit-job.service';

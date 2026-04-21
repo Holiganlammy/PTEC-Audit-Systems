@@ -27,7 +27,7 @@ import {
 import { CreateUserDto } from '../dto/CreateUser.dto';
 import { EditUserDto } from '../dto/EditUser.dto';
 // import { JwtService } from '@nestjs/jwt';
-import { DatabaseManagerService } from 'src/database/database-manager.service';
+import { DatabaseManagerService } from '../../database/database-manager.service';
 import { GetWelfareDto } from '../dto/ptec_useright.dto';
 
 @Injectable()

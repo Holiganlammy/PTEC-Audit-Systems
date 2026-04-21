@@ -5,8 +5,8 @@ import { Repository } from 'typeorm';
 import { MenuAudit } from '../domain/model/menu-audit.entity';
 import { MenuAuditPermission } from '../domain/model/menu-audit-permission.entity';
 import { MenuAuditResponseDto } from '../dto/menu-audit.dto';
-import { AppService as UserRightService } from 'src/PTEC_USERIGHT/service/ptec_useright.service';
-import { AuditUserRolesService } from 'src/PTEC_USERIGHT/service/audit-user-roles.service';
+import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec_useright.service';
+import { AuditUserRolesService } from '../../PTEC_USERIGHT/service/audit-user-roles.service';
 
 @Injectable()
 export class AppService {

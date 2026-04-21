@@ -11,10 +11,10 @@ import { AuditUserRolesService } from './service/audit-user-roles.service';
 // import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { redisProvider } from '../redis/redis.provider';
 import { AuthMiddleware } from '../auth/auth.middleware';
-import { DatabaseManagerModule } from 'src/database/database-manager.module';
+import { DatabaseManagerModule } from '../database/database-manager.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuditUserRoles } from 'src/PTEC_USERIGHT/domain/model/audit-user-roles.entity';
-import { RoleSystemAudit } from 'src/PTEC_USERIGHT/domain/model/role-system-audit.entity';
+import { AuditUserRoles } from '../PTEC_USERIGHT/domain/model/audit-user-roles.entity';
+import { RoleSystemAudit } from '../PTEC_USERIGHT/domain/model/role-system-audit.entity';
 import { AuditUserRolesController } from './controller/audit-user-roles.controller';
 
 @Module({
