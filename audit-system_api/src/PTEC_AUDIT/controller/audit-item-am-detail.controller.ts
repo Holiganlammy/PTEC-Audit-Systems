@@ -199,10 +199,11 @@ export class AuditItemAMDetailsController {
   async remove(
     @Param('id', ParseIntPipe) id: number,
     @Body('updatedBy', ParseIntPipe) updatedBy: number,
+    @Body('deletedReason') deletedReason: string,
     @Res() res: express.Response,
   ) {
     try {
-      await this.amDetailsService.remove(id, updatedBy);
+      await this.amDetailsService.remove(id, updatedBy, deletedReason);
       return res.status(HttpStatus.OK).json({
         success: true,
         message: 'AM comment deleted successfully',

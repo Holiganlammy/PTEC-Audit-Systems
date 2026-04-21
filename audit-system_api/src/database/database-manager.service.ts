@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import * as sql from 'mssql';
-import { defaultServerConfig } from 'src/config/multi-database.config';
+import { defaultServerConfig } from '../config/multi-database.config';
 
 @Injectable()
 export class DatabaseManagerService {
-  private pool: sql.ConnectionPool;
+  private pool: sql.ConnectionPool | undefined;
 
   async getPool(): Promise<sql.ConnectionPool> {
     if (!this.pool) {

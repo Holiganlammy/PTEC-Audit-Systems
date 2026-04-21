@@ -77,6 +77,7 @@ import DataTableItemList from "./components/DataTableItemList/DataTable";
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import ExportAuditDetailToPDF from "@/components/ExportDetailToPDF";
 
 const getFileIcon = (fileName: string) => {
   const ext = fileName.split('.').pop()?.toLowerCase();
@@ -99,7 +100,6 @@ const canPreviewFile = (fileName: string) => {
   return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'].includes(ext || '');
 };
  
-// ✅ Preview Modal Component
 function FilePreviewModal({
   open,
   onOpenChange,
@@ -155,7 +155,7 @@ function FilePreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {getFileIcon(file.fileName)}
@@ -627,6 +627,18 @@ export default function EditAuditJobPage() {
     }
   };
 
+  const handleCommentsChange = useCallback(
+    (itemId: number, threadType: 1 | 2 | 3, comments: AuditComment[]) => {
+      const noteKey = threadType === 1 ? "note_1" : threadType === 2 ? "note_2" : "note_3";
+      setAuditItems((prev) =>
+        prev.map((item) =>
+          item.item_id === itemId ? { ...item, [noteKey]: comments } : item
+        )
+      );
+    },
+    []
+  );
+
   // Fetch branches from API
   useEffect(() => {
     const fetchBranches = async () => {
@@ -918,7 +930,15 @@ export default function EditAuditJobPage() {
                 </p>
               )}
             </div>
+            
             <div className="flex gap-3">
+              <ExportAuditDetailToPDF
+                jobData={jobData ?? undefined}
+                auditItems={auditItems}
+                disabled={isLoadingData || isLoadingItems}
+                size="default"
+                variant="outline"
+              />
               <Button variant="outline" onClick={() => router.back()}>
                 Back
               </Button>
@@ -1509,7 +1529,6 @@ export default function EditAuditJobPage() {
                         รองรับไฟล์รูปภาพ, PDF, Excel (สูงสุด 10 ไฟล์, แต่ละไฟล์ไม่เกิน 10MB)
                       </FieldDescription>
 
-                      {/* ✅ Existing Files */}
                       {existingJobHeaderFiles.length > 0 && (
                         <div className="space-y-2 mb-4">
                           <p className="text-sm text-muted-foreground">
@@ -1566,7 +1585,7 @@ export default function EditAuditJobPage() {
                         </div>
                       )}
 
-                      {/* ✅ Upload New Files */}
+                    
                       <input
                         ref={jobHeaderFileInputRef}
                         type="file"
@@ -1585,7 +1604,7 @@ export default function EditAuditJobPage() {
                         คลิกเพื่อเลือกไฟล์ใหม่
                       </button>
 
-                      {/* ✅ New Files List */}
+                      {/*  New Files List */}
                       {newJobHeaderFiles.length > 0 && (
                         <div className="mt-3 space-y-2">
                           <p className="text-sm text-muted-foreground">
@@ -1663,6 +1682,7 @@ export default function EditAuditJobPage() {
             jobId={jobData?.jobId || 0}
             isLocked={jobData?.status === 2}
             onItemsChange={handleItemsChange}
+            onCommentsChange={handleCommentsChange}
           />
         </div>
       </div>

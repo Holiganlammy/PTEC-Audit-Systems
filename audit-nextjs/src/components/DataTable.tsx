@@ -1,3 +1,5 @@
+// Version: 2.0.0 | Date: 2025-04-07 18:45:00 | Updated: เพิ่ม rowSelection และ onRowSelectionChange props
+
 "use client"
 import * as React from "react"
 import {
@@ -11,6 +13,7 @@ import {
    SortingState,
    useReactTable,
    VisibilityState,
+   RowSelectionState,
 } from "@tanstack/react-table"
 import { ChevronDown, Loader2 } from "lucide-react"
 import { useDebounce } from "use-debounce"
@@ -60,12 +63,13 @@ interface DataTableProps<TData, TValue> {
    onPageChange?: (newPage: number) => void
    onPageSizeChange?: (newSize: number) => void
    Loading?: boolean
-   //  เพิ่ม props สำหรับ server-side pagination
-   pageCount?: number  // จำนวนหน้าทั้งหมดจาก server
-   totalRows?: number  // จำนวนแถวทั้งหมดจาก server
-   //  เพิ่ม props สำหรับ server-side search
-   onSearchChange?: (searchValue: string) => void  // callback เมื่อ search เปลี่ยน
-   searchValue?: string  // ค่า search จาก parent (controlled)
+   pageCount?: number
+   totalRows?: number
+   onSearchChange?: (searchValue: string) => void
+   searchValue?: string
+   rowSelection?: RowSelectionState
+   onRowSelectionChange?: (selection: RowSelectionState) => void
+   rowIdKey?: string  // ชื่อ field ที่จะใช้เป็น unique id (เช่น 'jobId', 'id', 'userId')
 }
 
 export function DataTable<TData, TValue>({
@@ -81,12 +85,18 @@ export function DataTable<TData, TValue>({
    pageCount,
    totalRows,
    onSearchChange,
-   searchValue: controlledSearchValue,  //รับค่า search จาก parent
+   searchValue: controlledSearchValue,
+   rowSelection: externalRowSelection,
+   onRowSelectionChange: externalOnRowSelectionChange,
+   rowIdKey,
 }: DataTableProps<TData, TValue>) {
    const [sorting, setSorting] = React.useState<SortingState>([])
    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
-   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
+   
+   // Internal row selection (ใช้เมื่อไม่มี external control)
+   const [internalRowSelection, setInternalRowSelection] = React.useState<RowSelectionState>({})
+   
    const [localSearchValue, setLocalSearchValue] = React.useState("")
    const isServerSideSearch = Boolean(onSearchChange && controlledSearchValue !== undefined)
    const [internalPagination, setInternalPagination] = React.useState({
@@ -105,19 +115,14 @@ export function DataTable<TData, TValue>({
       pageCount !== undefined
    )
 
-   // console.log("🎯 DataTable Debug:", {
-   //    isServerSidePagination,
-   //    isServerSideSearch,
-   //    pagination,
-   //    pageCount,
-   //    totalRows,
-   //    searchValue: globalFilter,
-   //    hasPagination: !!pagination,
-   //    hasOnPageChange: !!onPageChange,
-   //    hasOnPageSizeChange: !!onPageSizeChange,
-   //    hasPageCount: pageCount !== undefined,
-   //    hasOnSearchChange: !!onSearchChange,
-   // });
+   // ตรวจสอบว่าใช้ external หรือ internal row selection
+   const isExternalRowSelection = Boolean(
+      externalRowSelection !== undefined && externalOnRowSelectionChange
+   )
+   const currentRowSelection = isExternalRowSelection 
+      ? externalRowSelection 
+      : internalRowSelection
+
    useEffect(() => {
       if (isServerSideSearch && onSearchChange) {
          onSearchChange(debouncedInternalSearch)
@@ -126,7 +131,6 @@ export function DataTable<TData, TValue>({
 
    useEffect(() => {
       if (isServerSideSearch && controlledSearchValue === "" && internalSearchValue !== "") {
-         // ถ้า parent clear search ให้ clear internal ด้วย
          setInternalSearchValue("")
       }
    }, [controlledSearchValue, isServerSideSearch])
@@ -144,7 +148,22 @@ export function DataTable<TData, TValue>({
       getSortedRowModel: getSortedRowModel(),
       getFilteredRowModel: isServerSideSearch ? undefined : getFilteredRowModel(),
       onColumnVisibilityChange: setColumnVisibility,
-      onRowSelectionChange: setRowSelection,
+      
+      // Row selection change handler
+      onRowSelectionChange: (updaterOrValue) => {
+         if (isExternalRowSelection && externalOnRowSelectionChange) {
+            // External control
+            if (typeof updaterOrValue === 'function') {
+               externalOnRowSelectionChange(updaterOrValue(currentRowSelection ?? {}))
+            } else {
+               externalOnRowSelectionChange(updaterOrValue)
+            }
+         } else {
+            // Internal control
+            setInternalRowSelection(updaterOrValue)
+         }
+      },
+      
       onGlobalFilterChange: (value) => {
          if (isServerSideSearch) {
             setInternalSearchValue?.(value as string)
@@ -189,13 +208,39 @@ export function DataTable<TData, TValue>({
             return cellValue?.toString().toLowerCase().includes(searchValue)
          })
       },
+      
       state: {
          sorting,
          columnFilters,
          columnVisibility,
-         rowSelection,
+         rowSelection: currentRowSelection,
          globalFilter,
          pagination: currentPagination,
+      },
+      
+      enableRowSelection: true,
+      
+      getRowId: (row, index) => {
+         // ถ้ามี rowIdKey ให้ใช้ field นั้น
+         if (rowIdKey) {
+            const rowData = row as Record<string, unknown>
+            const id = rowData[rowIdKey]
+            if (id !== undefined && id !== null) {
+               return String(id)
+            }
+         }
+         
+         // ลองหา id field ทั่วไป
+         const rowData = row as Record<string, unknown>
+         const commonIdFields = ['id', 'jobId', 'userId', 'itemId', 'recordId']
+         for (const field of commonIdFields) {
+            if (rowData[field] !== undefined && rowData[field] !== null) {
+               return String(rowData[field])
+            }
+         }
+         
+         // ถ้าไม่มี ใช้ index
+         return String(index)
       },
    })
 
@@ -333,7 +378,6 @@ export function DataTable<TData, TValue>({
                </TableBody>
             </Table>
 
-            {/* Overlay Loader */}
             {Loading && (
                <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -342,10 +386,8 @@ export function DataTable<TData, TValue>({
          </div>
 
          <div className="sm:flex items-center justify-between px-2 pt-4">
-            {/*แสดงจำนวนแถวที่ถูกต้องทั้ง server-side และ client-side */}
             <div className="text-muted-foreground sm:flex-1 text-sm sm:ml-4 my-2">
                {isServerSidePagination ? (
-                  // Server-side: แสดงช่วงของข้อมูลที่กำลังดู
                   <>
                      Showing {currentPagination.pageIndex * currentPagination.pageSize + 1} to{" "}
                      {Math.min(
@@ -355,7 +397,6 @@ export function DataTable<TData, TValue>({
                      of {totalRowsCount.toLocaleString()} row(s)
                   </>
                ) : (
-                  // Client-side: แสดงจำนวนที่เลือกจากทั้งหมด
                   <>
                      {table.getFilteredSelectedRowModel().rows.length} of{" "}
                      {table.getFilteredRowModel().rows.length} row(s) selected.
@@ -364,7 +405,6 @@ export function DataTable<TData, TValue>({
             </div>
             
             <div className="grid grid-cols-2 sm:flex items-center space-x-0 sm:space-x-6 lg:space-x-8 mr-4 gap-2 sm:gap-0">
-               {/* Rows per page */}
                <div className="flex items-center space-x-2 order-1 sm:order-none">
                   <p className="text-xs sm:text-sm font-medium hidden sm:block">Rows per page</p>
                   <p className="text-xs sm:text-sm font-medium sm:hidden">Rows</p>
@@ -388,13 +428,11 @@ export function DataTable<TData, TValue>({
                   </Select>
                </div>
 
-               {/* Page info ที่ถูกต้อง */}
                <div className="flex w-[100px] items-center justify-center text-sm font-medium">
                   Page {table.getState().pagination.pageIndex + 1} of{" "}
                   {isServerSidePagination ? pageCount : table.getPageCount()}
                </div>
 
-               {/* Navigation buttons */}
                <div className="flex items-center justify-center space-x-1 sm:space-x-2 col-span-2 sm:col-span-1 order-3 sm:order-none">
                   <Button
                      variant="outline"
@@ -417,7 +455,6 @@ export function DataTable<TData, TValue>({
                      <ChevronLeft className="size-4" />
                   </Button>
 
-                  {/* Page numbers */}
                   <div className="flex sm:hidden items-center space-x-1">
                      {(() => {
                         const currentPage = table.getState().pagination.pageIndex;

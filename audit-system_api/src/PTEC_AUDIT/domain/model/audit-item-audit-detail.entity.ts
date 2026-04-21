@@ -12,43 +12,52 @@ import { AuditItem } from './audit-item.entity';
 @Entity('AuditItem_AuditDetails')
 export class AuditItemAuditDetail {
   @PrimaryGeneratedColumn({ name: 'audit_detail_id' })
-  auditDetailId: number;
+  auditDetailId!: number;
 
   @Column({ name: 'item_id', type: 'int', nullable: true })
-  itemId: number;
+  itemId!: number;
 
   @Column({ name: 'approver_by', type: 'int', nullable: true })
-  approverBy: number;
+  approverBy!: number;
 
   @Column({ name: 'approver_status', type: 'int', nullable: true })
-  approverStatus: number;
+  approverStatus!: number;
 
   @Column({ name: 'approver_date', type: 'datetime', nullable: true })
-  approverDate: Date;
+  approverDate!: Date;
 
   @Column({ name: 'note', type: 'nvarchar', nullable: true })
-  note: string;
+  note!: string;
 
   @Column({ name: 'created_by', type: 'int', nullable: true })
-  createdBy: number;
+  createdBy!: number;
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @Column({ name: 'update_by', type: 'int', nullable: true })
-  updateBy: number;
+  updateBy!: number;
 
   @UpdateDateColumn({ name: 'updated_at', type: 'datetime' })
-  updatedAt: Date;
+  updatedAt!: Date;
 
   @Column({ name: 'active', type: 'bit', default: 1 })
-  active: boolean;
+  active!: boolean;
 
   @Column({ name: 'user_id', type: 'int', nullable: true })
-  userId: number;
+  userId!: number;
+
+  @Column({ name: 'deleted_by', type: 'int', nullable: true })
+  deletedBy!: number;
+
+  @Column({ name: 'deleted_at', type: 'datetime', nullable: true })
+  deletedAt!: Date;
+
+  @Column({ name: 'deleted_reason', type: 'nvarchar', nullable: true })
+  deletedReason!: string;
 
   // Relations
   @ManyToOne(() => AuditItem, (item) => item.auditDetails)
   @JoinColumn({ name: 'item_id' })
-  item: AuditItem;
+  item!: AuditItem;
 }

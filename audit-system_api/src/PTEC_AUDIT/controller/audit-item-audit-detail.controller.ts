@@ -126,6 +126,7 @@ export class AuditItemAuditDetailsController {
     }
   }
 
+  // PUT /audit-items/:itemId/audit-details/:id - Update comment
   @Put(':itemId/audit-details/:id')
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -173,14 +174,16 @@ export class AuditItemAuditDetailsController {
     }
   }
 
+  // DELETE /audit-items/:itemId/audit-details/:id - Soft delete comment
   @Delete(':itemId/audit-details/:id')
   async remove(
     @Param('id', ParseIntPipe) id: number,
     @Body('updatedBy', ParseIntPipe) updatedBy: number,
+    @Body('deletedReason') deletedReason: string,
     @Res() res: express.Response,
   ) {
     try {
-      await this.auditDetailsService.remove(id, updatedBy);
+      await this.auditDetailsService.remove(id, updatedBy, deletedReason);
       return res.status(HttpStatus.OK).json({
         success: true,
         message: 'Audit comment deleted successfully',

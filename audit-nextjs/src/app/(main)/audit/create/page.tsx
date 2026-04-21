@@ -330,7 +330,7 @@ export default function CreateAuditJobPage() {
               },
             }
           );
-          console.log(`✅ Uploaded ${jobHeaderFiles.length} files for job ${createdJobNo}`);
+          // console.log(`Uploaded ${jobHeaderFiles.length} files for job ${createdJobNo}`);
         } catch (uploadError) {
           console.error("Error uploading job header files:", uploadError);
           toast.warning("สร้างงานสำเร็จ แต่ไม่สามารถอัพโหลดไฟล์ได้", {

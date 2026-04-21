@@ -184,12 +184,18 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith('/.well-known/appspecific/com.chrome.devtools.json') ||
     pathname.startsWith('/_next/image') ||
     pathname.startsWith('/static') ||
+    pathname.startsWith('/fonts') ||
     pathname === '/favicon.ico' ||
     pathname.endsWith('.png') ||
     pathname.endsWith('.jpg') ||
     pathname.endsWith('.jpeg') ||
     pathname.endsWith('.svg') ||
-    pathname.endsWith('.ico')
+    pathname.endsWith('.ico') ||
+    pathname.endsWith('.ttf') ||           
+    pathname.endsWith('.woff') ||        
+    pathname.endsWith('.woff2') ||       
+    pathname.endsWith('.eot') ||        
+    pathname.endsWith('.otf')
   ) {
     return NextResponse.next();
   }

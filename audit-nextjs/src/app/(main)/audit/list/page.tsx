@@ -1,6 +1,8 @@
+// Version: 2.0.0 | Date: 2025-04-07 18:20:00 | Updated: ใช้ ExportToExcel Component
+
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { dataConfig } from "@/config/config";
 import { Button } from "@/components/ui/button";
@@ -14,7 +16,6 @@ import {
 import { Plus, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
-
 import { DataTable } from "@/components/DataTable";
 import { createAuditListColumns } from "./DataTable/Column";
 import {
@@ -29,6 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useSession } from "next-auth/react";
+import ExportToExcel from "@/components/ExportToExcel";
 
 // Types
 interface AuditStatusInfo {
@@ -109,6 +111,20 @@ export default function AuditJobsListPage() {
   const [deleteNote, setDeleteNote] = useState("");
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const session = useSession();
+  const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
+
+
+  useEffect(() => {
+    const selectedIds = Object.keys(selectedRows).filter(key => selectedRows[key]);
+    const selectedCount = selectedIds.length;
+    
+    console.log('📊 Page: selectedRows changed:', {
+      selectedRows,
+      selectedIds,
+      selectedCount,
+      selectedJobs: jobs.filter(job => selectedIds.includes(job.jobId.toString()))
+    });
+  }, [selectedRows, jobs]);
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -139,8 +155,7 @@ export default function AuditJobsListPage() {
       console.error("Error fetching audit jobs:", error);
       const errorMessage =
         error instanceof Error && "response" in error
-          ? (error as { response?: { data?: { message?: string } } }).response
-              ?.data?.message
+          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
           : undefined;
       toast.error("ไม่สามารถโหลดข้อมูลได้", {
         description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
@@ -150,20 +165,18 @@ export default function AuditJobsListPage() {
     }
   }, [currentPage, statusFilter, branchFilter, itemsPerPage]);
 
-  // Fetch jobs from API
   useEffect(() => {
     fetchJobs();
   }, [fetchJobs]);
 
-  // Handle delete job
   const handleDelete = async () => {
     if (!deleteJobId) return;
 
     setIsDeleting(true);
     try {
-      await client.delete(`/audit-jobs/${deleteJobId}`,{
+      await client.delete(`/audit-jobs/${deleteJobId}`, {
         headers: dataConfig().headers,
-        data:{ delete_reason: deleteNote , deleted_by: session.data?.user.UserID }
+        data: { delete_reason: deleteNote, deleted_by: session.data?.user.UserID },
       });
 
       toast.success("ลบงานสำเร็จ");
@@ -172,8 +185,7 @@ export default function AuditJobsListPage() {
       console.error("Error deleting audit job:", error);
       const errorMessage =
         error instanceof Error && "response" in error
-          ? (error as { response?: { data?: { message?: string } } }).response
-              ?.data?.message
+          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
           : undefined;
       toast.error("ไม่สามารถลบงานได้", {
         description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
@@ -185,7 +197,11 @@ export default function AuditJobsListPage() {
     }
   };
 
-  // Clear all filters
+  const handleExportComplete = () => {
+    // Clear selection after export
+    setSelectedRows({});
+  };
+
   const clearFilters = () => {
     setStatusFilter("all");
     setBranchFilter("all");
@@ -194,25 +210,6 @@ export default function AuditJobsListPage() {
 
   const hasActiveFilters = statusFilter !== "all" || branchFilter !== "all";
 
-  // // ── Permission filter ──────────────────────────────────────────────────────
-  // const visibleJobs = useMemo(() => {
-  //   const roleId = session.data?.user?.role_id;
-  //   const userCode = session.data?.user?.UserCode;
-  //   if (!userCode) return jobs;
-  //   console.log("Filtering jobs for user:", userCode, "with role:", roleId);
-  //   // role 1 หรือ 2: เห็นทุก job
-  //   if (roleId === 1 || roleId === 2) return jobs;
-
-  //   // role 3: เห็นเฉพาะ job ที่ตัวเองเป็น districtManager
-  //   if (roleId === 3) {
-  //     return jobs.filter((job) => job.districtManager?.userCode === userCode);
-  //   }
-
-  //   // อื่นๆ: ไม่เห็น job ใด
-  //   return [];
-  // }, [jobs, session.data]);
-
-  // Get filter labels
   const getStatusLabel = (value: string) => {
     const labels: Record<string, string> = {
       all: "ทั้งหมด",
@@ -238,7 +235,7 @@ export default function AuditJobsListPage() {
         {/* Header with Inline Filters */}
         <div className="mb-6">
           <div className="flex flex-col gap-4">
-            {/* Title and Create Button */}
+            {/* Title and Buttons */}
             <div className="flex items-start justify-between">
               <div>
                 <h1 className="text-3xl font-bold tracking-tight">
@@ -248,13 +245,26 @@ export default function AuditJobsListPage() {
                   จัดการและติดตามงานตรวจสอบทั้งหมดของระบบ
                 </p>
               </div>
-              <Button
-                onClick={() => router.push("/audit/create")}
-                size="lg"
-              >
-                <Plus className="mr-2 h-5 w-5" />
-                Create New Job
-              </Button>
+              
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3">
+                {/*  Export Button Component */}
+                <ExportToExcel
+                  data={jobs}
+                  selectedRows={selectedRows}
+                  onExportComplete={handleExportComplete}
+                  disabled={isLoading}
+                />
+
+                {/* Create Button */}
+                <Button
+                  onClick={() => router.push("/audit/create")}
+                  size="lg"
+                >
+                  <Plus className="mr-2 h-5 w-5" />
+                  Create New Job
+                </Button>
+              </div>
             </div>
 
             {/* Inline Filters */}
@@ -263,7 +273,6 @@ export default function AuditJobsListPage() {
                 Filters:
               </span>
 
-              {/* Status Filter */}
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-[200px]">
                   <SelectValue />
@@ -275,7 +284,6 @@ export default function AuditJobsListPage() {
                 </SelectContent>
               </Select>
 
-              {/* Branch Filter */}
               <Select value={branchFilter} onValueChange={setBranchFilter}>
                 <SelectTrigger className="w-[160px]">
                   <SelectValue />
@@ -288,7 +296,6 @@ export default function AuditJobsListPage() {
                 </SelectContent>
               </Select>
 
-              {/* Active Filters Display */}
               {hasActiveFilters && (
                 <>
                   <div className="h-6 w-px bg-border" />
@@ -323,7 +330,6 @@ export default function AuditJobsListPage() {
                 </>
               )}
 
-              {/* Total Count */}
               {pagination && (
                 <>
                   <div className="h-6 w-px bg-border ml-auto" />
@@ -336,58 +342,56 @@ export default function AuditJobsListPage() {
           </div>
         </div>
 
-        {/* DataTable Card */}
-        {/* <Card>
-          <CardContent className="p-6"> */}
-            {isLoading ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="text-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-4" />
-                  <p className="text-sm text-muted-foreground">
-                    Loading jobs...
-                  </p>
-                </div>
-              </div>
-            ) : jobs.length === 0 ? (
-              <div className="text-center py-16">
-                <p className="text-muted-foreground mb-4">No jobs found</p>
-                {hasActiveFilters ? (
-                  <Button variant="outline" onClick={clearFilters} size="sm">
-                    Clear Filters
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    onClick={() => router.push("/audit-jobs/create")}
-                    size="sm"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create First Job
-                  </Button>
-                )}
-              </div>
+        {/* DataTable */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-4" />
+              <p className="text-sm text-muted-foreground">
+                Loading jobs...
+              </p>
+            </div>
+          </div>
+        ) : jobs.length === 0 ? (
+          <div className="text-center py-16">
+            <p className="text-muted-foreground mb-4">No jobs found</p>
+            {hasActiveFilters ? (
+              <Button variant="outline" onClick={clearFilters} size="sm">
+                Clear Filters
+              </Button>
             ) : (
-              <DataTable
-                columns={createAuditListColumns(setDeleteJobId)}
-                data={jobs}
-                searchKey="jobNo"
-                searchPlaceholder="Search by Job No, Branch, or Auditor..."
-                Loading={isLoading}
-                pagination={{
-                  pageIndex: currentPage - 1,
-                  pageSize: itemsPerPage,
-                }}
-                pageCount={pagination?.totalPages || 0}
-                totalRows={pagination?.total || 0}
-                onPageChange={(newPage) => setCurrentPage(newPage + 1)}
-                onPageSizeChange={(newSize) => {
-                  setItemsPerPage(newSize);
-                  setCurrentPage(1);
-                }}
-              />
+              <Button
+                variant="outline"
+                onClick={() => router.push("/audit-jobs/create")}
+                size="sm"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create First Job
+              </Button>
             )}
-          {/* </CardContent>
-        </Card> */}
+          </div>
+        ) : (
+          <DataTable
+            columns={createAuditListColumns(setDeleteJobId)}
+            data={jobs}
+            searchKey="jobNo"
+            searchPlaceholder="Search by Job No, Branch, or Auditor..."
+            Loading={isLoading}
+            pagination={{
+              pageIndex: currentPage - 1,
+              pageSize: itemsPerPage,
+            }}
+            pageCount={pagination?.totalPages || 0}
+            totalRows={pagination?.total || 0}
+            onPageChange={(newPage) => setCurrentPage(newPage + 1)}
+            onPageSizeChange={(newSize) => {
+              setItemsPerPage(newSize);
+              setCurrentPage(1);
+            }}
+            rowSelection={selectedRows}
+            onRowSelectionChange={setSelectedRows}
+          />
+        )}
 
         {/* Delete Confirmation Dialog */}
         <Dialog
@@ -407,7 +411,9 @@ export default function AuditJobsListPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-2 py-2">
-              <Label htmlFor="delete-note">หมายเหตุ <span className="text-red-500">*</span></Label>
+              <Label htmlFor="delete-note">
+                หมายเหตุ <span className="text-red-500">*</span>
+              </Label>
               <Textarea
                 id="delete-note"
                 placeholder="กรอกหมายเหตุการลบ..."

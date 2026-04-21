@@ -12,8 +12,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Send, Loader2, CheckCircle2, XCircle, Clock, Trash2, Pencil } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -49,7 +60,12 @@ interface ThreadModalProps {
   isLoading: boolean;
   onSubmit: (text: string, approverStatus?: 0 | null) => Promise<void>;
   onApprove: (commentId: number, status: 1 | 2) => Promise<void>;
+  onDelete: (commentId: number, remark: string) => Promise<void>;
+  onEdit: (commentId: number, note: string) => Promise<void>;
   canComment: boolean;
+  canDelete: boolean;
+  canEdit: boolean;
+  currentUserId?: string | number;
   currentUserCode?: string;
 }
 
@@ -82,12 +98,34 @@ function CommentItem({
   comment,
   onApprove,
   canApprove,
+  onDelete,
+  canDelete,
+  onEdit,
+  canEdit,
 }: {
   comment: AuditComment;
   onApprove: (commentId: number, status: 1 | 2) => Promise<void>;
   canApprove: boolean;
+  onDelete: (commentId: number, remark: string) => Promise<void>;
+  canDelete: boolean;
+  onEdit: (commentId: number, note: string) => Promise<void>;
+  canEdit: boolean;
 }) {
   const [isApproving, setIsApproving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteRemark, setDeleteRemark] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editDraft, setEditDraft] = useState(comment.text);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isEditing) setEditDraft(comment.text);
+  }, [comment.text, isEditing]);
+
+  useEffect(() => {
+    if (!deleteOpen) setDeleteRemark("");
+  }, [deleteOpen]);
 
   const handleApprove = async (status: 1 | 2) => {
     try {
@@ -101,28 +139,176 @@ function CommentItem({
     }
   };
 
+  const handleDelete = async () => {
+    const remark = deleteRemark.trim();
+    if (!remark) {
+      toast.error("กรุณาระบุหมายเหตุสำหรับการลบ");
+      return;
+    }
+    try {
+      setIsDeleting(true);
+      await onDelete(comment.id, remark);
+      toast.success("ลบความเห็นสำเร็จ");
+    } catch {
+      toast.error("ไม่สามารถลบความเห็นได้");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    const next = editDraft.trim();
+    if (!next) return;
+    if (next === comment.text) {
+      setIsEditing(false);
+      return;
+    }
+    try {
+      setIsSaving(true);
+      await onEdit(comment.id, next);
+      toast.success("แก้ไขความเห็นสำเร็จ");
+      setIsEditing(false);
+    } catch {
+      toast.error("ไม่สามารถแก้ไขความเห็นได้");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="flex gap-2.5 items-start">
       <Avatar name={comment.author} />
       
       <div className="flex-1 min-w-0">
         {/* Header */}
-        <div className="flex items-center gap-1.5 mb-1">
-          <span className="text-sm font-semibold">{comment.author}</span>
-          {comment.authorUserCode && (
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+            <span className="text-sm font-semibold truncate">{comment.author}</span>
+            {comment.authorUserCode && (
+              <span className="text-xs text-muted-foreground">
+                ({comment.authorUserCode})
+              </span>
+            )}
             <span className="text-xs text-muted-foreground">
-              ({comment.authorUserCode})
+              {format(new Date(comment.createdAt), "d MMM · HH:mm", { locale: th })}
             </span>
+          </div>
+
+          {(canEdit || canDelete) && (
+            <div className="flex items-center gap-1">
+              {canEdit && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  onClick={() => setIsEditing((v) => !v)}
+                  disabled={isSaving || isDeleting}
+                  aria-label="แก้ไขความเห็น"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              )}
+
+              {canDelete && (
+                <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      disabled={isDeleting}
+                      aria-label="ลบความเห็น"
+                    >
+                      {isDeleting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </AlertDialogTrigger>
+
+                  <AlertDialogContent size="sm">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>ยืนยันการลบ</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        กรุณาระบุหมายเหตุก่อนลบความเห็นนี้
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+
+                    <div className="space-y-2">
+                      <Label htmlFor={`delete-remark-${comment.id}`} className="text-xs text-muted-foreground">
+                        หมายเหตุ
+                      </Label>
+                      <Textarea
+                        id={`delete-remark-${comment.id}`}
+                        value={deleteRemark}
+                        onChange={(e) => setDeleteRemark(e.target.value)}
+                        placeholder="ระบุเหตุผล/หมายเหตุสำหรับการลบ..."
+                        rows={3}
+                        className="resize-none text-sm"
+                        disabled={isDeleting}
+                      />
+                    </div>
+
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={isDeleting}>ยกเลิก</AlertDialogCancel>
+                      <AlertDialogAction
+                        variant="destructive"
+                        onClick={handleDelete}
+                        disabled={isDeleting || !deleteRemark.trim()}
+                      >
+                        ลบ
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
           )}
-          <span className="text-xs text-muted-foreground">
-            {format(new Date(comment.createdAt), "d MMM · HH:mm", { locale: th })}
-          </span>
         </div>
 
         {/* Message */}
-        <div className="rounded-lg bg-muted/60 px-3 py-2 text-sm whitespace-pre-wrap break-words border">
-          {comment.text}
-        </div>
+        {isEditing ? (
+          <div className="rounded-lg border bg-card px-3 py-2">
+            <Textarea
+              value={editDraft}
+              onChange={(e) => setEditDraft(e.target.value)}
+              rows={3}
+              className="resize-none text-sm"
+              disabled={isSaving}
+            />
+            <div className="mt-2 flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7"
+                onClick={() => {
+                  setEditDraft(comment.text);
+                  setIsEditing(false);
+                }}
+                disabled={isSaving}
+              >
+                ยกเลิก
+              </Button>
+              <Button
+                size="sm"
+                className="h-7"
+                onClick={handleSaveEdit}
+                disabled={!editDraft.trim() || isSaving}
+              >
+                {isSaving ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  "บันทึก"
+                )}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg bg-muted/60 px-3 py-2 text-sm whitespace-pre-wrap break-words border">
+            {comment.text}
+          </div>
+        )}
 
         {/* Status Card */}
         {comment.approverStatus !== null && (
@@ -235,7 +421,12 @@ export default function ThreadModal({
   isLoading,
   onSubmit,
   onApprove,
+  onDelete,
+  onEdit,
   canComment,
+  canDelete,
+  canEdit,
+  currentUserId,
   currentUserCode,
 }: ThreadModalProps) {
   const [draft, setDraft] = useState("");
@@ -287,6 +478,15 @@ export default function ThreadModal({
                   key={c.id}
                   comment={c}
                   onApprove={onApprove}
+                  onDelete={onDelete}
+                  canDelete={canDelete}
+                  onEdit={onEdit}
+                  canEdit={
+                    canEdit &&
+                    String(currentUserId ?? "") !== "" &&
+                    String(c.userId ?? "") !== "" &&
+                    String(c.userId) === String(currentUserId)
+                  }
                   canApprove={
                     !!currentUserCode &&
                     !!c.requireApprovalFromUserCode &&

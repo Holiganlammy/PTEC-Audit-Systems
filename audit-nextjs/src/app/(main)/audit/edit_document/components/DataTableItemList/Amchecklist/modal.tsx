@@ -118,7 +118,7 @@ function FilePreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {getFileIcon(file.fileName)}
@@ -255,13 +255,11 @@ export default function AMChecklistModal({
     }
   }, [open, item]);
 
-  // ✅ Handle Preview
   const handlePreviewFile = (fileId: number, fileName: string) => {
     setPreviewFile({ fileId, fileName });
     setShowPreview(true);
   };
 
-  // ✅ Handle Download
   const handleDownloadFile = async (fileId: number, fileName: string) => {
     if (!item) return;
 
@@ -621,7 +619,7 @@ export default function AMChecklistModal({
         </DialogContent>
       </Dialog>
 
-      {/* ✅ Preview Modal */}
+      {/* Preview Modal */}
       {item && (
         <FilePreviewModal
           key={previewFile?.fileId ?? "none"}

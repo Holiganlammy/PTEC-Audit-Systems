@@ -74,10 +74,17 @@ export class AuditItemAuditDetailsService {
     return await this.auditDetailsRepository.save(auditDetail);
   }
 
-  async remove(id: number, updatedBy: number): Promise<void> {
+  async remove(
+    id: number,
+    updatedBy: number,
+    deleteReason: string,
+  ): Promise<void> {
     const auditDetail = await this.findOne(id);
     auditDetail.active = false;
     auditDetail.updateBy = updatedBy;
+    auditDetail.deletedBy = updatedBy;
+    auditDetail.deletedAt = new Date();
+    auditDetail.deletedReason = deleteReason;
     await this.auditDetailsRepository.save(auditDetail);
   }
 

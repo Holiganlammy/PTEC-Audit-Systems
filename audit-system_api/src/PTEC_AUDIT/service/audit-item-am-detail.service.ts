@@ -83,10 +83,17 @@ export class AuditItemAMDetailsService {
   }
 
   // Soft delete
-  async remove(id: number, updatedBy: number): Promise<void> {
+  async remove(
+    id: number,
+    updatedBy: number,
+    deletedReason: string,
+  ): Promise<void> {
     const amDetail = await this.findOne(id);
     amDetail.active = false;
     amDetail.updateBy = updatedBy;
+    amDetail.deletedBy = updatedBy;
+    amDetail.deletedAt = new Date();
+    amDetail.deletedReason = deletedReason;
     await this.amDetailsRepository.save(amDetail);
   }
 

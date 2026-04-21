@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import {
   DndContext,
@@ -119,6 +119,11 @@ interface DataTableItemListProps {
   isLocked?: boolean;
   showAddButton?: boolean;
   onItemsChange: () => void;
+  onCommentsChange?: (
+    itemId: number,
+    threadType: 1 | 2 | 3,
+    comments: AuditComment[]
+  ) => void;
 }
 
 export default function DataTableItemList({
@@ -130,6 +135,7 @@ export default function DataTableItemList({
   isLocked = false,
   showAddButton = false,
   onItemsChange,
+  onCommentsChange,
 }: DataTableItemListProps) {
   const { data: session } = useSession();
   const [orderedItems, setOrderedItems] = useState<AuditItem[]>(items);
@@ -181,28 +187,29 @@ export default function DataTableItemList({
       .catch(() => {});
   }, []);
 
-  const handleEdit = (item: AuditItem) => {
+  const handleEdit = useCallback((item: AuditItem) => {
     setSelectedItem(item);
     setOpenEditModal(true);
-  };
+  }, []);
 
-  const handleTagChange = (itemId: number, tags: TaggedUser[]) => {
+  const handleTagChange = useCallback((itemId: number, tags: TaggedUser[]) => {
     setTaggedUsersMap((prev) => ({ ...prev, [itemId]: tags }));
-  };
+  }, []);
 
-  const handleCommentsChange = (itemId: number, threadType: 1 | 2 | 3, comments: AuditComment[]) => {
+  const handleCommentsChange = useCallback((itemId: number, threadType: 1 | 2 | 3, comments: AuditComment[]) => {
     const noteKey = threadType === 1 ? "note_1" : threadType === 2 ? "note_2" : "note_3";
     setOrderedItems((prev) =>
       prev.map((item) =>
         item.item_id === itemId ? { ...item, [noteKey]: comments } : item
       )
     );
-  };
+    onCommentsChange?.(itemId, threadType, comments);
+  }, [onCommentsChange]);
 
-  const handleAMChecklistClick = (item: AuditItem) => {
+  const handleAMChecklistClick = useCallback((item: AuditItem) => {
     setSelectedAMChecklistItem(item);
     setOpenAMChecklistModal(true);
-  };
+  }, []);
 
   const isAMChecklistAllowed = (() => {
     const roleId = session?.user?.role_id;
@@ -239,9 +246,9 @@ export default function DataTableItemList({
     };
   }, [orderedItems, taggedUsersMap, session, jobData]);
 
-  const handleDelete = (item: AuditItem) => {
+  const handleDelete = useCallback((item: AuditItem) => {
     setDeleteItem(item);
-  };
+  }, []);
 
   const confirmDelete = async () => {
     if (!deleteItem) return;
@@ -258,18 +265,34 @@ export default function DataTableItemList({
     }
   };
 
-  const columns = createAuditItemsColumns(
-    handleEdit, 
-    handleDelete, 
-    onItemsChange, 
-    users, 
-    taggedUsersMap, 
-    handleTagChange, 
-    handleCommentsChange, 
-    jobData, 
-    isLocked, 
-    handleAMChecklistClick,
-    isAMChecklistAllowed
+  const columns = useMemo(
+    () =>
+      createAuditItemsColumns(
+        handleEdit,
+        handleDelete,
+        onItemsChange,
+        users,
+        taggedUsersMap,
+        handleTagChange,
+        handleCommentsChange,
+        jobData,
+        isLocked,
+        handleAMChecklistClick,
+        isAMChecklistAllowed
+      ),
+    [
+      handleEdit,
+      handleDelete,
+      onItemsChange,
+      users,
+      taggedUsersMap,
+      handleTagChange,
+      handleCommentsChange,
+      jobData,
+      isLocked,
+      handleAMChecklistClick,
+      isAMChecklistAllowed,
+    ]
   );
 
   const table = useReactTable({

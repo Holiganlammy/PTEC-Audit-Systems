@@ -79,6 +79,9 @@ export default function NoteCell({
   const [viewOnly, setViewOnly] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const roleId = session?.user?.role_id;
+
+  const canDelete = (roleId === 1 || roleId === 2) && !isLocked;
+  const canEdit = (roleId === 1 || roleId === 2) && !isLocked;
   
   const canComment = (() => {
     // Thread Type 1 (Audit): role 1, 2, 4
@@ -188,7 +191,7 @@ export default function NoteCell({
     if (response.data.success) {
       const latestComments = response.data.data;
   
-      // ✅ Auto-tag approver (ถ้าส่งเพื่ออนุมัติ)
+      //  Auto-tag approver (ถ้าส่งเพื่ออนุมัติ)
       if (approverStatus === 0) {
         // หา comment ที่เพิ่งสร้าง
         const myPendingComments = latestComments.filter(
@@ -229,7 +232,7 @@ export default function NoteCell({
                 },
                 { headers: dataConfig().headers }
               );
-              console.log('✅ Auto-tagged approver:', approverUserId);
+              // console.log('Auto-tagged approver:', approverUserId);
             } catch (error) {
               console.error('❌ Failed to auto-tag:', error);
             }
@@ -277,6 +280,116 @@ export default function NoteCell({
         })
       );
   
+      setComments(transformedComments);
+      onCommentsChange?.(itemId, threadType, transformedComments);
+    }
+  };
+
+  // Delete comment
+  const handleDelete = async (commentId: number, remark: string) => {
+    const endpoint = getEndpoint();
+
+    const itemIdParam = String(itemId).trim();
+    const commentIdParam = String(commentId).trim();
+
+    // Backend validates params as "numeric string"
+    if (!/^\d+$/.test(itemIdParam) || !/^\d+$/.test(commentIdParam)) {
+      throw new Error(`Invalid route params: itemId=${itemIdParam}, commentId=${commentIdParam}`);
+    }
+
+    const remarkText = String(remark ?? "").trim();
+    if (!remarkText) {
+      throw new Error("Delete remark is required");
+    }
+
+    await client.delete(`/audit-items/${itemIdParam}/${endpoint}/${commentIdParam}`,{
+      headers: dataConfig().headers,
+      data: { updatedBy: session?.user?.UserID, deletedReason: remarkText },
+    });
+
+    // Refetch comments
+    const response = await client.get(`/audit-items/${itemIdParam}/${endpoint}`, {
+      headers: dataConfig().headers,
+    });
+
+    if (response.data.success) {
+      const transformedComments: AuditComment[] = response.data.data.map(
+        (c: AuditDetailsComment) => ({
+          id:
+            threadType === 1
+              ? c.auditDetailId!
+              : threadType === 2
+              ? c.amDetailId!
+              : c.otherDetailId!,
+          itemId: c.itemId,
+          userId: c.createdBy,
+          author: c.OwnerCommentUser?.fullname || "Unknown",
+          authorPosition: c.OwnerCommentUser?.position,
+          text: c.note,
+          approverStatus: c.approverStatus ?? null,
+          approverName: c.approverByUser?.fullname,
+          approverUsername: c.approverByUser?.userCode,
+          approverPosition: c.approverByUser?.position,
+          approverDate: c.approverDate,
+          requireApprovalFromUserCode: c.requireApprovalFrom?.userCode,
+          requireApprovalFromName: c.requireApprovalFrom?.fullname,
+          createdAt: c.createdAt,
+          updatedAt: c.updatedAt,
+        })
+      );
+      setComments(transformedComments);
+      onCommentsChange?.(itemId, threadType, transformedComments);
+    }
+  };
+
+  // Edit comment
+  const handleEdit = async (commentId: number, note: string) => {
+    const endpoint = getEndpoint();
+
+    const itemIdParam = String(itemId).trim();
+    const commentIdParam = String(commentId).trim();
+    if (!/^\d+$/.test(itemIdParam) || !/^\d+$/.test(commentIdParam)) {
+      throw new Error(`Invalid route params: itemId=${itemIdParam}, commentId=${commentIdParam}`);
+    }
+
+    const payload = {
+      note,
+      updateBy: session?.user?.UserID,
+    };
+
+    await client.put(`/audit-items/${itemIdParam}/${endpoint}/${commentIdParam}`, payload, {
+      headers: dataConfig().headers,
+    });
+
+    const response = await client.get(`/audit-items/${itemIdParam}/${endpoint}`, {
+      headers: dataConfig().headers,
+    });
+
+    if (response.data.success) {
+      const transformedComments: AuditComment[] = response.data.data.map(
+        (c: AuditDetailsComment) => ({
+          id:
+            threadType === 1
+              ? c.auditDetailId!
+              : threadType === 2
+              ? c.amDetailId!
+              : c.otherDetailId!,
+          itemId: c.itemId,
+          userId: c.createdBy,
+          author: c.OwnerCommentUser?.fullname || "Unknown",
+          authorPosition: c.OwnerCommentUser?.position,
+          text: c.note,
+          approverStatus: c.approverStatus ?? null,
+          approverName: c.approverByUser?.fullname,
+          approverUsername: c.approverByUser?.userCode,
+          approverPosition: c.approverByUser?.position,
+          approverDate: c.approverDate,
+          requireApprovalFromUserCode: c.requireApprovalFrom?.userCode,
+          requireApprovalFromName: c.requireApprovalFrom?.fullname,
+          createdAt: c.createdAt,
+          updatedAt: c.updatedAt,
+        })
+      );
       setComments(transformedComments);
       onCommentsChange?.(itemId, threadType, transformedComments);
     }
@@ -398,16 +511,18 @@ export default function NoteCell({
 
       <ThreadModal
         open={openThread}
-        onOpenChange={(v) => {
-          setOpenThread(v);
-          if (!v) setViewOnly(false);
-        }}
+        onOpenChange={setOpenThread}
         label={label}
         comments={comments}
         isLoading={isLoading}
         onSubmit={handleSubmit}
         onApprove={handleApprove}
-        canComment={canComment && !viewOnly}
+        onDelete={handleDelete}
+        onEdit={handleEdit}
+        canComment={openThread && canComment && !viewOnly}
+        canDelete={canDelete}
+        canEdit={canEdit}
+        currentUserId={session?.user?.UserID}
         currentUserCode={session?.user?.UserCode}
       />
     </div>
