@@ -223,7 +223,7 @@ export default function ExportAuditDetailToPDF({
         startY: yPos,
         head: [
           headerInfoRow,
-          ["หัวข้อ", "สถานะที่ตรวจพบ", "สิ่งที่ตรวจพบ\n(Audit Comment)", "AM Details", "Other Details"]
+          ["หัวข้อ", "สถานะที่ตรวจพบ", "สิ่งที่ตรวจพบ\n(Audit Comment)", "รายละเอียดจาก\n(AM Comment)", "รายละเอียดจากผู้อื่น\n(Other Comment)"]
         ],
         body: tableData,
         theme: 'grid',
@@ -266,6 +266,73 @@ export default function ExportAuditDetailToPDF({
       });
 
       yPos = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 5;
+
+      // Signature Section
+      if (yPos > 258) {
+        doc.addPage();
+        yPos = 20;
+      }
+      yPos += 10;
+
+      // ============================================================
+      // [OPTION A] ชื่ออยู่ใต้เส้น (สำหรับพิมพ์แล้วเซ็นเอง)
+      // ============================================================
+      // const sigLineY = yPos + 8;
+      // const sigNameY = sigLineY + 6;
+      // const sigTitleY = sigNameY + 5;
+      //
+      // doc.setDrawColor(100, 100, 100);
+      // doc.setLineWidth(0.3);
+      //
+      // // Left: ผู้ตรวจสอบ (auditor)
+      // const leftCenterX = 52.5;
+      // doc.line(20, sigLineY, 85, sigLineY);
+      // doc.setFontSize(9);
+      // doc.setFont('Sarabun', 'normal');
+      // doc.setTextColor(PDF_COLORS.text.r, PDF_COLORS.text.g, PDF_COLORS.text.b);
+      // doc.text(jobData.auditor?.fullname || "-", leftCenterX, sigNameY, { align: 'center' });
+      // doc.setFont('Sarabun', 'bold');
+      // doc.text("Audit", leftCenterX, sigTitleY, { align: 'center' });
+      //
+      // // Right: ผู้จัดการสถานีบริการ (branchManager)
+      // const rightCenterX = 157.5;
+      // doc.line(125, sigLineY, 190, sigLineY);
+      // doc.setFont('Sarabun', 'normal');
+      // doc.text(jobData.branchManager?.fullname || "-", rightCenterX, sigNameY, { align: 'center' });
+      // doc.setFont('Sarabun', 'bold');
+      // doc.text("ผู้จัดการสถานีบริการ", rightCenterX, sigTitleY, { align: 'center' });
+      //
+      // yPos = sigTitleY + 10;
+
+      // ============================================================
+      // [OPTION B] เส้นว่างไว้เซ็น + ชื่อ + ตำแหน่งอยู่ใต้เส้นด้วยกัน ← ACTIVE
+      // ============================================================
+      const sigLineY = yPos + 8;
+      const sigNameY = sigLineY + 6;
+      const sigTitleY = sigNameY + 5;
+
+      doc.setDrawColor(100, 100, 100);
+      doc.setLineWidth(0.3);
+      doc.setFontSize(9);
+      doc.setTextColor(PDF_COLORS.text.r, PDF_COLORS.text.g, PDF_COLORS.text.b);
+
+      // Left: ผู้ตรวจสอบ (auditor) — ชื่ออยู่บนเส้น (เซ็นแล้ว)
+      const leftCenterX = 52.5;
+      doc.setFont('Sarabun', 'normal');
+      doc.text(jobData.auditor?.fullname || "-", leftCenterX, sigLineY - 1, { align: 'center' });
+      doc.line(20, sigLineY, 85, sigLineY);
+      doc.setFont('Sarabun', 'bold');
+      doc.text("Audit", leftCenterX, sigTitleY, { align: 'center' });
+
+      // Right: ผู้จัดการสถานีบริการ (branchManager) — เส้นว่างไว้เซ็น
+      const rightCenterX = 157.5;
+      doc.line(125, sigLineY, 190, sigLineY);
+      doc.setFont('Sarabun', 'normal');
+      doc.text(jobData.branchManager?.fullname || "-", rightCenterX, sigNameY, { align: 'center' });
+      doc.setFont('Sarabun', 'bold');
+      doc.text("ผู้จัดการสถานีบริการ", rightCenterX, sigTitleY, { align: 'center' });
+
+      yPos = sigTitleY + 10;
 
       // Footer
       const pageCount = doc.getNumberOfPages();

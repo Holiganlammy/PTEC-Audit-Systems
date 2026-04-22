@@ -72,7 +72,7 @@ export class AuditJobsController implements OnModuleInit {
 
   private extractFileInfo(file: Express.Multer.File) {
     return {
-      fileName: file.originalname,
+      fileName: Buffer.from(file.originalname, 'latin1').toString('utf8'),
       filePath: file.path,
       fileSize: file.size,
       mimeType: file.mimetype,
@@ -539,7 +539,7 @@ export class AuditJobsController implements OnModuleInit {
   // DELETE /audit-jobs/:id/header-attachments/:fileId - Delete File
   @Delete(':id/header-attachments/:fileId')
   async deleteJobHeaderAttachment(
-    @Param('id', ParseIntPipe) jobId: number,
+    @Body('deletedBy', ParseIntPipe) deletedBy: number,
     @Param('fileId', ParseIntPipe) fileId: number,
     @Req() req: express.Request,
   ) {
@@ -549,9 +549,9 @@ export class AuditJobsController implements OnModuleInit {
         throw new BadRequestException('No authorization token provided');
       }
 
-      const userId = 1;
+      // const userId = 1;
 
-      await this.auditFilesService.deleteFile(fileId, userId);
+      await this.auditFilesService.deleteFile(fileId, deletedBy);
 
       return {
         success: true,

@@ -30,7 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useSession } from "next-auth/react";
-import ExportToExcel from "@/components/ExportToExcel";
+import ExportListDropdown from "@/components/ExportListDropdown";
 
 // Types
 interface AuditStatusInfo {
@@ -249,7 +249,7 @@ export default function AuditJobsListPage() {
               {/* Action Buttons */}
               <div className="flex items-center gap-3">
                 {/*  Export Button Component */}
-                <ExportToExcel
+                <ExportListDropdown
                   data={jobs}
                   selectedRows={selectedRows}
                   onExportComplete={handleExportComplete}

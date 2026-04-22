@@ -56,7 +56,7 @@ export class AuditFilesController implements OnModuleInit {
   // Helper function - Extract file info
   private extractFileInfo(file: Express.Multer.File) {
     return {
-      fileName: file.originalname,
+      fileName: Buffer.from(file.originalname, 'latin1').toString('utf8'),
       filePath: file.path,
       fileSize: file.size,
       mimeType: file.mimetype,

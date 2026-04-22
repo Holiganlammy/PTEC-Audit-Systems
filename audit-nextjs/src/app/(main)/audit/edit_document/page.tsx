@@ -77,7 +77,7 @@ import DataTableItemList from "./components/DataTableItemList/DataTable";
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import ExportAuditDetailToPDF from "@/components/ExportDetailToPDF";
+import ExportDropdown from "@/components/ExportDropdown";
 
 const getFileIcon = (fileName: string) => {
   const ext = fileName.split('.').pop()?.toLowerCase();
@@ -429,7 +429,10 @@ export default function EditAuditJobPage() {
     try {
       await client.delete(
         `/audit-jobs/${jobData.jobId}/header-attachments/${fileId}`,
-        { headers: dataConfig().headers }
+        { 
+          headers: dataConfig().headers,
+          data: { deletedBy: session?.user?.UserID || 0 },
+        },
       );
  
       setExistingJobHeaderFiles((prev) => prev.filter((f) => f.fileId !== fileId));
@@ -932,12 +935,10 @@ export default function EditAuditJobPage() {
             </div>
             
             <div className="flex gap-3">
-              <ExportAuditDetailToPDF
+              <ExportDropdown
                 jobData={jobData ?? undefined}
                 auditItems={auditItems}
                 disabled={isLoadingData || isLoadingItems}
-                size="default"
-                variant="outline"
               />
               <Button variant="outline" onClick={() => router.back()}>
                 Back

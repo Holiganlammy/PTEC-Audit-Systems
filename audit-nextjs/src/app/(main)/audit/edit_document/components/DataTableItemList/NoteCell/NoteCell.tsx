@@ -451,7 +451,7 @@ export default function NoteCell({
   const latest = comments[comments.length - 1];
 
   return (
-    <div className="flex flex-col gap-1.5 min-w-[180px]">
+    <div className="flex flex-col gap-1.5 w-[220px] max-w-[220px]">
       {/* Latest comment preview */}
       <div
         className="min-h-[52px] rounded-md border border-border bg-muted/30 px-2.5 py-2 text-sm cursor-pointer hover:bg-muted/50 transition-colors"
