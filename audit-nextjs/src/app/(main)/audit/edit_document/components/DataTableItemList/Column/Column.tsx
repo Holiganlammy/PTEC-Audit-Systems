@@ -41,6 +41,10 @@ function BranchScoreCell({
   onSubmit?: (itemId: number, score: BranchScoreValue, note?: string) => Promise<void> | void;
 }) {
   const [open, setOpen] = useState(false);
+  const { data: session } = useSession();
+
+  const canEditByRole = session?.user?.role_id === 1 || session?.user?.role_id === 2;
+  const isDisabled = !!disabled || !canEditByRole;
 
   const variant = entry?.score === -1 ? "destructive" : entry?.score === 0 ? "secondary" : "default";
   const label = entry
@@ -49,27 +53,46 @@ function BranchScoreCell({
 
   return (
     <div className="flex justify-center">
-      <Button
-        type="button"
-        variant="ghost"
-        className="group h-8 px-2"
-        onClick={() => !disabled && setOpen(true)}
-        disabled={disabled}
-        aria-label={entry ? "แก้ไขคะแนนสาขา" : "เพิ่มคะแนนสาขา"}
-        title={entry ? "คลิกเพื่อแก้ไขคะแนน" : "คลิกเพื่อให้คะแนน"}
+      <span
+        title={
+          isDisabled
+            ? disabled
+              ? "รายการถูกล็อก ไม่สามารถแก้ไขคะแนนได้"
+              : "เฉพาะสิทธิ์ผู้ดูแลและ Audit เท่านั้นที่แก้ไขคะแนนได้"
+            : entry
+            ? "คลิกเพื่อแก้ไขคะแนน"
+            : "คลิกเพื่อให้คะแนน"
+        }
       >
-        {entry ? (
-          <span className="inline-flex items-center gap-1.5">
-            <Badge variant={variant}>{label}</Badge>
-            <Pencil className="h-3.5 w-3.5 text-muted-foreground transition-colors group-hover:text-foreground" />
-          </span>
-        ) : (
-          <Badge variant="outline" className="text-muted-foreground">
-            <CircleFadingPlus className="mr-1 h-3 w-3" />
-            {label}
-          </Badge>
-        )}
-      </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          className="group h-8 px-2"
+          onClick={() => !isDisabled && setOpen(true)}
+          disabled={isDisabled}
+          aria-label={
+            isDisabled
+              ? "ไม่มีสิทธิ์แก้ไขคะแนนสาขา"
+              : entry
+              ? "แก้ไขคะแนนสาขา"
+              : "เพิ่มคะแนนสาขา"
+          }
+        >
+          {entry ? (
+            <span className="inline-flex items-center gap-1.5">
+              <Badge variant={variant}>{label}</Badge>
+              {!isDisabled && (
+                <Pencil className="h-3.5 w-3.5 text-muted-foreground transition-colors group-hover:text-foreground" />
+              )}
+            </span>
+          ) : (
+            <Badge variant="outline" className="text-muted-foreground">
+              <CircleFadingPlus className="mr-1 h-3 w-3" />
+              {label}
+            </Badge>
+          )}
+        </Button>
+      </span>
 
       <BranchAddScore
         isOpen={open}
