@@ -339,6 +339,12 @@ export class AuditItemsService {
     return await this.auditItemsRepository.save(auditItem);
   }
 
+  // async updateBranchScore(id: number, score: number): Promise<AuditItem> {
+  //   const auditItem = await this.findOne(id);
+  //   auditItem.branchAuditScore = score;
+  //   return await this.auditItemsRepository.save(auditItem);
+  // }
+
   //Get items with comment counts
   async findByJobIdWithCounts(jobId: number): Promise<any[]> {
     const items = await this.auditItemsRepository

@@ -154,12 +154,11 @@ export class AuditItemsController {
         });
       }
 
-      // ✅ Build filters object
       const filters: {
         jobId?: number;
         search?: string;
       } = {
-        jobId: jobId, // ✅ Put jobId in object
+        jobId: jobId,
       };
 
       // Add search if exists
@@ -167,9 +166,8 @@ export class AuditItemsController {
         filters.search = search.trim();
       }
 
-      // ✅ Pass filters object (not just jobId)
       const auditItems = await this.auditItemsService.findByItemsJobAuditId(
-        filters, // ✅ object
+        filters,
         user,
       );
 
@@ -388,7 +386,7 @@ export class AuditItemsController {
     @Res() res: express.Response,
   ) {
     try {
-      // ✅ Verify user is AM (optional - depends on requirements)
+      // Verify user is AM (optional - depends on requirements)
       const user = await this.getUserFromJWT(req);
 
       if (!user) {
@@ -502,4 +500,30 @@ export class AuditItemsController {
       });
     }
   }
+
+  // PUT /audit-items/:id/branch-score - Update branch audit score
+  // @Put(':id/branch-score')
+  // async updateBranchScore(
+  //   @Param('id', ParseIntPipe) id: number,
+  //   @Body('score', ParseIntPipe) score: number,
+  //   @Res() res: express.Response,
+  // ) {
+  //   try {
+  //     const auditItem = await this.auditItemsService.updateBranchScore(
+  //       id,
+  //       score,
+  //     );
+  //     return res.status(HttpStatus.OK).json({
+  //       success: true,
+  //       data: auditItem,
+  //       message: 'Branch audit score updated successfully',
+  //     });
+  //   } catch (error) {
+  //     console.error('Error updating branch audit score:', error);
+  //     return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+  //       success: false,
+  //       message: 'Error updating branch audit score',
+  //     });
+  //   }
+  // }
 }

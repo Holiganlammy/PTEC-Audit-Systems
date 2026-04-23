@@ -3,19 +3,19 @@ import { IsNumber, IsString, IsNotEmpty, IsOptional } from 'class-validator';
 export class CreateCommentDto {
   @IsNumber()
   @IsNotEmpty()
-  itemId: number;
+  itemId!: number;
 
   @IsNumber()
   @IsNotEmpty()
-  userId: number;
+  userId!: number;
 
   @IsString()
   @IsNotEmpty()
-  note: string;
+  note!: string;
 
   @IsNumber()
   @IsNotEmpty()
-  createdBy: number;
+  createdBy!: number;
 
   @IsNumber()
   @IsOptional()
@@ -29,17 +29,17 @@ export class UpdateCommentDto {
 
   @IsNumber()
   @IsNotEmpty()
-  updatedBy: number;
+  updatedBy!: number;
 }
 
 export class ApproveCommentDto {
   @IsNumber()
   @IsNotEmpty()
-  approverStatus: number;
+  approverStatus!: number;
 
   @IsNumber()
   @IsNotEmpty()
-  approverBy: number;
+  approverBy!: number;
 
   @IsString()
   @IsOptional()

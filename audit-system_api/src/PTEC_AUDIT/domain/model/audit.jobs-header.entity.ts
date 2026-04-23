@@ -18,25 +18,25 @@ import { AuditHeaderStatus } from './audit-status.entity';
 @Entity('AuditJobs_Header')
 export class AuditJobsHeader {
   @PrimaryGeneratedColumn({ name: 'job_id' })
-  jobId: number;
+  jobId!: number;
 
   @Column({ name: 'job_no', type: 'nvarchar', nullable: true })
-  jobNo: string;
+  jobNo!: string;
 
   @Column({ name: 'branch_id', type: 'int', nullable: true })
-  branchId: number;
+  branchId!: number;
 
   @Column({ name: 'branch_name', type: 'nvarchar', nullable: true })
-  branchName: string;
+  branchName!: string;
 
   @Column({ name: 'audit_date', type: 'date', nullable: true })
-  auditDate: Date;
+  auditDate!: Date;
 
   @Column({ name: 'address', type: 'nvarchar', nullable: true })
-  address: string;
+  address!: string;
 
   @Column({ name: 'pm_code', type: 'nvarchar', nullable: true })
-  pmCode: string;
+  pmCode!: string;
 
   // @Column({ name: 'pm_first_name', type: 'nvarchar', length: 100, nullable: true })
   // pmFirstName: string;
@@ -48,7 +48,7 @@ export class AuditJobsHeader {
   // Auditor (4 columns)
   // ==========================================
   @Column({ name: 'auditor_user_id', type: 'int', nullable: true })
-  auditorUserId: number;
+  auditorUserId!: number;
 
   @Column({
     name: 'auditor_user_code',
@@ -56,7 +56,7 @@ export class AuditJobsHeader {
     length: 50,
     nullable: true,
   })
-  auditorUserCode: string;
+  auditorUserCode!: string;
 
   @Column({
     name: 'auditor_first_name',
@@ -64,7 +64,7 @@ export class AuditJobsHeader {
     length: 100,
     nullable: true,
   })
-  auditorFirstName: string;
+  auditorFirstName!: string;
 
   @Column({
     name: 'auditor_last_name',
@@ -72,7 +72,7 @@ export class AuditJobsHeader {
     length: 100,
     nullable: true,
   })
-  auditorLastName: string;
+  auditorLastName!: string;
 
   @Column({
     name: 'auditor_branch_name',
@@ -80,13 +80,13 @@ export class AuditJobsHeader {
     length: 200,
     nullable: true,
   })
-  auditorBranchName: string;
+  auditorBranchName!: string;
 
   // ==========================================
   // District Manager (4 columns)
   // ==========================================
   @Column({ name: 'district_manager_user_id', type: 'int', nullable: true })
-  districtManagerUserId: number;
+  districtManagerUserId!: number;
 
   @Column({
     name: 'district_manager_user_code',
@@ -94,7 +94,7 @@ export class AuditJobsHeader {
     length: 50,
     nullable: true,
   })
-  districtManagerUserCode: string;
+  districtManagerUserCode!: string;
 
   @Column({
     name: 'district_manager_first_name',
@@ -102,7 +102,7 @@ export class AuditJobsHeader {
     length: 100,
     nullable: true,
   })
-  districtManagerFirstName: string;
+  districtManagerFirstName!: string;
 
   @Column({
     name: 'district_manager_last_name',
@@ -110,7 +110,7 @@ export class AuditJobsHeader {
     length: 100,
     nullable: true,
   })
-  districtManagerLastName: string;
+  districtManagerLastName!: string;
 
   @Column({
     name: 'district_manager_branch_name',
@@ -118,13 +118,13 @@ export class AuditJobsHeader {
     length: 200,
     nullable: true,
   })
-  districtManagerBranchName: string;
+  districtManagerBranchName!: string;
 
   // ==========================================
   // Branch Manager (3 columns - ไม่มี branch_name)
   // ==========================================
   @Column({ name: 'branch_manager_user_id', type: 'int', nullable: true })
-  branchManagerUserId: number;
+  branchManagerUserId!: number;
 
   @Column({
     name: 'branch_manager_user_code',
@@ -132,7 +132,7 @@ export class AuditJobsHeader {
     length: 50,
     nullable: true,
   })
-  branchManagerUserCode: string;
+  branchManagerUserCode!: string;
 
   @Column({
     name: 'branch_manager_first_name',
@@ -140,7 +140,7 @@ export class AuditJobsHeader {
     length: 100,
     nullable: true,
   })
-  branchManagerFirstName: string;
+  branchManagerFirstName!: string;
 
   @Column({
     name: 'branch_manager_last_name',
@@ -148,7 +148,7 @@ export class AuditJobsHeader {
     length: 100,
     nullable: true,
   })
-  branchManagerLastName: string;
+  branchManagerLastName!: string;
 
   // ไม่มี branch_manager_branch_name เพราะใช้ branch_name ที่ header
 
@@ -156,45 +156,45 @@ export class AuditJobsHeader {
   // Other fields
   // ==========================================
   @Column({ name: 'additional_notes', type: 'nvarchar', nullable: true })
-  additionalNotes: string;
+  additionalNotes!: string;
 
   @Column({ name: 'excel_file_name', type: 'nvarchar', nullable: true })
-  excelFileName: string;
+  excelFileName!: string;
 
   @Column({ name: 'excel_file_path', type: 'nvarchar', nullable: true })
-  excelFilePath: string;
+  excelFilePath!: string;
 
   @Column({ name: 'status', type: 'int', nullable: true, default: 1 })
-  status: number;
+  status!: number;
 
   // Relation to Audit_Header_Status
   @ManyToOne(() => AuditHeaderStatus)
   @JoinColumn({ name: 'status' })
-  statusInfo: AuditHeaderStatus;
+  statusInfo!: AuditHeaderStatus;
 
   @Column({ name: 'created_by', type: 'int', nullable: true })
-  createdBy: number;
+  createdBy!: number;
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @Column({ name: 'updated_by', type: 'int', nullable: true })
-  updatedBy: number;
+  updatedBy!: number;
 
   @UpdateDateColumn({ name: 'updated_at', type: 'datetime' })
-  updatedAt: Date;
+  updatedAt!: Date;
 
   @Column({ name: 'deleted_at', type: 'datetime', nullable: true })
-  deletedAt: Date | null;
+  deletedAt!: Date | null;
 
   @Column({ name: 'deleted_by', type: 'int', nullable: true })
   deletedBy?: number;
 
   @Column({ name: 'delete_reason', type: 'nvarchar', nullable: true })
-  deleteReason: string;
+  deleteReason!: string;
 
   @Column({ name: 'active', type: 'bit', default: 1 })
-  active: boolean;
+  active!: boolean;
 
   @Column({
     name: 'position_type',
@@ -202,9 +202,9 @@ export class AuditJobsHeader {
     length: 100,
     nullable: true,
   })
-  positionType: string;
+  positionType!: string;
 
   // Relations
   @OneToMany(() => AuditItem, (item) => item.job)
-  items: AuditItem[];
+  items!: AuditItem[];
 }

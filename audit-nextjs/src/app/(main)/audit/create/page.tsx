@@ -421,12 +421,12 @@ export default function CreateAuditJobPage() {
             <CardContent className="pt-6">
               <FieldSet>
                 <div className="flex items-center justify-between">
-                      <div>
-                          <FieldLegend>สร้าง Audit Report</FieldLegend>
-                          <FieldDescription>
-                            กรุณากรอกข้อมูลให้ครบถ้วนเพื่อสร้างงานตรวจสอบ
-                          </FieldDescription>
-                      </div>
+                    <div>
+                        <FieldLegend>สร้าง Audit Report</FieldLegend>
+                        <FieldDescription>
+                          กรุณากรอกข้อมูลให้ครบถ้วนเพื่อสร้างงานตรวจสอบ
+                        </FieldDescription>
+                    </div>
                     <Controller
                       name="Type"
                       control={form.control}

@@ -385,7 +385,7 @@ export default function AMChecklistModal({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>AM Checklist</DialogTitle>
+            <DialogTitle>Checklist</DialogTitle>
             <DialogDescription>
               รายการ: <span className="font-medium text-foreground">{item.category_name}</span>
             </DialogDescription>

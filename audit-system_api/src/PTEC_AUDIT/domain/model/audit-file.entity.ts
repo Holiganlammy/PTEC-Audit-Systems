@@ -8,25 +8,25 @@ import {
 @Entity('audit_files')
 export class AuditFile {
   @PrimaryGeneratedColumn({ name: 'file_id' })
-  fileId: number;
+  fileId!: number;
 
   @Column({ name: 'file_type', type: 'nvarchar', length: 50 })
-  fileType: string;
+  fileType!: string;
 
   @Column({ name: 'reference_id', type: 'int' })
-  referenceId: number;
+  referenceId!: number;
 
   @Column({ name: 'file_name', type: 'nvarchar', length: 255 })
-  fileName: string;
+  fileName!: string;
 
   @Column({ name: 'file_path', type: 'nvarchar', length: 'MAX' })
-  filePath: string;
+  filePath!: string;
 
   @Column({ name: 'file_size', type: 'bigint', nullable: true })
-  fileSize: number | null;
+  fileSize!: number | null;
 
   @Column({ name: 'mime_type', type: 'nvarchar', length: 100, nullable: true })
-  mimeType: string | null;
+  mimeType!: string | null;
 
   @Column({
     name: 'description',
@@ -34,20 +34,20 @@ export class AuditFile {
     length: 'MAX',
     nullable: true,
   })
-  description: string | null;
+  description!: string | null;
 
   @Column({ name: 'uploaded_by', type: 'int', nullable: true })
-  uploadedBy: number | null;
+  uploadedBy!: number | null;
 
   @CreateDateColumn({ name: 'uploaded_at', type: 'datetime' })
-  uploadedAt: Date;
+  uploadedAt!: Date;
 
   @Column({ name: 'active', type: 'bit', default: true })
-  active: boolean;
+  active!: boolean;
 
   @Column({ name: 'deleted_by', type: 'int', nullable: true })
-  deletedBy: number | null;
+  deletedBy!: number | null;
 
   @Column({ name: 'deleted_at', type: 'datetime', nullable: true })
-  deletedAt: Date | null;
+  deletedAt!: Date | null;
 }

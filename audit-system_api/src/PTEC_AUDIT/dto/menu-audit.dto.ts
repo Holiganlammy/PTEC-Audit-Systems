@@ -4,17 +4,17 @@ import { IsInt, IsOptional } from 'class-validator';
 export class GetMenuByRoleDto {
   @IsInt()
   @IsOptional()
-  roleId: number;
+  roleId!: number;
 }
 
 export class MenuAuditResponseDto {
-  menuId: number;
-  name: string;
-  path: string | null;
-  icon: string | null;
-  parentId: number | null;
-  orderNo: number;
-  isActive: boolean;
+  menuId!: number;
+  name!: string;
+  path!: string | null;
+  icon!: string | null;
+  parentId!: number | null;
+  orderNo!: number;
+  isActive!: boolean;
   canView?: boolean; // from permission
   children?: MenuAuditResponseDto[];
 }

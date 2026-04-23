@@ -8,16 +8,26 @@ import {
 } from 'typeorm';
 import { AuditItem } from './audit-item.entity';
 
-@Entity('AuditItems_OtherDetails_Users')
-export class AuditItemOtherDetailsUser {
-  @PrimaryGeneratedColumn({ name: 'tagged_user_id' })
-  taggedUserId!: number;
+@Entity('Branch_Audit_Scores')
+export class BranchAuditScores {
+  @PrimaryGeneratedColumn({ name: 'score_id' })
+  scoreId!: number;
+
+  @Column({ name: 'job_id', type: 'int', nullable: false })
+  jobId!: number;
+
+  @Column({ name: 'branch_id', type: 'int', nullable: false })
+  branchId!: number;
 
   @Column({ name: 'item_id', type: 'int', nullable: false })
   itemId!: number;
 
-  @Column({ name: 'user_id', type: 'int', nullable: false })
-  userId!: number;
+  @Column({
+    name: 'score',
+    type: 'int',
+    nullable: false,
+  })
+  score!: number;
 
   @Column({ name: 'created_by', type: 'int', nullable: false })
   createdBy!: number;
@@ -25,11 +35,14 @@ export class AuditItemOtherDetailsUser {
   @CreateDateColumn({ name: 'created_at', type: 'datetime' })
   createdAt!: Date;
 
+  @Column({ name: 'remarks', type: 'nvarchar', nullable: true })
+  remarks!: string | null;
+
   @Column({ name: 'active', type: 'bit', default: 1 })
   active!: boolean;
 
   // Relations
-  @ManyToOne(() => AuditItem, (item) => item.taggedUsers)
+  @ManyToOne(() => AuditItem, (item) => item.branchAuditScores)
   @JoinColumn({ name: 'item_id' })
   item!: AuditItem;
 }

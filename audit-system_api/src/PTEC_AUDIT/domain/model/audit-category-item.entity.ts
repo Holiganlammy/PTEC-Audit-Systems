@@ -11,36 +11,36 @@ import { AuditItem } from './audit-item.entity';
 @Entity('Audit_Category_Items')
 export class AuditCategoryItem {
   @PrimaryGeneratedColumn({ name: 'category_item_id' })
-  categoryItemId: number;
+  categoryItemId!: number;
 
   @Column({ name: 'category_name', type: 'nvarchar', nullable: true })
-  categoryName: string;
+  categoryName!: string;
 
   @Column({ name: 'category_code', type: 'int', nullable: true })
-  categoryCode: number;
+  categoryCode!: number;
 
   @Column({ name: 'description', type: 'nvarchar', nullable: true })
-  description: string;
+  description!: string;
 
   @Column({ name: 'active', type: 'bit', default: 1 })
-  active: boolean;
+  active!: boolean;
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @Column({ name: 'created_by', type: 'int', nullable: true })
-  createdBy: number;
+  createdBy!: number;
 
   @UpdateDateColumn({ name: 'updated_at', type: 'datetime' })
-  updatedAt: Date;
+  updatedAt!: Date;
 
   @Column({ name: 'updated_by', type: 'int', nullable: true })
-  updatedBy: number;
+  updatedBy!: number;
 
   @Column({ name: 'position_type', type: 'nvarchar', nullable: true })
-  positionType: string;
+  positionType!: string;
 
   // Relations
   @OneToMany(() => AuditItem, (item) => item.categoryItem)
-  items: AuditItem[];
+  items!: AuditItem[];
 }

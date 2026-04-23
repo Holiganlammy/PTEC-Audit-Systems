@@ -16,6 +16,7 @@ import { AuditItemOtherDetails } from './audit-item-other-details.entity';
 import { AuditItemOtherDetailsUser } from './audit-item-other-details-users.entity';
 import { AuditItemStatus } from './audit-item-status.entity';
 import { AuditAmCheckerStatus } from './audit_am_checker_status.entity';
+import { BranchAuditScores } from './branch_audit_scores.entity';
 
 @Entity('AuditItems')
 export class AuditItem {
@@ -104,4 +105,7 @@ export class AuditItem {
   @ManyToOne(() => AuditAmCheckerStatus, (status) => status.items)
   @JoinColumn({ name: 'am_checklist_status' })
   amChecklistStatusRelation!: AuditAmCheckerStatus;
+
+  @OneToMany(() => BranchAuditScores, (score) => score.item)
+  branchAuditScores!: BranchAuditScores[];
 }

@@ -38,6 +38,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -76,6 +77,21 @@ interface ApiUser {
   UserCode: string;
   Fullname: string;
 }
+
+type BranchScoreValue = -1 | 0 | 1;
+type BranchScoreEntry = { score: BranchScoreValue; note?: string };
+
+type BranchAuditScoreApiRow = {
+  scoreId: number;
+  jobId: number;
+  branchId: number;
+  itemId: number;
+  score: BranchScoreValue;
+  createdBy: number;
+  createdAt: string;
+  remarks: string | null;
+  active: boolean;
+};
 
 function SortableTableRow({ row }: { row: Row<AuditItem> }) {
   const {
@@ -144,6 +160,7 @@ export default function DataTableItemList({
   const [pageIndex, setPageIndex] = useState(0);
   const [users, setUsers] = useState<ApiUser[]>([]);
   const [taggedUsersMap, setTaggedUsersMap] = useState<Record<number, TaggedUser[]>>({});
+  const [branchScoresMap, setBranchScoresMap] = useState<Record<number, BranchScoreEntry>>({});
 
   // Modal state
   const [openAddModal, setOpenAddModal] = useState(false);
@@ -186,6 +203,55 @@ export default function DataTableItemList({
       })
       .catch(() => {});
   }, []);
+
+  // Fetch branch audit scores and group by itemId
+  useEffect(() => {
+    const branchId = Number(jobData?.branchId);
+    if (!Number.isFinite(branchId)) return;
+
+    client
+      .get("/branch-audit-scores/list", {
+        params: { jobId, branchId },
+        headers: dataConfig().headers,
+      })
+      .then((res) => {
+        const list: BranchAuditScoreApiRow[] = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.data)
+          ? res.data.data
+          : [];
+
+        // If there are multiple rows per item, prefer the latest createdAt.
+        const latestByItem: Record<number, BranchAuditScoreApiRow> = {};
+        for (const row of list) {
+          if (!row?.active) continue;
+          const prev = latestByItem[row.itemId];
+          if (!prev) {
+            latestByItem[row.itemId] = row;
+            continue;
+          }
+          const prevTime = Date.parse(prev.createdAt);
+          const nextTime = Date.parse(row.createdAt);
+          if (!Number.isNaN(nextTime) && (Number.isNaN(prevTime) || nextTime >= prevTime)) {
+            latestByItem[row.itemId] = row;
+          }
+        }
+
+        const map: Record<number, BranchScoreEntry> = {};
+        for (const [itemIdText, row] of Object.entries(latestByItem)) {
+          const itemId = Number(itemIdText);
+          map[itemId] = {
+            score: row.score,
+            note: row.remarks ?? undefined,
+          };
+        }
+
+        setBranchScoresMap(map);
+      })
+      .catch((err) => {
+        console.error("❌ Error fetching branch audit scores:", err);
+      });
+  }, [jobId, jobData?.branchId]);
 
   const handleEdit = useCallback((item: AuditItem) => {
     setSelectedItem(item);
@@ -250,6 +316,59 @@ export default function DataTableItemList({
     setDeleteItem(item);
   }, []);
 
+  // onSubmit ของ BranchScoreCell จะส่ง itemId, score, note มาให้ handleBranchScoreSubmit เพื่อบันทึกผ่าน API และอัปเดต state
+  const handleBranchScoreSubmit = useCallback(
+    async (itemId: number, score: BranchScoreValue, note?: string) => {
+      await client.post(
+        "/branch-audit-scores/create",
+        {
+          jobId,
+          itemId,
+          branchId: Number(jobData?.branchId),
+          score,
+          remarks: note,
+          createdBy: String(session?.user?.UserID ?? ""),
+          createdDate: new Date().toISOString(),
+        },
+        { headers: dataConfig().headers }
+      );
+
+      setBranchScoresMap((prev) => ({
+        ...prev,
+        [itemId]: { score, note },
+      }));
+      toast.success("บันทึกคะแนนสาขาเรียบร้อย");
+    },
+    [jobId, jobData, session]
+  );
+
+  const branchScoreSummary = useMemo(() => {
+    let plus = 0;
+    let zero = 0;
+    let minus = 0;
+    let total = 0;
+    let scored = 0;
+
+    for (const item of visibleItems) {
+      const entry = branchScoresMap[item.item_id];
+      if (!entry) continue;
+      scored += 1;
+      total += entry.score;
+      if (entry.score === 1) plus += 1;
+      else if (entry.score === 0) zero += 1;
+      else minus += 1;
+    }
+
+    return {
+      plus,
+      zero,
+      minus,
+      total,
+      scored,
+      unscored: Math.max(0, visibleItems.length - scored),
+    };
+  }, [visibleItems, branchScoresMap]);
+
   const confirmDelete = async () => {
     if (!deleteItem) return;
     try {
@@ -278,7 +397,9 @@ export default function DataTableItemList({
         jobData,
         isLocked,
         handleAMChecklistClick,
-        isAMChecklistAllowed
+        isAMChecklistAllowed,
+        branchScoresMap,
+        handleBranchScoreSubmit
       ),
     [
       handleEdit,
@@ -292,6 +413,8 @@ export default function DataTableItemList({
       isLocked,
       handleAMChecklistClick,
       isAMChecklistAllowed,
+      branchScoresMap,
+      handleBranchScoreSubmit,
     ]
   );
 
@@ -359,6 +482,18 @@ export default function DataTableItemList({
             เพิ่มรายการ
           </Button>
         )}
+      </div>
+
+      {/* Branch Score Summary */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-sm text-muted-foreground">สรุปคะแนนสาขา</div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline">รวม: {branchScoreSummary.total}</Badge>
+          <Badge>+1: {branchScoreSummary.plus}</Badge>
+          <Badge variant="secondary">0: {branchScoreSummary.zero}</Badge>
+          <Badge variant="destructive">-1: {branchScoreSummary.minus}</Badge>
+          <Badge variant="outline">ยังไม่ให้คะแนน: {branchScoreSummary.unscored}</Badge>
+        </div>
       </div>
 
       {/* DnD Table */}
@@ -435,7 +570,7 @@ export default function DataTableItemList({
                 setPageIndex(0);
               }}
             >
-              <SelectTrigger className="h-8 w-[70px]">
+              <SelectTrigger className="h-8 w-17.5">
                 <SelectValue placeholder={pageSize} />
               </SelectTrigger>
               <SelectContent side="top">

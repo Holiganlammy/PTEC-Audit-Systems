@@ -11,7 +11,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import express from 'express';
-import { MenuAuditDto } from '../domain/dto/menu.dto';
+import { MenuAuditDto } from '../dto/menu.dto';
 
 @Controller('')
 export class AppController {

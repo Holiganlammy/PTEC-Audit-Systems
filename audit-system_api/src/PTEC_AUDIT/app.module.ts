@@ -17,6 +17,8 @@ import { AuditItemOtherDetails } from './domain/model/audit-item-other-details.e
 import { AuditItemOtherDetailsUser } from './domain/model/audit-item-other-details-users.entity';
 import { DatabaseManagerModule } from '../database/database-manager.module';
 import { AuditFile } from './domain/model/audit-file.entity';
+import { BranchAuditScores } from './domain/model/branch_audit_scores.entity';
+
 // Services
 import { AuditJobsService } from './service/audit-job.service';
 import { AuditItemsService } from './service/audit-item.service';
@@ -27,6 +29,7 @@ import { AuditItemOtherDetailsService } from './service/audit-item-other-detail.
 import { AuditCategoryService } from './service/audit-category.service';
 import { AuditItemOtherUserDetailService } from './service/audit-item-other-user-detail.service';
 import { AuditFilesService } from './service/audit-files.service';
+import { BranchAuditScoreService } from './service/branch-audit-score.service';
 
 // Controllers
 import { AuditJobsController } from './controller/audit-job.controller';
@@ -39,6 +42,7 @@ import { AuditCategoryController } from './controller/audit-category.controller'
 import { PTEC_USERRIGHT_Module } from '../PTEC_USERIGHT/app.module';
 import { AuditItemOtherUserDetailController } from './controller/audit-item-audit-user-detail.controller';
 import { AuditFilesController } from './controller/audit-files.controller';
+import { BranchAuditScoreController } from './controller/branch-audit-score.controller';
 
 @Module({
   controllers: [
@@ -52,6 +56,7 @@ import { AuditFilesController } from './controller/audit-files.controller';
     AuditCategoryController,
     AuditItemOtherUserDetailController,
     AuditFilesController,
+    BranchAuditScoreController,
   ],
   imports: [
     TypeOrmModule.forFeature([
@@ -66,6 +71,7 @@ import { AuditFilesController } from './controller/audit-files.controller';
       AuditItemOtherDetails,
       AuditItemOtherDetailsUser,
       AuditFile,
+      BranchAuditScores,
     ]),
     DatabaseManagerModule,
     PTEC_USERRIGHT_Module,
@@ -84,6 +90,7 @@ import { AuditFilesController } from './controller/audit-files.controller';
     CategoryItemsService,
     AuditItemOtherUserDetailService,
     AuditFilesService,
+    BranchAuditScoreService,
   ],
 })
 export class PTEC_AUDIT_Module implements NestModule {

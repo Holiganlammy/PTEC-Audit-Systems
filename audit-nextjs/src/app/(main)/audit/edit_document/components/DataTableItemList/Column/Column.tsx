@@ -21,9 +21,70 @@ import { Checkbox } from "@/components/ui/checkbox";
 import NoteCell from "../NoteCell/NoteCell";
 import TagCell, { TaggedUser } from "../TagCell/TagCell";
 export type { TaggedUser };import { useSession } from "next-auth/react";
-import { CheckCircle2, XCircle, Clock, AlertCircle, FileEdit } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, AlertCircle, FileEdit, Calendar, CircleFadingPlus  } from "lucide-react";
 import { useState } from "react";
+import BranchAddScore from "../../BranchAddScore";
  
+
+type BranchScoreValue = -1 | 0 | 1;
+type BranchScoreEntry = { score: BranchScoreValue; note?: string };
+
+function BranchScoreCell({
+  item,
+  entry,
+  disabled,
+  onSubmit,
+}: {
+  item: AuditItem;
+  entry?: BranchScoreEntry;
+  disabled?: boolean;
+  onSubmit?: (itemId: number, score: BranchScoreValue, note?: string) => Promise<void> | void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const variant = entry?.score === -1 ? "destructive" : entry?.score === 0 ? "secondary" : "default";
+  const label = entry
+    ? `คะแนน ${entry.score === 1 ? "+1" : entry.score === 0 ? "0" : "-1"}`
+    : "ให้คะแนน";
+
+  return (
+    <div className="flex justify-center">
+      <Button
+        type="button"
+        variant="ghost"
+        className="group h-8 px-2"
+        onClick={() => !disabled && setOpen(true)}
+        disabled={disabled}
+        aria-label={entry ? "แก้ไขคะแนนสาขา" : "เพิ่มคะแนนสาขา"}
+        title={entry ? "คลิกเพื่อแก้ไขคะแนน" : "คลิกเพื่อให้คะแนน"}
+      >
+        {entry ? (
+          <span className="inline-flex items-center gap-1.5">
+            <Badge variant={variant}>{label}</Badge>
+            <Pencil className="h-3.5 w-3.5 text-muted-foreground transition-colors group-hover:text-foreground" />
+          </span>
+        ) : (
+          <Badge variant="outline" className="text-muted-foreground">
+            <CircleFadingPlus className="mr-1 h-3 w-3" />
+            {label}
+          </Badge>
+        )}
+      </Button>
+
+      <BranchAddScore
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        itemId={item.item_id}
+        itemName={item.category_name}
+        initialScore={entry?.score ?? null}
+        initialNote={entry?.note ?? ""}
+        onSubmit={({ score, note }) => {
+          return onSubmit?.(item.item_id, score as BranchScoreValue, note);
+        }}
+      />
+    </div>
+  );
+}
 
 export const DragHandleContext = createContext<{
   listeners?: SyntheticListenerMap;
@@ -67,6 +128,16 @@ function ActionsCell({
             ลบ
           </DropdownMenuItem>
           : null}
+          <DropdownMenuItem
+            onClick={() =>
+              navigator.clipboard.writeText(
+                format(new Date(item.inspection_date), "dd/MM/yyyy", { locale: th })
+              )
+            }
+          >
+            <Calendar className="mr-2 h-4 w-4" />
+            คัดลอกวันที่ตรวจสอบ
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -218,7 +289,9 @@ export const createAuditItemsColumns = (
   jobData?: AuditJobData,
   isLocked?: boolean,
   onAMChecklistClick?: (item: AuditItem) => void,
-  isAMChecklistAllowed?: boolean
+  isAMChecklistAllowed?: boolean,
+  branchScoresMap: Record<number, BranchScoreEntry> = {},
+  onBranchScoreSubmit?: (itemId: number, score: BranchScoreValue, note?: string) => void
 ): ColumnDef<AuditItem>[] => [
   {
     id: "drag",
@@ -262,7 +335,7 @@ export const createAuditItemsColumns = (
   },
     {
     accessorKey: "item_status",
-    header: (table) => (
+    header: () => (
       <div className="text-center">
         สถานะที่ตรวจพบ
       </div>
@@ -273,6 +346,21 @@ export const createAuditItemsColumns = (
           {getStatusBadge(row.getValue("item_status") as number)}
         </div>
       )
+    },
+  },
+  {
+    id: "branch_score",
+    header: () => <div className="text-center">คะแนนสาขา</div>,
+    cell: ({ row }) => {
+      const entry = branchScoresMap[row.original.item_id];
+      return (
+        <BranchScoreCell
+          item={row.original}
+          entry={entry}
+          disabled={isLocked}
+          onSubmit={onBranchScoreSubmit}
+        />
+      );
     },
   },
   // {
@@ -356,7 +444,7 @@ export const createAuditItemsColumns = (
   },
   {
     accessorKey: "item_status_edit",
-    header: (table) => (
+    header: () => (
       <div className="text-center">
         สถานะอัพเดทและแก้ไข (ล่าสุด)
       </div>
@@ -373,7 +461,7 @@ export const createAuditItemsColumns = (
     id: "am_checklist",
     header: () => (
       <div className="text-center">
-        AM Check
+        Check
       </div>
     ),
     cell: ({ row }) => {
