@@ -117,7 +117,7 @@ interface User {
 }
 
 interface AuditItemData {
-    amDetails: amDetails[];
+    amComments: amComments[];
     itemId: number;
     jobId: number;
     categoryItemId: number;
@@ -131,8 +131,8 @@ interface AuditItemData {
     updatedAt: string;
     active: boolean;
     categoryItem?: AuditCategoryItem;
-    auditDetails: auditDetails[];
-    otherDetails: OtherDetails[];
+    auditComments: auditComments[];
+    otherComments: otherComments[];
     amChecklistStatus?: number;
     amChecklistDetail?: string;
     amChecklistBy?: number;
@@ -159,7 +159,7 @@ interface DetailUser {
     branchId: number;
 }
 
-interface amDetails {
+interface amComments {
     amDetailId: number;
     itemId: number;
     approverBy: number | null;
@@ -176,7 +176,7 @@ interface amDetails {
     approverByUser?: DetailUser;
 }
 
-interface auditDetails {
+interface auditComments {
     auditDetailId: number;
     itemId: number;
     approverBy: number | null;
@@ -193,7 +193,7 @@ interface auditDetails {
     approverByUser?: DetailUser;
 }
 
-interface OtherDetails {
+interface otherComments {
     otherDetailId: number;
     itemId: number;
     approverBy: number | null;
@@ -210,7 +210,7 @@ interface OtherDetails {
     approverByUser?: DetailUser;
 }
 
-interface AuditDetailsComment {
+interface auditCommentsComment {
     auditDetailId: number;
     itemId: number;
     approverStatus: number;
@@ -222,8 +222,8 @@ interface AuditDetailsComment {
     updatedAt: string;
     active: boolean;
     OwnerCommentUser?: UserOwnerComment;
-    amDetailId: amDetails;
-    otherDetailId: OtherDetails;
+    amDetailId: amComments;
+    otherDetailId: otherComments;
     approverByUser?: UserApproverComment;
 }
 

@@ -86,7 +86,7 @@ export class AuditItem {
   amComments!: AuditItemAMComment[];
 
   @OneToMany(() => AuditItemAuditComment, (comment) => comment.item)
-  auditDetails!: AuditItemAuditComment[];
+  auditComments!: AuditItemAuditComment[];
 
   @OneToMany(() => AuditItemOtherComment, (otherComment) => otherComment.item)
   otherComments!: AuditItemOtherComment[];

@@ -57,7 +57,7 @@ export class AuditItemAuditComment {
   deletedReason!: string;
 
   // Relations
-  @ManyToOne(() => AuditItem, (item) => item.auditDetails)
+  @ManyToOne(() => AuditItem, (item) => item.auditComments)
   @JoinColumn({ name: 'item_id' })
   item!: AuditItem;
 }

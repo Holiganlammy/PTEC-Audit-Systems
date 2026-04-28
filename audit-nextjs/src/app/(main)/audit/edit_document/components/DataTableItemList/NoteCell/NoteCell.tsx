@@ -30,7 +30,7 @@ interface NoteCellProps {
   isLocked?: boolean;
 }
 
-interface AuditDetailsComment {
+interface auditCommentsComment {
   auditDetailId?: number;
   amDetailId?: number;
   otherDetailId?: number;
@@ -127,7 +127,7 @@ export default function NoteCell({
         if (response.data.success) {
           // Transform API response to AuditComment format
           const transformedComments: AuditComment[] = response.data.data.map(
-            (c: AuditDetailsComment) => ({
+            (c: auditCommentsComment) => ({
               id:
                 threadType === 1
                   ? c.auditDetailId!
@@ -195,7 +195,7 @@ export default function NoteCell({
       if (approverStatus === 0) {
         // หา comment ที่เพิ่งสร้าง
         const myPendingComments = latestComments.filter(
-          (c: AuditDetailsComment) =>
+          (c: auditCommentsComment) =>
             c.createdBy === session?.user?.UserID &&
             c.approverStatus === 0 &&
             c.requireApprovalFrom
@@ -204,7 +204,7 @@ export default function NoteCell({
         // เก็บ approver ที่ต้อง tag
         const approversToTag = new Set<string>();
   
-        myPendingComments.forEach((c: AuditDetailsComment) => {
+        myPendingComments.forEach((c: auditCommentsComment) => {
           if (c.requireApprovalFrom) {
             const approverUser = users.find(
               (u: ApiUser) => u.UserCode === c.requireApprovalFrom!.userCode
@@ -256,7 +256,7 @@ export default function NoteCell({
   
       // Update UI
       const transformedComments: AuditComment[] = latestComments.map(
-        (c: AuditDetailsComment) => ({
+        (c: auditCommentsComment) => ({
           id:
             threadType === 1
               ? c.auditDetailId!
@@ -314,7 +314,7 @@ export default function NoteCell({
 
     if (response.data.success) {
       const transformedComments: AuditComment[] = response.data.data.map(
-        (c: AuditDetailsComment) => ({
+        (c: auditCommentsComment) => ({
           id:
             threadType === 1
               ? c.auditDetailId!
@@ -367,7 +367,7 @@ export default function NoteCell({
 
     if (response.data.success) {
       const transformedComments: AuditComment[] = response.data.data.map(
-        (c: AuditDetailsComment) => ({
+        (c: auditCommentsComment) => ({
           id:
             threadType === 1
               ? c.auditDetailId!
@@ -420,7 +420,7 @@ export default function NoteCell({
 
     if (response.data.success) {
       const transformedComments: AuditComment[] = response.data.data.map(
-        (c: AuditDetailsComment) => ({
+        (c: auditCommentsComment) => ({
           id:
             threadType === 1
               ? c.auditDetailId!

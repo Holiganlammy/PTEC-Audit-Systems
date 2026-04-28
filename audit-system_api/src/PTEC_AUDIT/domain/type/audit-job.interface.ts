@@ -51,13 +51,13 @@ export interface AuditItemWithUsers {
   createdByUser?: UserData;
   updatedByUser?: UserData;
   categoryItem?: any;
-  amDetails?: amDetails[];
-  auditDetails?: auditDetails[];
-  otherDetails?: OtherDetails[];
+  amComments?: AmComments[];
+  auditComments?: AuditComments[];
+  otherComments?: OtherComments[];
   taggedUsers?: any[];
 }
 
-interface auditDetails {
+interface AuditComments {
   auditDetailId: number;
   itemId: number;
   userId: number;
@@ -74,7 +74,7 @@ interface auditDetails {
   approverByUser?: UserData;
 }
 
-interface amDetails {
+interface AmComments {
   amDetailId: number;
   itemId: number;
   userId: number;
@@ -91,7 +91,7 @@ interface amDetails {
   approverByUser?: UserData;
 }
 
-interface OtherDetails {
+interface OtherComments {
   otherDetailId: number;
   itemId: number;
   userId: number;

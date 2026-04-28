@@ -40,7 +40,7 @@ interface AuditCategoryItem {
   active: boolean;
 }
 
-interface auditDetails {
+interface auditComments {
   auditDetailId: number;
   itemId: number;
   approverBy: number | null;
@@ -55,7 +55,7 @@ interface auditDetails {
   approverByUser?: DetailUser;
 }
 
-interface amDetails {
+interface amComments {
   amDetailId: number;
   itemId: number;
   approverBy: number | null;
@@ -70,7 +70,7 @@ interface amDetails {
   approverByUser?: DetailUser;
 }
 
-interface OtherDetails {
+interface otherComments {
   otherDetailId: number;
   itemId: number;
   approverBy: number | null;
@@ -98,9 +98,9 @@ interface AuditItemData {
   updatedAt: string;
   active: boolean;
   categoryItem?: AuditCategoryItem;
-  auditDetails: auditDetails[];
-  amDetails: amDetails[];
-  otherDetails: OtherDetails[];
+  auditComments: auditComments[];
+  amComments: amComments[];
+  otherComments: otherComments[];
 }
 
 // ── Transform helper ──────────────────────────────────────────────────────────
@@ -115,7 +115,7 @@ function transformItems(data: AuditItemData[]): AuditItem[] {
     item_status: item.itemStatus,
     item_status_edit: item.itemStatusEdit, // default to same as item_status
     remarks: item.remarks || "",
-    note_1: (item.auditDetails || []).map((c) => ({
+    note_1: (item.auditComments || []).map((c) => ({
       id: c.auditDetailId,
       itemId: c.itemId,
       userId: c.createdBy,
@@ -131,7 +131,7 @@ function transformItems(data: AuditItemData[]): AuditItem[] {
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
     })),
-    note_2: (item.amDetails || []).map((c) => ({
+    note_2: (item.amComments || []).map((c) => ({
       id: c.amDetailId,
       itemId: c.itemId,
       userId: c.createdBy,
@@ -147,7 +147,7 @@ function transformItems(data: AuditItemData[]): AuditItem[] {
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
     })),
-    note_3: (item.otherDetails || []).map((c) => ({
+    note_3: (item.otherComments || []).map((c) => ({
       id: c.otherDetailId,
       itemId: c.itemId,
       userId: c.createdBy,

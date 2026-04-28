@@ -141,9 +141,9 @@ export class AuditItemsService {
         'itemStatusRelation',
         'itemStatusEditRelation',
         'amChecklistStatusRelation',
-        'amDetails',
-        'auditDetails',
-        'otherDetails',
+        'amComments',
+        'auditComments',
+        'otherComments',
         'taggedUsers',
       ],
     });
@@ -219,9 +219,9 @@ export class AuditItemsService {
     query
       .andWhere('item.active = :active', { active: true })
       .leftJoinAndSelect('item.categoryItem', 'categoryItem')
-      .leftJoinAndSelect('item.amDetails', 'amDetails')
-      .leftJoinAndSelect('item.auditDetails', 'auditDetails')
-      .leftJoinAndSelect('item.otherDetails', 'otherDetails')
+      .leftJoinAndSelect('item.amComments', 'amComments')
+      .leftJoinAndSelect('item.auditComments', 'auditComments')
+      .leftJoinAndSelect('item.otherComments', 'otherComments')
       .leftJoinAndSelect('item.itemStatusRelation', 'itemStatusRelation')
       .leftJoinAndSelect(
         'item.amChecklistStatusRelation',
@@ -237,51 +237,54 @@ export class AuditItemsService {
 
     return await Promise.all(
       items.map(async (item) => {
-        const [amDetailsEnriched, auditDetailsEnriched, otherDetailsEnriched] =
-          await Promise.all([
-            Promise.all(
-              (item.amComments || [])
-                .filter((d) => d.active)
-                .map(async (detail) => {
-                  const { userId, approverBy, ...rest } = detail;
-                  const [OwnerCommentUser, approverByUser] = await Promise.all([
-                    this.getUserData(userId),
-                    this.getUserData(approverBy),
-                  ]);
-                  return { ...rest, OwnerCommentUser, approverByUser };
-                }),
-            ),
-            Promise.all(
-              (item.auditDetails || [])
-                .filter((d) => d.active)
-                .map(async (detail) => {
-                  const { userId, approverBy, ...rest } = detail;
-                  const [OwnerCommentUser, approverByUser] = await Promise.all([
-                    this.getUserData(userId),
-                    this.getUserData(approverBy),
-                  ]);
-                  return { ...rest, OwnerCommentUser, approverByUser };
-                }),
-            ),
-            Promise.all(
-              (item.otherComments || [])
-                .filter((d) => d.active)
-                .map(async (detail) => {
-                  const { userId, approverBy, ...rest } = detail;
-                  const [OwnerCommentUser, approverByUser] = await Promise.all([
-                    this.getUserData(userId),
-                    this.getUserData(approverBy),
-                  ]);
-                  return { ...rest, OwnerCommentUser, approverByUser };
-                }),
-            ),
-          ]);
+        const [
+          amCommentsEnriched,
+          auditCommentsEnriched,
+          otherCommentsEnriched,
+        ] = await Promise.all([
+          Promise.all(
+            (item.amComments || [])
+              .filter((d) => d.active)
+              .map(async (detail) => {
+                const { userId, approverBy, ...rest } = detail;
+                const [OwnerCommentUser, approverByUser] = await Promise.all([
+                  this.getUserData(userId),
+                  this.getUserData(approverBy),
+                ]);
+                return { ...rest, OwnerCommentUser, approverByUser };
+              }),
+          ),
+          Promise.all(
+            (item.auditComments || [])
+              .filter((d) => d.active)
+              .map(async (detail) => {
+                const { userId, approverBy, ...rest } = detail;
+                const [OwnerCommentUser, approverByUser] = await Promise.all([
+                  this.getUserData(userId),
+                  this.getUserData(approverBy),
+                ]);
+                return { ...rest, OwnerCommentUser, approverByUser };
+              }),
+          ),
+          Promise.all(
+            (item.otherComments || [])
+              .filter((d) => d.active)
+              .map(async (detail) => {
+                const { userId, approverBy, ...rest } = detail;
+                const [OwnerCommentUser, approverByUser] = await Promise.all([
+                  this.getUserData(userId),
+                  this.getUserData(approverBy),
+                ]);
+                return { ...rest, OwnerCommentUser, approverByUser };
+              }),
+          ),
+        ]);
 
         return {
           ...item,
-          amDetails: amDetailsEnriched,
-          auditDetails: auditDetailsEnriched,
-          otherDetails: otherDetailsEnriched,
+          amComments: amCommentsEnriched,
+          auditComments: auditCommentsEnriched,
+          otherComments: otherCommentsEnriched,
         };
       }),
     );
@@ -350,12 +353,10 @@ export class AuditItemsService {
     const items = await this.auditItemsRepository
       .createQueryBuilder('item')
       .leftJoinAndSelect('item.categoryItem', 'category')
-      .leftJoin('item.amDetails', 'am')
-      .leftJoin('item.auditDetails', 'audit')
-      .leftJoin('item.otherDetails', 'other')
+      .leftJoin('item.amComments', 'am')
+      .leftJoin('item.auditComments', 'audit')
+      .leftJoin('item.otherComments', 'other')
       .where('item.jobId = :jobId', { jobId })
-      .andWhere('item.active = :active', { active: true })
-      .select(['item', 'category'])
       .addSelect('COUNT(DISTINCT am.amDetailId)', 'amCommentCount')
       .addSelect('COUNT(DISTINCT audit.auditDetailId)', 'auditCommentCount')
       .addSelect('COUNT(DISTINCT other.otherDetailId)', 'otherCommentCount')
@@ -380,9 +381,9 @@ export class AuditItemsService {
   async getPendingApprovalCount(jobId: number): Promise<number> {
     const result = await this.auditItemsRepository
       .createQueryBuilder('item')
-      .leftJoin('item.amDetails', 'am')
-      .leftJoin('item.auditDetails', 'audit')
-      .leftJoin('item.otherDetails', 'other')
+      .leftJoin('item.amComments', 'am')
+      .leftJoin('item.auditComments', 'audit')
+      .leftJoin('item.otherComments', 'other')
       .where('item.jobId = :jobId', { jobId })
       .andWhere('item.active = :active', { active: true })
       .andWhere(

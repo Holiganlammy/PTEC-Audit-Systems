@@ -18,7 +18,7 @@ interface AuditComment {
 }
 
 
-interface AuditDetailsComment {
+interface auditCommentsComment {
   auditDetailId?: number;
   amDetailId?: number;
   otherDetailId?: number;

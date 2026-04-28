@@ -479,7 +479,7 @@ export default function EditAuditJobPage() {
             remarks: item.remarks || "",
             
             // Comments from different sources (transformed to Comment shape)
-            note_1: (item.auditDetails || []).map((c: auditDetails) => ({
+            note_1: (item.auditComments || []).map((c: auditComments) => ({
               id: c.auditDetailId,
               itemId: c.itemId,
               userId: c.createdBy,
@@ -495,7 +495,7 @@ export default function EditAuditJobPage() {
               createdAt: c.createdAt,
               updatedAt: c.updatedAt,
             })),
-            note_2: (item.amDetails || []).map((c: amDetails) => ({
+            note_2: (item.amComments || []).map((c: amComments) => ({
               id: c.amDetailId,
               itemId: c.itemId,
               userId: c.createdBy,
@@ -511,7 +511,7 @@ export default function EditAuditJobPage() {
               createdAt: c.createdAt,
               updatedAt: c.updatedAt,
             })),
-            note_3: (item.otherDetails || []).map((c: OtherDetails) => ({
+            note_3: (item.otherComments || []).map((c: otherComments) => ({
               id: c.otherDetailId,
               itemId: c.itemId,
               userId: c.createdBy,
@@ -569,7 +569,7 @@ export default function EditAuditJobPage() {
           item_status: item.itemStatus,
           item_status_edit: item.itemStatusEdit,
           remarks: item.remarks || "",
-          note_1: (item.auditDetails || []).map((c: auditDetails) => ({
+          note_1: (item.auditComments || []).map((c: auditComments) => ({
             id: c.auditDetailId,
             itemId: c.itemId,
             userId: c.createdBy,
@@ -585,7 +585,7 @@ export default function EditAuditJobPage() {
             createdAt: c.createdAt,
             updatedAt: c.updatedAt,
           })),
-          note_2: (item.amDetails || []).map((c: amDetails) => ({
+          note_2: (item.amComments || []).map((c: amComments) => ({
             id: c.amDetailId,
             itemId: c.itemId,
             userId: c.createdBy,
@@ -601,7 +601,7 @@ export default function EditAuditJobPage() {
             createdAt: c.createdAt,
             updatedAt: c.updatedAt,
           })),
-          note_3: (item.otherDetails || []).map((c: OtherDetails) => ({
+          note_3: (item.otherComments || []).map((c: otherComments) => ({
             id: c.otherDetailId,
             itemId: c.itemId,
             userId: c.createdBy,
@@ -1557,12 +1557,16 @@ export default function EditAuditJobPage() {
                       render={({ field }) => (
                         <Field>
                           <FieldLabel>รายละเอียดเพิ่มเติม</FieldLabel>
+                          {isLoadingData ? (
+                            <Skeleton className="h-24 w-full" />
+                          ) : (
                           <Textarea
                             {...field}
                             placeholder="กรอกรายละเอียดเพิ่มเติม..."
                             rows={4}
                             className="resize-none w-full"
                           />
+                          )}
                         </Field>
                       )}
                     />
@@ -1576,6 +1580,14 @@ export default function EditAuditJobPage() {
                         รองรับไฟล์รูปภาพ, PDF, Excel (สูงสุด 10 ไฟล์, แต่ละไฟล์ไม่เกิน 10MB)
                       </FieldDescription>
 
+                      {isLoadingData ? (
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-10 w-full" />
+                          <Skeleton className="h-10 w-full" />
+                        </div>
+                      ) : (
+                      <>
                       {existingJobHeaderFiles.length > 0 && (
                         <div className="space-y-2 mb-4">
                           <p className="text-sm text-muted-foreground">
@@ -1685,6 +1697,8 @@ export default function EditAuditJobPage() {
                             ))}
                           </ul>
                         </div>
+                      )}
+                      </>
                       )}
                     </Field>
                   </div>
