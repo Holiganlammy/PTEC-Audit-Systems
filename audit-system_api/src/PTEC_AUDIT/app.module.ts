@@ -11,38 +11,41 @@ import { AuditJobsHeader } from './domain/model/audit.jobs-header.entity';
 import { AuditItem } from './domain/model/audit-item.entity';
 import { AuditCategoryItem } from './domain/model/audit-category-item.entity';
 import { AuditHeaderStatus } from './domain/model/audit-status.entity';
-import { AuditItemAMDetail } from './domain/model/audit-item-am-detail.entity';
-import { AuditItemAuditDetail } from './domain/model/audit-item-audit-detail.entity';
-import { AuditItemOtherDetails } from './domain/model/audit-item-other-details.entity';
-import { AuditItemOtherDetailsUser } from './domain/model/audit-item-other-details-users.entity';
+import { AuditItemAMComment } from './domain/model/audit-item-am-comment.entity';
+import { AuditItemAuditComment } from './domain/model/audit-item-audit-comment.entity';
+import { AuditItemOtherComment } from './domain/model/audit-item-other-comment.entity';
+import { AuditItemOtherCommentUserTag } from './domain/model/audit-item-other-comment-users-tag.entity';
 import { DatabaseManagerModule } from '../database/database-manager.module';
-import { AuditFile } from './domain/model/audit-file.entity';
+import { AuditFiles } from './domain/model/audit-file.entity';
 import { BranchAuditScores } from './domain/model/branch_audit_scores.entity';
 
 // Services
 import { AuditJobsService } from './service/audit-job.service';
 import { AuditItemsService } from './service/audit-item.service';
 import { CategoryItemsService } from './service/category-items.service';
-import { AuditItemAMDetailsService } from './service/audit-item-am-detail.service';
-import { AuditItemAuditDetailsService } from './service/audit-item-audit-detail.service';
-import { AuditItemOtherDetailsService } from './service/audit-item-other-detail.service';
+import { AuditItemAMCommentsService } from './service/audit-item-am-comment.service';
+import { AuditItemAuditCommentService } from './service/audit-item-audit-comment.service';
+import { AuditItemOtherCommentService } from './service/audit-item-other-comment.service';
 import { AuditCategoryService } from './service/audit-category.service';
-import { AuditItemOtherUserDetailService } from './service/audit-item-other-user-detail.service';
+import { AuditItemOtherUserCommentTagService } from './service/audit-item-other-user-comment-tag.service';
 import { AuditFilesService } from './service/audit-files.service';
 import { BranchAuditScoreService } from './service/branch-audit-score.service';
+import { TagOtherUserGmailApiService } from '../email/tag-other-user-gmail-api.service';
+import { AuditCreateDocGmailApiService } from '../email/audit-create-doc-gmail-api.service';
 
 // Controllers
 import { AuditJobsController } from './controller/audit-job.controller';
 import { AuditItemsController } from './controller/audit-item.controller';
 import { CategoryItemsController } from './controller/category-items.controller';
-import { AuditItemAMDetailsController } from './controller/audit-item-am-detail.controller';
-import { AuditItemAuditDetailsController } from './controller/audit-item-audit-detail.controller';
-import { AuditItemOtherDetailsController } from './controller/audit-item-other-detail.controller';
+import { AuditItemAMCommentsController } from './controller/audit-item-am-comment.controller';
+import { AuditItemAuditCommentController } from './controller/audit-item-audit-comment.controller';
+import { AuditItemOtherCommentController } from './controller/audit-item-other-comment.controller';
 import { AuditCategoryController } from './controller/audit-category.controller';
 import { PTEC_USERRIGHT_Module } from '../PTEC_USERIGHT/app.module';
-import { AuditItemOtherUserDetailController } from './controller/audit-item-audit-user-detail.controller';
+import { AuditItemOtherUserCommentTagController } from './controller/audit-item-audit-user-comment-tag.controller';
 import { AuditFilesController } from './controller/audit-files.controller';
 import { BranchAuditScoreController } from './controller/branch-audit-score.controller';
+import { AuditEmailController } from './controller/audit-email.controller';
 
 @Module({
   controllers: [
@@ -50,13 +53,14 @@ import { BranchAuditScoreController } from './controller/branch-audit-score.cont
     AuditJobsController,
     AuditItemsController,
     CategoryItemsController,
-    AuditItemAMDetailsController,
-    AuditItemAuditDetailsController,
-    AuditItemOtherDetailsController,
+    AuditItemAMCommentsController,
+    AuditItemAuditCommentController,
+    AuditItemOtherCommentController,
     AuditCategoryController,
-    AuditItemOtherUserDetailController,
+    AuditItemOtherUserCommentTagController,
     AuditFilesController,
     BranchAuditScoreController,
+    AuditEmailController,
   ],
   imports: [
     TypeOrmModule.forFeature([
@@ -66,11 +70,11 @@ import { BranchAuditScoreController } from './controller/branch-audit-score.cont
       AuditItem,
       AuditCategoryItem,
       AuditHeaderStatus,
-      AuditItemAMDetail,
-      AuditItemAuditDetail,
-      AuditItemOtherDetails,
-      AuditItemOtherDetailsUser,
-      AuditFile,
+      AuditItemAMComment,
+      AuditItemAuditComment,
+      AuditItemOtherComment,
+      AuditItemOtherCommentUserTag,
+      AuditFiles,
       BranchAuditScores,
     ]),
     DatabaseManagerModule,
@@ -80,17 +84,19 @@ import { BranchAuditScoreController } from './controller/branch-audit-score.cont
     }),
   ],
   providers: [
-    AuditItemAMDetailsService,
-    AuditItemAuditDetailsService,
-    AuditItemOtherDetailsService,
+    AuditItemAMCommentsService,
+    AuditItemAuditCommentService,
+    AuditItemOtherCommentService,
     AuditCategoryService,
     AppService,
     AuditJobsService,
     AuditItemsService,
     CategoryItemsService,
-    AuditItemOtherUserDetailService,
+    AuditItemOtherUserCommentTagService,
     AuditFilesService,
     BranchAuditScoreService,
+    TagOtherUserGmailApiService,
+    AuditCreateDocGmailApiService,
   ],
 })
 export class PTEC_AUDIT_Module implements NestModule {

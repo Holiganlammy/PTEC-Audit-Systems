@@ -232,6 +232,7 @@ export default function EditAuditJobPage() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingBranches, setIsLoadingBranches] = useState(true);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const [isLoadingPMCodes, setIsLoadingPMCodes] = useState(true);
 
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -254,10 +255,12 @@ export default function EditAuditJobPage() {
   const [openAuditor, setOpenAuditor] = useState(false);
   const [openDistrictManager, setOpenDistrictManager] = useState(false);
   const [openPMCode, setOpenPMCode] = useState(false);
+  const [pmSearch, setPmSearch] = useState("");
 
   // Data from API
   const [branches, setBranches] = useState<Branch[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [userPersonalCodes, setUserPersonalCodes] = useState<User[]>([]);
 
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [jobData, setJobData] = useState<AuditJobData | null>(null);
@@ -695,6 +698,32 @@ export default function EditAuditJobPage() {
     fetchUsers();
   }, []);
 
+  useEffect(() => {
+    const fetchUserPersonalCodes = async () => {
+      try {
+        setIsLoadingPMCodes(true);
+        const response = await client.get("/users-personal-code", {
+          headers: dataConfig().headers,
+        });
+
+        if (Array.isArray(response.data)) {
+          setUserPersonalCodes(response.data);
+        } else if (response.data?.success && Array.isArray(response.data?.data)) {
+          setUserPersonalCodes(response.data.data);
+        } else if (Array.isArray(response.data?.data)) {
+          setUserPersonalCodes(response.data.data);
+        }
+      } catch (error: unknown) {
+        console.error("Error fetching user personal codes:", error);
+        toast.error("ไม่สามารถโหลดข้อมูลรหัสส่วนตัวผู้ใช้ได้");
+      } finally {
+        setIsLoadingPMCodes(false);
+      }
+    };
+
+    fetchUserPersonalCodes();
+  }, []);
+
   // Filter users by position/role
   const auditors = users.filter((u) => ["KKJ", "PWW", "WSR"].includes(u.UserCode));
 
@@ -757,7 +786,8 @@ export default function EditAuditJobPage() {
  
     try {
       const selectedBranch = branches.find((b) => b.branchid.toString() === values.Branch);
-      const branchManager = branchManagers.find((u) => u.BranchID === selectedBranch?.branchid);
+      const pmUser = users.find((u) => u.PersonalCode === values.PMCode);
+      const branchManager = branchManagers.find((u) => u.BranchID === pmUser?.BranchID);
  
       const payload = {
         branchId: parseInt(values.Branch),
@@ -1166,6 +1196,11 @@ export default function EditAuditJobPage() {
                           <FieldLabel>
                             PM Code <span className="text-red-500">*</span>
                           </FieldLabel>
+                          {isLoadingPMCodes ? (
+                            <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
+                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            </div>
+                          ) : (
                             <Popover open={openPMCode} onOpenChange={setOpenPMCode}>
                               <PopoverTrigger asChild>
                                 <Button
@@ -1184,17 +1219,26 @@ export default function EditAuditJobPage() {
                                 </Button>
                               </PopoverTrigger>
                               <PopoverContent className="w-full p-0" align="start">
-                                <Command>
-                                  <CommandInput placeholder="ค้นหา PM Code..." />
+                                <Command shouldFilter={false}>
+                                  <CommandInput
+                                    placeholder="ค้นหา PM Code..."
+                                    value={pmSearch}
+                                    onValueChange={setPmSearch}
+                                  />
                                   <CommandList>
                                     <CommandEmpty>ไม่พบข้อมูล</CommandEmpty>
                                     <CommandGroup>
-                                      {users
-                                        .filter((u) => u.PersonalCode)
-                                        .sort((a, b) => {
-                                          if (a.PersonalCode === field.value && a.BranchID?.toString() === formData.branchId && a.Actived == true) return -1;
-                                          if (b.PersonalCode === field.value && b.BranchID?.toString() === formData.branchId && b.Actived == true) return 1;
-                                          return 0;
+                                      {userPersonalCodes
+                                        .filter((u) => {
+                                          if (!u.PersonalCode) return false;
+                                          if (!pmSearch) return true;
+                                          const s = pmSearch.toLowerCase();
+                                          return (
+                                            u.PersonalCode?.toLowerCase().includes(s) ||
+                                            u.fristName?.toLowerCase().includes(s) ||
+                                            u.lastName?.toLowerCase().includes(s) ||
+                                            u.BranchName?.toLowerCase().includes(s)
+                                          );
                                         })
                                         .map((u) => (
                                           <CommandItem
@@ -1214,13 +1258,14 @@ export default function EditAuditJobPage() {
                                               }
                                               form.setValue("Firstname", u.fristName || "");
                                               form.setValue("Lastname", u.lastName || "");
+                                              setPmSearch("");
                                               setOpenPMCode(false);
                                             }}
                                           >
                                             <Check
                                               className={cn(
                                                 "mr-2 h-4 w-4",
-                                                field.value === u.PersonalCode && u.BranchID?.toString() === formData.branchId ? "opacity-100" : "opacity-0"
+                                                field.value === u.PersonalCode ? "opacity-100" : "opacity-0"
                                               )}
                                             />
                                             {u.PersonalCode} - {u.fristName} {u.lastName}
@@ -1231,6 +1276,7 @@ export default function EditAuditJobPage() {
                                 </Command>
                               </PopoverContent>
                             </Popover>
+                          )}
                           {fieldState.error && (
                             <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
                           )}

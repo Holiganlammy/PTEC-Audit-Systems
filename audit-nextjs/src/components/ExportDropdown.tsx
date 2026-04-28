@@ -178,8 +178,10 @@ export default function ExportDropdown({
           4: { cellWidth: 40, halign: "left", overflow: "linebreak" },
         },
         margin: { left: 15, right: 15 },
+        rowPageBreak: "avoid",
       });
 
+      doc.setPage(doc.getNumberOfPages());
       yPos = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 5;
       if (yPos > 258) { doc.addPage(); yPos = 20; }
       yPos += 10;

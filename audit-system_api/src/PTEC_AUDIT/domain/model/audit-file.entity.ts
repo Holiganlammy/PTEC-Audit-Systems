@@ -6,7 +6,7 @@ import {
 } from 'typeorm';
 
 @Entity('audit_files')
-export class AuditFile {
+export class AuditFiles {
   @PrimaryGeneratedColumn({ name: 'file_id' })
   fileId!: number;
 

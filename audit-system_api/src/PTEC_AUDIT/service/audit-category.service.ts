@@ -8,17 +8,17 @@ import { Repository } from 'typeorm';
 import { AuditCategoryItem } from '../domain/model/audit-category-item.entity';
 
 export class CreateCategoryDto {
-  categoryName: string;
+  categoryName!: string;
   categoryCode?: number;
   description?: string;
-  createdBy: number;
+  createdBy!: number;
 }
 
 export class UpdateCategoryDto {
   categoryName?: string;
   categoryCode?: number;
   description?: string;
-  updatedBy: number;
+  updatedBy!: number;
 }
 
 @Injectable()

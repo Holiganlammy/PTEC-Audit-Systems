@@ -40,13 +40,13 @@ export class AuditFilesController implements OnModuleInit {
     const directories = [
       BASE_UPLOAD_PATH,
       AM_CHECKLIST_PATH,
-      join(BASE_UPLOAD_PATH, 'job-header'), // สำหรับอนาคต
+      join(BASE_UPLOAD_PATH, 'job-header'),
     ];
 
     directories.forEach((dir) => {
       if (!existsSync(dir)) {
         mkdirSync(dir, { recursive: true });
-        console.log(`✅ Created directory: ${dir}`);
+        console.log(`Created directory: ${dir}`);
       } else {
         console.log(`✓ Directory exists: ${dir}`);
       }
@@ -160,11 +160,12 @@ export class AuditFilesController implements OnModuleInit {
     try {
       const file = await this.auditFilesService.getFile(fileId);
 
-      if (!file || !existsSync(file.filePath)) {
+      // ใช้ physicalPath แทน filePath
+      if (!file || !existsSync(file.physicalPath)) {
         throw new NotFoundException('File not found');
       }
 
-      const fileStream = createReadStream(file.filePath);
+      const fileStream = createReadStream(file.physicalPath);
 
       res.set({
         'Content-Type': file.mimeType || 'application/octet-stream',
@@ -193,11 +194,12 @@ export class AuditFilesController implements OnModuleInit {
     try {
       const file = await this.auditFilesService.getFile(fileId);
 
-      if (!file || !existsSync(file.filePath)) {
+      // ใช้ physicalPath แทน filePath
+      if (!file || !existsSync(file.physicalPath)) {
         throw new NotFoundException('File not found');
       }
 
-      const fileStream = createReadStream(file.filePath);
+      const fileStream = createReadStream(file.physicalPath);
 
       res.set({
         'Content-Type': file.mimeType || 'application/octet-stream',

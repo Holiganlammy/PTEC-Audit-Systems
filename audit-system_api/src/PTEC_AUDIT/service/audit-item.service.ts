@@ -6,7 +6,7 @@ import { CreateAuditItemDto } from '../dto/create-audit-item.dto';
 import { UpdateAuditItemDto } from '../dto/update-audit-item.dto';
 import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec_useright.service';
 import { UserData, UserInfo } from '../domain/type/audit-job.interface';
-import { AuditItemOtherDetailsUser } from '../domain/model/audit-item-other-details-users.entity';
+import { AuditItemOtherCommentUserTag } from '../domain/model/audit-item-other-comment-users-tag.entity';
 
 @Injectable()
 export class AuditItemsService {
@@ -105,7 +105,7 @@ export class AuditItemsService {
             .select('1')
             .from(AuditItem, 'item')
             .innerJoin(
-              AuditItemOtherDetailsUser,
+              AuditItemOtherCommentUserTag,
               'tag',
               'tag.itemId = item.itemId AND tag.active = :tagActive',
               { tagActive: true },
@@ -190,7 +190,7 @@ export class AuditItemsService {
           const subQuery = qb
             .subQuery()
             .select('1')
-            .from(AuditItemOtherDetailsUser, 'tag')
+            .from(AuditItemOtherCommentUserTag, 'tag')
             .where('tag.itemId = item.itemId')
             .andWhere('tag.userId = :userId', { userId })
             .andWhere('tag.active = :tagActive', { tagActive: true })
@@ -240,7 +240,7 @@ export class AuditItemsService {
         const [amDetailsEnriched, auditDetailsEnriched, otherDetailsEnriched] =
           await Promise.all([
             Promise.all(
-              (item.amDetails || [])
+              (item.amComments || [])
                 .filter((d) => d.active)
                 .map(async (detail) => {
                   const { userId, approverBy, ...rest } = detail;
@@ -264,7 +264,7 @@ export class AuditItemsService {
                 }),
             ),
             Promise.all(
-              (item.otherDetails || [])
+              (item.otherComments || [])
                 .filter((d) => d.active)
                 .map(async (detail) => {
                   const { userId, approverBy, ...rest } = detail;

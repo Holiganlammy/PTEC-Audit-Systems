@@ -12,7 +12,7 @@ import {
   Res,
 } from '@nestjs/common';
 import express from 'express';
-import { AuditItemAuditDetailsService } from '../service/audit-item-audit-detail.service';
+import { AuditItemOtherCommentService } from '../service/audit-item-other-comment.service';
 import {
   CreateCommentDto,
   UpdateCommentDto,
@@ -21,9 +21,9 @@ import {
 import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec_useright.service';
 
 @Controller('audit-items')
-export class AuditItemAuditDetailsController {
+export class AuditItemOtherCommentController {
   constructor(
-    private readonly auditDetailsService: AuditItemAuditDetailsService,
+    private readonly otherCommentService: AuditItemOtherCommentService,
     private readonly userRightService: UserRightService,
   ) {}
 
@@ -51,7 +51,7 @@ export class AuditItemAuditDetailsController {
     }
   }
 
-  @Post(':itemId/audit-details')
+  @Post(':itemId/other-comments')
   async create(
     @Param('itemId', ParseIntPipe) itemId: number,
     @Body() createDto: CreateCommentDto,
@@ -59,30 +59,30 @@ export class AuditItemAuditDetailsController {
   ) {
     try {
       createDto.itemId = itemId;
-      const auditDetail = await this.auditDetailsService.create(createDto);
+      const otherComment = await this.otherCommentService.create(createDto);
       return res.status(HttpStatus.CREATED).json({
         success: true,
-        data: auditDetail,
-        message: 'Audit comment created successfully',
+        data: otherComment,
+        message: 'Other comment created successfully',
       });
     } catch (error) {
-      console.error('Error creating Audit comment:', error);
+      console.error('Error creating Other comment:', error);
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'Error creating Audit comment',
+        message: 'Error creating Other comment',
       });
     }
   }
 
-  @Get(':itemId/audit-details')
+  @Get(':itemId/other-comments')
   async findByItemId(
     @Param('itemId', ParseIntPipe) itemId: number,
     @Res() res: express.Response,
   ) {
     try {
-      const auditDetails = await this.auditDetailsService.findByItemId(itemId);
+      const otherComments = await this.otherCommentService.findByItemId(itemId);
       const enriched = await Promise.all(
-        auditDetails.map(async (detail) => {
+        otherComments.map(async (detail) => {
           const { userId, approverBy, ...rest } = detail;
           const [OwnerCommentUser, approverByUserData] = await Promise.all([
             this.getUserData(userId),
@@ -118,64 +118,64 @@ export class AuditItemAuditDetailsController {
         data: enriched,
       });
     } catch (error) {
-      console.error('Error fetching Audit comments:', error);
+      console.error('Error fetching Other comments:', error);
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'Error fetching Audit comments',
+        message: 'Error fetching Other comments',
       });
     }
   }
 
-  // PUT /audit-items/:itemId/audit-details/:id - Update comment
-  @Put(':itemId/audit-details/:id')
+  // PUT /audit-items/:itemId/other-comments/:id - Update comment
+  @Put(':itemId/other-comments/:id')
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateDto: UpdateCommentDto,
     @Res() res: express.Response,
   ) {
     try {
-      const auditDetail = await this.auditDetailsService.update(id, updateDto);
+      const otherComment = await this.otherCommentService.update(id, updateDto);
       return res.status(HttpStatus.OK).json({
         success: true,
-        data: auditDetail,
-        message: 'Audit comment updated successfully',
+        data: otherComment,
+        message: 'Other comment updated successfully',
       });
     } catch (error) {
-      console.error('Error updating Audit comment:', error);
+      console.error('Error updating Other comment:', error);
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'Error updating Audit comment',
+        message: 'Error updating Other comment',
       });
     }
   }
 
-  @Patch(':itemId/audit-details/:id/approve')
+  @Patch(':itemId/other-comments/:id/approve')
   async approve(
     @Param('id', ParseIntPipe) id: number,
     @Body() approveDto: ApproveCommentDto,
     @Res() res: express.Response,
   ) {
     try {
-      const auditDetail = await this.auditDetailsService.approve(
+      const otherComment = await this.otherCommentService.approve(
         id,
         approveDto,
       );
       return res.status(HttpStatus.OK).json({
         success: true,
-        data: auditDetail,
-        message: 'Audit comment approval updated successfully',
+        data: otherComment,
+        message: 'Other comment approval updated successfully',
       });
     } catch (error) {
-      console.error('Error approving Audit comment:', error);
+      console.error('Error approving Other comment:', error);
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'Error approving Audit comment',
+        message: 'Error approving Other comment',
       });
     }
   }
 
-  // DELETE /audit-items/:itemId/audit-details/:id - Soft delete comment
-  @Delete(':itemId/audit-details/:id')
+  // DELETE /audit-items/:itemId/other-comments/:id - Soft delete comment
+  @Delete(':itemId/other-comments/:id')
   async remove(
     @Param('id', ParseIntPipe) id: number,
     @Body('updatedBy', ParseIntPipe) updatedBy: number,
@@ -183,16 +183,16 @@ export class AuditItemAuditDetailsController {
     @Res() res: express.Response,
   ) {
     try {
-      await this.auditDetailsService.remove(id, updatedBy, deletedReason);
+      await this.otherCommentService.remove(id, updatedBy, deletedReason);
       return res.status(HttpStatus.OK).json({
         success: true,
-        message: 'Audit comment deleted successfully',
+        message: 'Other comment deleted successfully',
       });
     } catch (error) {
-      console.error('Error deleting Audit comment:', error);
+      console.error('Error deleting Other comment:', error);
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'Error deleting Audit comment',
+        message: 'Error deleting Other comment',
       });
     }
   }

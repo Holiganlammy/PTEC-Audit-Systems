@@ -4,24 +4,21 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  ManyToOne,
   JoinColumn,
+  ManyToOne,
 } from 'typeorm';
 import { AuditItem } from './audit-item.entity';
 
-@Entity('AuditItems_OtherDetails')
-export class AuditItemOtherDetails {
-  @PrimaryGeneratedColumn({ name: 'other_detail_id' })
-  otherDetailId!: number;
+@Entity('AuditItem_AuditComment')
+export class AuditItemAuditComment {
+  @PrimaryGeneratedColumn({ name: 'audit_detail_id' })
+  auditDetailId!: number;
 
   @Column({ name: 'item_id', type: 'int', nullable: true })
   itemId!: number;
 
-  @Column({ name: 'user_id', type: 'int', nullable: true })
-  userId!: number;
-
-  @Column({ name: 'note', type: 'nvarchar', nullable: true })
-  note!: string;
+  @Column({ name: 'approver_by', type: 'int', nullable: true })
+  approverBy!: number;
 
   @Column({ name: 'approver_status', type: 'int', nullable: true })
   approverStatus!: number;
@@ -29,23 +26,26 @@ export class AuditItemOtherDetails {
   @Column({ name: 'approver_date', type: 'datetime', nullable: true })
   approverDate!: Date;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime' })
-  createdAt!: Date;
+  @Column({ name: 'note', type: 'nvarchar', nullable: true })
+  note!: string;
 
   @Column({ name: 'created_by', type: 'int', nullable: true })
   createdBy!: number;
 
+  @CreateDateColumn({ name: 'created_at', type: 'datetime' })
+  createdAt!: Date;
+
+  @Column({ name: 'update_by', type: 'int', nullable: true })
+  updateBy!: number;
+
   @UpdateDateColumn({ name: 'updated_at', type: 'datetime' })
   updatedAt!: Date;
-
-  @Column({ name: 'updated_by', type: 'int', nullable: true })
-  updatedBy!: number;
 
   @Column({ name: 'active', type: 'bit', default: 1 })
   active!: boolean;
 
-  @Column({ name: 'approver_by', type: 'int', nullable: true })
-  approverBy!: number;
+  @Column({ name: 'user_id', type: 'int', nullable: true })
+  userId!: number;
 
   @Column({ name: 'deleted_by', type: 'int', nullable: true })
   deletedBy!: number;
@@ -57,7 +57,7 @@ export class AuditItemOtherDetails {
   deletedReason!: string;
 
   // Relations
-  @ManyToOne(() => AuditItem, (item) => item.otherDetails)
+  @ManyToOne(() => AuditItem, (item) => item.auditDetails)
   @JoinColumn({ name: 'item_id' })
   item!: AuditItem;
 }

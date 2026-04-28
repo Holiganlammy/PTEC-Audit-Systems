@@ -10,10 +10,10 @@ import {
 } from 'typeorm';
 import { AuditJobsHeader } from './audit.jobs-header.entity';
 import { AuditCategoryItem } from './audit-category-item.entity';
-import { AuditItemAMDetail } from './audit-item-am-detail.entity';
-import { AuditItemAuditDetail } from './audit-item-audit-detail.entity';
-import { AuditItemOtherDetails } from './audit-item-other-details.entity';
-import { AuditItemOtherDetailsUser } from './audit-item-other-details-users.entity';
+import { AuditItemAMComment } from './audit-item-am-comment.entity';
+import { AuditItemAuditComment } from './audit-item-audit-comment.entity';
+import { AuditItemOtherComment } from './audit-item-other-comment.entity';
+import { AuditItemOtherCommentUserTag } from './audit-item-other-comment-users-tag.entity';
 import { AuditItemStatus } from './audit-item-status.entity';
 import { AuditAmCheckerStatus } from './audit_am_checker_status.entity';
 import { BranchAuditScores } from './branch_audit_scores.entity';
@@ -82,17 +82,17 @@ export class AuditItem {
   @JoinColumn({ name: 'category_item_id' })
   categoryItem!: AuditCategoryItem;
 
-  @OneToMany(() => AuditItemAMDetail, (detail) => detail.item)
-  amDetails!: AuditItemAMDetail[];
+  @OneToMany(() => AuditItemAMComment, (comment) => comment.item)
+  amComments!: AuditItemAMComment[];
 
-  @OneToMany(() => AuditItemAuditDetail, (detail) => detail.item)
-  auditDetails!: AuditItemAuditDetail[];
+  @OneToMany(() => AuditItemAuditComment, (comment) => comment.item)
+  auditDetails!: AuditItemAuditComment[];
 
-  @OneToMany(() => AuditItemOtherDetails, (otherDetail) => otherDetail.item)
-  otherDetails!: AuditItemOtherDetails[];
+  @OneToMany(() => AuditItemOtherComment, (otherComment) => otherComment.item)
+  otherComments!: AuditItemOtherComment[];
 
-  @OneToMany(() => AuditItemOtherDetailsUser, (user) => user.item)
-  taggedUsers!: AuditItemOtherDetailsUser[];
+  @OneToMany(() => AuditItemOtherCommentUserTag, (user) => user.item)
+  taggedUsers!: AuditItemOtherCommentUserTag[];
 
   @ManyToOne(() => AuditItemStatus, (status) => status.items)
   @JoinColumn({ name: 'item_status' })

@@ -8,8 +8,8 @@ import {
 } from 'typeorm';
 import { AuditItem } from './audit-item.entity';
 
-@Entity('AuditItems_OtherDetails_Users')
-export class AuditItemOtherDetailsUser {
+@Entity('AuditItems_OtherComment_Users_Tag')
+export class AuditItemOtherCommentUserTag {
   @PrimaryGeneratedColumn({ name: 'tagged_user_id' })
   taggedUserId!: number;
 

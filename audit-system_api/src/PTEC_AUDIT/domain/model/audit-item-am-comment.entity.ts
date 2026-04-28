@@ -4,15 +4,15 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  JoinColumn,
   ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { AuditItem } from './audit-item.entity';
 
-@Entity('AuditItem_AuditDetails')
-export class AuditItemAuditDetail {
-  @PrimaryGeneratedColumn({ name: 'audit_detail_id' })
-  auditDetailId!: number;
+@Entity('AuditItem_AMComment')
+export class AuditItemAMComment {
+  @PrimaryGeneratedColumn({ name: 'am_detail_id' })
+  amDetailId: number | undefined;
 
   @Column({ name: 'item_id', type: 'int', nullable: true })
   itemId!: number;
@@ -57,7 +57,7 @@ export class AuditItemAuditDetail {
   deletedReason!: string;
 
   // Relations
-  @ManyToOne(() => AuditItem, (item) => item.auditDetails)
+  @ManyToOne(() => AuditItem, (item) => item.amComments)
   @JoinColumn({ name: 'item_id' })
   item!: AuditItem;
 }

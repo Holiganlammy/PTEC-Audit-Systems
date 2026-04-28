@@ -1,31 +1,31 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AuditItemOtherDetailsUser } from '../domain/model/audit-item-other-details-users.entity';
+import { AuditItemOtherCommentUserTag } from '../domain/model/audit-item-other-comment-users-tag.entity';
 import { CreateAuditUserDto } from '../dto/audit-user.dto';
 
 @Injectable()
-export class AuditItemOtherUserDetailService {
+export class AuditItemOtherUserCommentTagService {
   constructor(
-    @InjectRepository(AuditItemOtherDetailsUser)
-    private readonly otherUserDetailRepository: Repository<AuditItemOtherDetailsUser>,
+    @InjectRepository(AuditItemOtherCommentUserTag)
+    private readonly otherUserDetailRepository: Repository<AuditItemOtherCommentUserTag>,
   ) {}
 
-  async findByAll(): Promise<AuditItemOtherDetailsUser[]> {
+  async findByAll(): Promise<AuditItemOtherCommentUserTag[]> {
     return await this.otherUserDetailRepository.find({
       where: { active: true },
       order: { createdAt: 'DESC' },
     });
   }
 
-  async findByItemId(itemId: number): Promise<AuditItemOtherDetailsUser[]> {
+  async findByItemId(itemId: number): Promise<AuditItemOtherCommentUserTag[]> {
     return await this.otherUserDetailRepository.find({
       where: { itemId, active: true },
       order: { createdAt: 'ASC' },
     });
   }
 
-  async findByUserId(userId: number): Promise<AuditItemOtherDetailsUser[]> {
+  async findByUserId(userId: number): Promise<AuditItemOtherCommentUserTag[]> {
     return await this.otherUserDetailRepository.find({
       where: { userId, active: true },
       order: { createdAt: 'DESC' },
@@ -35,7 +35,7 @@ export class AuditItemOtherUserDetailService {
   async create(
     itemId: number,
     createDto: CreateAuditUserDto,
-  ): Promise<AuditItemOtherDetailsUser> {
+  ): Promise<AuditItemOtherCommentUserTag> {
     // Check if user already tagged
     const existing = await this.otherUserDetailRepository.findOne({
       where: {

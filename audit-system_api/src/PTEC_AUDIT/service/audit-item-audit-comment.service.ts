@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AuditItemAuditDetail } from '../domain/model/audit-item-audit-detail.entity';
+import { AuditItemAuditComment } from '../domain/model/audit-item-audit-comment.entity';
 import {
   CreateCommentDto,
   UpdateCommentDto,
@@ -9,13 +9,13 @@ import {
 } from '../dto/comment.dto';
 
 @Injectable()
-export class AuditItemAuditDetailsService {
+export class AuditItemAuditCommentService {
   constructor(
-    @InjectRepository(AuditItemAuditDetail)
-    private readonly auditDetailsRepository: Repository<AuditItemAuditDetail>,
+    @InjectRepository(AuditItemAuditComment)
+    private readonly auditDetailsRepository: Repository<AuditItemAuditComment>,
   ) {}
 
-  async create(createDto: CreateCommentDto): Promise<AuditItemAuditDetail> {
+  async create(createDto: CreateCommentDto): Promise<AuditItemAuditComment> {
     console.log('Creating audit detail with DTO:', createDto);
     const auditDetail = this.auditDetailsRepository.create({
       itemId: createDto.itemId,
@@ -29,14 +29,14 @@ export class AuditItemAuditDetailsService {
     return await this.auditDetailsRepository.save(auditDetail);
   }
 
-  async findByItemId(itemId: number): Promise<AuditItemAuditDetail[]> {
+  async findByItemId(itemId: number): Promise<AuditItemAuditComment[]> {
     return await this.auditDetailsRepository.find({
       where: { itemId, active: true },
       order: { createdAt: 'ASC' },
     });
   }
 
-  async findOne(id: number): Promise<AuditItemAuditDetail> {
+  async findOne(id: number): Promise<AuditItemAuditComment> {
     const auditDetail = await this.auditDetailsRepository.findOne({
       where: { auditDetailId: id, active: true },
     });
@@ -51,7 +51,7 @@ export class AuditItemAuditDetailsService {
   async update(
     id: number,
     updateDto: UpdateCommentDto,
-  ): Promise<AuditItemAuditDetail> {
+  ): Promise<AuditItemAuditComment> {
     const auditDetail = await this.findOne(id);
 
     if (updateDto.note) auditDetail.note = updateDto.note;
@@ -63,7 +63,7 @@ export class AuditItemAuditDetailsService {
   async approve(
     id: number,
     approveDto: ApproveCommentDto,
-  ): Promise<AuditItemAuditDetail> {
+  ): Promise<AuditItemAuditComment> {
     const auditDetail = await this.findOne(id);
 
     auditDetail.approverStatus = approveDto.approverStatus;
@@ -95,7 +95,7 @@ export class AuditItemAuditDetailsService {
     }
   }
 
-  async findPendingByItemId(itemId: number): Promise<AuditItemAuditDetail[]> {
+  async findPendingByItemId(itemId: number): Promise<AuditItemAuditComment[]> {
     return await this.auditDetailsRepository.find({
       where: { itemId, approverStatus: 0, active: true },
       order: { createdAt: 'ASC' },

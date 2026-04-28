@@ -177,6 +177,7 @@ function getPortalTokenFromCookies(req: NextRequest): string | null {
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const normalizedPathname = pathname.toLowerCase();
+  const redirectTarget = `${req.nextUrl.pathname}${req.nextUrl.search}`;
 
   // Skip static files
   if (
@@ -245,7 +246,7 @@ export async function proxy(req: NextRequest) {
         console.log('[SSO] Portal token valid, redirecting to SSO login...');
         const ssoLoginUrl = new URL('/api/auth/sso-login', req.url);
         ssoLoginUrl.searchParams.set('token', portalToken);
-        ssoLoginUrl.searchParams.set('redirect', pathname);
+        ssoLoginUrl.searchParams.set('redirect', redirectTarget);
         
         return NextResponse.redirect(ssoLoginUrl);
       } else {
@@ -256,7 +257,7 @@ export async function proxy(req: NextRequest) {
     // No valid token at all -> redirect to login
     console.log(`[AUTH]  No valid token for path: ${pathname}`);
     const loginUrl = new URL("/login", req.url);
-    loginUrl.searchParams.set("redirect", normalizedPathname);
+    loginUrl.searchParams.set("redirect", redirectTarget);
     return NextResponse.redirect(loginUrl);
   }
 
@@ -282,7 +283,7 @@ export async function proxy(req: NextRequest) {
     menuCache.clear();
     
     const loginUrl = new URL("/login", req.url);
-    loginUrl.searchParams.set("redirect", normalizedPathname);
+    loginUrl.searchParams.set("redirect", redirectTarget);
     loginUrl.searchParams.set("reason", "session_expired");
     return NextResponse.redirect(loginUrl);
   }

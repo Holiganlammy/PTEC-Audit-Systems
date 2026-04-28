@@ -137,9 +137,9 @@ export class AppController {
         });
       }
       if (portalCookies) {
-        console.log('✅ Login Cookies received:', portalCookies.length);
+        console.log('Login Cookies received:', portalCookies.length);
       } else {
-        console.log('ℹ️  No cookies (normal for first login)');
+        console.log('ℹ No cookies (normal for first login)');
       }
       // Handle success login
       if (success === true && access_token) {
@@ -245,7 +245,7 @@ export class AppController {
 
       // Success
       if (data.success) {
-        console.log('✅ OTP resent successfully for user:', usercode);
+        console.log('OTP resent successfully for user:', usercode);
         return res.status(HttpStatus.OK).json({
           success: true,
           message: data.message ?? 'OTP resent successfully',

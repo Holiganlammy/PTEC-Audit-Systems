@@ -101,6 +101,7 @@ export default function CreateAuditJobPage() {
   const [openAuditor, setOpenAuditor] = useState(false);
   const [openDistrictManager, setOpenDistrictManager] = useState(false);
   const [openPMCode, setOpenPMCode] = useState(false);
+  const [pmSearch, setPmSearch] = useState("");
 
   // Data from API
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -115,7 +116,7 @@ export default function CreateAuditJobPage() {
       Branch: "",
       Firstname: "",
       Lastname: "",
-      Date: undefined,
+      Date: new Date(),
       PMCode: "",
       Address: "",
       Auditor: "",
@@ -491,7 +492,7 @@ export default function CreateAuditJobPage() {
                                 >
                                   {field.value
                                     ? (() => {
-                                        const u = userPersonalCodes.find((u) => u.UserCode === field.value);
+                                        const u = userPersonalCodes.find((u) => u.PersonalCode === field.value);
                                         return u ? `${u.PersonalCode} - ${u.fristName} ${u.lastName}` : field.value;
                                       })()
                                     : "เลือก PM Code"}
@@ -499,13 +500,27 @@ export default function CreateAuditJobPage() {
                                 </Button>
                               </PopoverTrigger>
                               <PopoverContent className="w-full p-0" align="start">
-                                <Command>
-                                  <CommandInput placeholder="ค้นหา PM Code..." />
+                                <Command shouldFilter={false}>
+                                  <CommandInput
+                                    placeholder="ค้นหา PM Code..."
+                                    value={pmSearch}
+                                    onValueChange={setPmSearch}
+                                  />
                                   <CommandList>
                                     <CommandEmpty>ไม่พบข้อมูล</CommandEmpty>
                                     <CommandGroup>
                                       {userPersonalCodes
-                                        .filter((u) => u.UserCode)
+                                        .filter((u) => {
+                                          if (!u.UserCode) return false;
+                                          if (!pmSearch) return true;
+                                          const s = pmSearch.toLowerCase();
+                                          return (
+                                            u.PersonalCode?.toLowerCase().includes(s) ||
+                                            u.fristName?.toLowerCase().includes(s) ||
+                                            u.lastName?.toLowerCase().includes(s) ||
+                                            u.BranchName?.toLowerCase().includes(s)
+                                          );
+                                        })
                                         .map((u) => (
                                           <CommandItem
                                             key={u.UserID}
@@ -521,13 +536,14 @@ export default function CreateAuditJobPage() {
                                               // Auto-fill Firstname and Lastname
                                               form.setValue("Firstname", u.fristName || "");
                                               form.setValue("Lastname", u.lastName || "");
+                                              setPmSearch("");
                                               setOpenPMCode(false);
                                             }}
                                           >
                                             <Check
                                               className={cn(
                                                 "mr-2 h-4 w-4",
-                                                field.value === u.UserCode
+                                                field.value === u.PersonalCode
                                                   ? "opacity-100"
                                                   : "opacity-0"
                                               )}

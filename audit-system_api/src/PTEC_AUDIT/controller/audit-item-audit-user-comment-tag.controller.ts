@@ -10,19 +10,44 @@ import {
   HttpException,
   NotFoundException,
 } from '@nestjs/common';
-import { AuditItemOtherUserDetailService } from '../service/audit-item-other-user-detail.service';
+import { AuditItemOtherUserCommentTagService } from '../service/audit-item-other-user-comment-tag.service';
+import { AuditItemsService } from '../service/audit-item.service';
 import {
   CreateAuditUserDto,
   AuditUserResponseDto,
 } from '../dto/audit-user.dto';
 import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec_useright.service';
+import { TagOtherUserGmailApiService } from '../../email/tag-other-user-gmail-api.service';
 
 @Controller('audit-items')
-export class AuditItemOtherUserDetailController {
+export class AuditItemOtherUserCommentTagController {
   constructor(
-    private readonly auditUserDetailService: AuditItemOtherUserDetailService,
+    private readonly auditUserCommentTagService: AuditItemOtherUserCommentTagService,
+    private readonly auditItemsService: AuditItemsService,
     private readonly userRightService: UserRightService,
+    private readonly tagOtherUserGmailApiService: TagOtherUserGmailApiService,
   ) {}
+
+  private async getItemData(itemId: number) {
+    try {
+      const item = await this.auditItemsService.findOne(itemId);
+      return {
+        itemName: item.categoryItem?.categoryName ?? undefined,
+        jobNo: item.job?.jobNo ?? undefined,
+        branchName: item.job?.branchName ?? undefined,
+        jobId: item.job?.jobId ?? undefined,
+        AM_Name_user:
+          `${item.job?.districtManagerFirstName ?? ''} ${item.job?.districtManagerLastName ?? ''}`.trim() ||
+          undefined,
+        Branch_Name_User:
+          `${item.job?.branchManagerFirstName ?? ''} ${item.job?.branchManagerLastName ?? ''}`.trim() ||
+          undefined,
+      };
+    } catch (error) {
+      console.error(`Error fetching item data for itemId ${itemId}:`, error);
+      return null;
+    }
+  }
 
   private async getUserData(userId: number | null) {
     if (!userId) return null;
@@ -54,7 +79,7 @@ export class AuditItemOtherUserDetailController {
   @Get('/all/tagged-users')
   async findAll() {
     try {
-      const tags = await this.auditUserDetailService.findByAll();
+      const tags = await this.auditUserCommentTagService.findByAll();
       const enrichedTags: AuditUserResponseDto[] = await Promise.all(
         tags.map(async (tag) => {
           const userData = await this.getUserData(tag.userId);
@@ -89,7 +114,7 @@ export class AuditItemOtherUserDetailController {
   @Get(':itemId/tagged-user')
   async findByItemId(@Param('itemId', ParseIntPipe) itemId: number) {
     try {
-      const tags = await this.auditUserDetailService.findByItemId(itemId);
+      const tags = await this.auditUserCommentTagService.findByItemId(itemId);
 
       const enrichedTags: AuditUserResponseDto[] = await Promise.all(
         tags.map(async (tag) => {
@@ -130,7 +155,7 @@ export class AuditItemOtherUserDetailController {
     @Body() createDto: CreateAuditUserDto,
   ) {
     try {
-      const result = await this.auditUserDetailService.create(
+      const result = await this.auditUserCommentTagService.create(
         itemId,
         createDto,
       );
@@ -152,10 +177,39 @@ export class AuditItemOtherUserDetailController {
         active: result.active,
       };
 
+      let emailSent = false;
+      if (response.email) {
+        try {
+          const [itemData, taggedByData] = await Promise.all([
+            this.getItemData(itemId),
+            this.getUserData(createDto.createdBy ?? null),
+          ]);
+
+          await this.tagOtherUserGmailApiService.sendAuditItemTaggedEmail({
+            to: response.email,
+            taggedUserFullname: response.fullname,
+            itemId: response.itemId,
+            itemName: itemData?.itemName,
+            jobNo: itemData?.jobNo,
+            branchName: itemData?.branchName,
+            taggedByFullname: taggedByData?.fullname,
+            AM_Name_user: itemData?.AM_Name_user,
+            Branch_Name_User: itemData?.Branch_Name_User,
+          });
+          emailSent = true;
+        } catch (mailError) {
+          console.error(
+            `Error sending tagged-user email to ${response.email}:`,
+            mailError,
+          );
+        }
+      }
+
       return {
         success: true,
         data: response,
         message: 'User tagged successfully',
+        emailSent,
       };
     } catch (error) {
       console.error('Error tagging user:', error);
@@ -184,7 +238,7 @@ export class AuditItemOtherUserDetailController {
     @Param('userId', ParseIntPipe) userId: number,
   ) {
     try {
-      await this.auditUserDetailService.remove(itemId, userId);
+      await this.auditUserCommentTagService.remove(itemId, userId);
 
       return {
         success: true,

@@ -9,16 +9,19 @@ import {
 } from 'typeorm';
 import { AuditItem } from './audit-item.entity';
 
-@Entity('AuditItem_AMDetails')
-export class AuditItemAMDetail {
-  @PrimaryGeneratedColumn({ name: 'am_detail_id' })
-  amDetailId: number | undefined;
+@Entity('AuditItems_OtherComment')
+export class AuditItemOtherComment {
+  @PrimaryGeneratedColumn({ name: 'other_detail_id' })
+  otherDetailId!: number;
 
   @Column({ name: 'item_id', type: 'int', nullable: true })
   itemId!: number;
 
-  @Column({ name: 'approver_by', type: 'int', nullable: true })
-  approverBy!: number;
+  @Column({ name: 'user_id', type: 'int', nullable: true })
+  userId!: number;
+
+  @Column({ name: 'note', type: 'nvarchar', nullable: true })
+  note!: string;
 
   @Column({ name: 'approver_status', type: 'int', nullable: true })
   approverStatus!: number;
@@ -26,26 +29,23 @@ export class AuditItemAMDetail {
   @Column({ name: 'approver_date', type: 'datetime', nullable: true })
   approverDate!: Date;
 
-  @Column({ name: 'note', type: 'nvarchar', nullable: true })
-  note!: string;
+  @CreateDateColumn({ name: 'created_at', type: 'datetime' })
+  createdAt!: Date;
 
   @Column({ name: 'created_by', type: 'int', nullable: true })
   createdBy!: number;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime' })
-  createdAt!: Date;
-
-  @Column({ name: 'update_by', type: 'int', nullable: true })
-  updateBy!: number;
-
   @UpdateDateColumn({ name: 'updated_at', type: 'datetime' })
   updatedAt!: Date;
+
+  @Column({ name: 'updated_by', type: 'int', nullable: true })
+  updatedBy!: number;
 
   @Column({ name: 'active', type: 'bit', default: 1 })
   active!: boolean;
 
-  @Column({ name: 'user_id', type: 'int', nullable: true })
-  userId!: number;
+  @Column({ name: 'approver_by', type: 'int', nullable: true })
+  approverBy!: number;
 
   @Column({ name: 'deleted_by', type: 'int', nullable: true })
   deletedBy!: number;
@@ -57,7 +57,7 @@ export class AuditItemAMDetail {
   deletedReason!: string;
 
   // Relations
-  @ManyToOne(() => AuditItem, (item) => item.amDetails)
+  @ManyToOne(() => AuditItem, (item) => item.otherComments)
   @JoinColumn({ name: 'item_id' })
   item!: AuditItem;
 }

@@ -27,7 +27,6 @@ export class UpdateAuditJobDto {
   @IsOptional()
   pmCode?: string;
 
-  // ✅ ถ้า update user_id → service จะ update snapshot อัตโนมัติ
   @IsInt()
   @IsOptional()
   auditorUserId?: number;

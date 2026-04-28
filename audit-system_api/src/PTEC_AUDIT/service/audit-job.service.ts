@@ -8,7 +8,7 @@ import { Repository } from 'typeorm';
 import * as sql from 'mssql';
 import { AuditJobsHeader } from '../domain/model/audit.jobs-header.entity';
 import { AuditItem } from '../domain/model/audit-item.entity';
-import { AuditItemOtherDetailsUser } from '../domain/model/audit-item-other-details-users.entity';
+import { AuditItemOtherCommentUserTag } from '../domain/model/audit-item-other-comment-users-tag.entity';
 import { CreateAuditJobDto } from '../dto/create-audit-job.dto';
 import { UpdateAuditJobDto } from '../dto/update-audit-job.dto';
 import { DatabaseManagerService } from '../../database/database-manager.service';
@@ -23,6 +23,7 @@ import {
   AuditItemWithUsers,
   AuditJobWithUsers,
 } from '../domain/type/audit-job.interface';
+import { AuditCreateDocGmailApiService } from '../../email/audit-create-doc-gmail-api.service';
 
 @Injectable()
 export class AuditJobsService {
@@ -31,6 +32,7 @@ export class AuditJobsService {
     private readonly auditJobsRepository: Repository<AuditJobsHeader>,
     private readonly dbManager: DatabaseManagerService,
     private readonly userRightService: UserRightService,
+    private readonly auditCreateDocGmailService: AuditCreateDocGmailApiService,
   ) {}
 
   // Helper: ดึงข้อมูล user
@@ -225,6 +227,7 @@ export class AuditJobsService {
         this.getUserData(createAuditJobDto.auditorUserId || null),
         this.getUserData(createAuditJobDto.districtManagerUserId || null),
         this.getUserData(createAuditJobDto.branchManagerUserId || null),
+        this.getUserData(createAuditJobDto.createdBy || null),
       ]);
 
       // สร้าง job พร้อม snapshot
@@ -250,7 +253,40 @@ export class AuditJobsService {
         branchManagerLastName: branchManager?.lastName || undefined,
       });
 
-      return await this.auditJobsRepository.save(auditJob);
+      const saveJob = await this.auditJobsRepository.save(auditJob);
+
+      // ==================== ส่งเมลแจ้งเตือน ====================
+      // try {
+      //   const auditDateFormatted = createAuditJobDto.auditDate
+      //     ? format(new Date(createAuditJobDto.auditDate), 'dd MMMM yyyy')
+      //     : '-';
+
+      //   await this.auditCreateDocGmailService.sendAuditJobCreatedEmail({
+      //     groupEmails: [
+      //       // 'npc@rpcthai.com',
+      //       'ptaudit@rpcthai.com', // Group 1: PURE_GroupAM
+      //       'groupssd@rpcthai.com', // Group 2: PTEC-Dept-SSD
+      //     ],
+      //     additionalRecipients: [
+      //       'swp@rpcthai.com', // บุคคลเพิ่มเติม
+      //     ],
+      //     jobNo: saveJob.jobNo,
+      //     branchName: createAuditJobDto.branchName || '-',
+      //     auditDate: auditDateFormatted,
+      //     createdByFullname: createdByUser?.fullname || 'ผู้ใช้งานในระบบ',
+      //     auditorFullname: auditor?.fullname || '-',
+      //     districtManagerFullname: districtManager?.fullname || '-',
+      //     branchManagerFullname: branchManager?.fullname || '-',
+      //     jobUrl: `${process.env.FRONTEND_URL || 'https://audit.purethai.co.th'}/audit/edit_document?jobNo=${saveJob.jobNo}`,
+      //   });
+
+      //   console.log(`✓ Sent notification emails for job ${saveJob.jobNo}`);
+      // } catch (emailError) {
+      //   // ไม่ให้ error ของเมลทำให้ create job ล้มเหลว
+      //   console.error('Error sending notification emails:', emailError);
+      // }
+
+      return saveJob;
     } catch (error) {
       console.error('Error creating audit job:', error);
       throw error;
@@ -310,7 +346,7 @@ export class AuditJobsService {
           .select('1')
           .from(AuditItem, 'item')
           .innerJoin(
-            AuditItemOtherDetailsUser,
+            AuditItemOtherCommentUserTag,
             'tag',
             'tag.itemId = item.itemId AND tag.active = :tagActive',
             { tagActive: true },

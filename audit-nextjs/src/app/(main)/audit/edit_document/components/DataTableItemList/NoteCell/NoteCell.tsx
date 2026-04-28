@@ -104,9 +104,9 @@ export default function NoteCell({
 
   // Map threadType to API endpoint
   const getEndpoint = () => {
-    if (threadType === 1) return "audit-details";
-    if (threadType === 2) return "am-details";
-    return "other-details";
+    if (threadType === 1) return "audit-comments";
+    if (threadType === 2) return "am-comments";
+    return "other-comments";
   };
 
   // Fetch comments when modal opens

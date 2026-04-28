@@ -12,7 +12,7 @@ import {
   Res,
 } from '@nestjs/common';
 import express from 'express';
-import { AuditItemOtherDetailsService } from '../service/audit-item-other-detail.service';
+import { AuditItemAMCommentsService } from '../service/audit-item-am-comment.service';
 import {
   CreateCommentDto,
   UpdateCommentDto,
@@ -21,9 +21,9 @@ import {
 import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec_useright.service';
 
 @Controller('audit-items')
-export class AuditItemOtherDetailsController {
+export class AuditItemAMCommentsController {
   constructor(
-    private readonly otherDetailsService: AuditItemOtherDetailsService,
+    private readonly amCommentsService: AuditItemAMCommentsService,
     private readonly userRightService: UserRightService,
   ) {}
 
@@ -50,8 +50,8 @@ export class AuditItemOtherDetailsController {
       return null;
     }
   }
-
-  @Post(':itemId/other-details')
+  // POST /audit-items/:itemId/am-comments - Create AM comment
+  @Post(':itemId/am-comments')
   async create(
     @Param('itemId', ParseIntPipe) itemId: number,
     @Body() createDto: CreateCommentDto,
@@ -59,39 +59,40 @@ export class AuditItemOtherDetailsController {
   ) {
     try {
       createDto.itemId = itemId;
-      const otherDetail = await this.otherDetailsService.create(createDto);
+      const amComment = await this.amCommentsService.create(createDto);
       return res.status(HttpStatus.CREATED).json({
         success: true,
-        data: otherDetail,
-        message: 'Other comment created successfully',
+        data: amComment,
+        message: 'AM comment created successfully',
       });
     } catch (error) {
-      console.error('Error creating Other comment:', error);
+      console.error('Error creating AM comment:', error);
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'Error creating Other comment',
+        message: 'Error creating AM comment',
       });
     }
   }
 
-  @Get(':itemId/other-details')
+  // GET /audit-items/:itemId/am-comments - Get all AM comments
+  @Get(':itemId/am-comments')
   async findByItemId(
     @Param('itemId', ParseIntPipe) itemId: number,
     @Res() res: express.Response,
   ) {
     try {
-      const otherDetails = await this.otherDetailsService.findByItemId(itemId);
+      const amComments = await this.amCommentsService.findByItemId(itemId);
       const enriched = await Promise.all(
-        otherDetails.map(async (detail) => {
-          const { userId, approverBy, ...rest } = detail;
+        amComments.map(async (comment) => {
+          const { userId, approverBy, ...rest } = comment;
           const [OwnerCommentUser, approverByUserData] = await Promise.all([
             this.getUserData(userId),
             this.getUserData(approverBy),
           ]);
 
           // approverStatus: null = comment ธรรมดา, 0 = รออนุมัติ, อื่นๆ = อนุมัติแล้ว
-          const isApprovalComment = detail.approverStatus !== null;
-          const isPendingApproval = detail.approverStatus === 0;
+          const isApprovalComment = comment.approverStatus !== null;
+          const isPendingApproval = comment.approverStatus === 0;
 
           const requireApprovalFrom =
             isApprovalComment && OwnerCommentUser?.empUpperId
@@ -118,64 +119,84 @@ export class AuditItemOtherDetailsController {
         data: enriched,
       });
     } catch (error) {
-      console.error('Error fetching Other comments:', error);
+      console.error('Error fetching AM comments:', error);
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'Error fetching Other comments',
+        message: 'Error fetching AM comments',
       });
     }
   }
 
-  // PUT /audit-items/:itemId/other-details/:id - Update comment
-  @Put(':itemId/other-details/:id')
+  // GET /audit-items/:itemId/am-comments/pending - Get pending approvals
+  @Get(':itemId/am-comments/pending')
+  async findPending(
+    @Param('itemId', ParseIntPipe) itemId: number,
+    @Res() res: express.Response,
+  ) {
+    try {
+      const amComments =
+        await this.amCommentsService.findPendingByItemId(itemId);
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        data: amComments,
+      });
+    } catch (error) {
+      console.error('Error fetching pending AM comments:', error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Error fetching pending AM comments',
+      });
+    }
+  }
+
+  // PUT /audit-items/:itemId/am-comments/:id - Update AM comment
+  @Put(':itemId/am-comments/:id')
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateDto: UpdateCommentDto,
     @Res() res: express.Response,
   ) {
     try {
-      const otherDetail = await this.otherDetailsService.update(id, updateDto);
+      const amComment = await this.amCommentsService.update(id, updateDto);
       return res.status(HttpStatus.OK).json({
         success: true,
-        data: otherDetail,
-        message: 'Other comment updated successfully',
+        data: amComment,
+        message: 'AM comment updated successfully',
       });
     } catch (error) {
-      console.error('Error updating Other comment:', error);
+      console.error('Error updating AM comment:', error);
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'Error updating Other comment',
+        message: 'Error updating AM comment',
       });
     }
   }
 
-  @Patch(':itemId/other-details/:id/approve')
+  // PATCH /audit-items/:itemId/am-comments/:id/approve - Approve/Reject
+  @Patch(':itemId/am-comments/:id/approve')
   async approve(
     @Param('id', ParseIntPipe) id: number,
     @Body() approveDto: ApproveCommentDto,
     @Res() res: express.Response,
   ) {
     try {
-      const otherDetail = await this.otherDetailsService.approve(
-        id,
-        approveDto,
-      );
+      const amComment = await this.amCommentsService.approve(id, approveDto);
       return res.status(HttpStatus.OK).json({
         success: true,
-        data: otherDetail,
-        message: 'Other comment approval updated successfully',
+        data: amComment,
+        message: 'AM comment approval updated successfully',
       });
     } catch (error) {
-      console.error('Error approving Other comment:', error);
+      console.error('Error approving AM comment:', error);
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'Error approving Other comment',
+        message: 'Error approving AM comment',
       });
     }
   }
 
-  // DELETE /audit-items/:itemId/other-details/:id - Soft delete comment
-  @Delete(':itemId/other-details/:id')
+  // DELETE /audit-items/:itemId/am-comments/:id - Soft delete
+  @Delete(':itemId/am-comments/:id')
   async remove(
     @Param('id', ParseIntPipe) id: number,
     @Body('updatedBy', ParseIntPipe) updatedBy: number,
@@ -183,16 +204,16 @@ export class AuditItemOtherDetailsController {
     @Res() res: express.Response,
   ) {
     try {
-      await this.otherDetailsService.remove(id, updatedBy, deletedReason);
+      await this.amCommentsService.remove(id, updatedBy, deletedReason);
       return res.status(HttpStatus.OK).json({
         success: true,
-        message: 'Other comment deleted successfully',
+        message: 'AM comment deleted successfully',
       });
     } catch (error) {
-      console.error('Error deleting Other comment:', error);
+      console.error('Error deleting AM comment:', error);
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'Error deleting Other comment',
+        message: 'Error deleting AM comment',
       });
     }
   }
