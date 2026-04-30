@@ -76,6 +76,7 @@ interface ApiUser {
   UserID: string;
   UserCode: string;
   Fullname: string;
+  Email: string;
 }
 
 type BranchScoreValue = -1 | 0 | 1;
