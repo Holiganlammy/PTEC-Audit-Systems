@@ -19,11 +19,18 @@ import {
   ApproveCommentDto,
 } from '../dto/comment.dto';
 import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec_useright.service';
+import { AuditItemsService } from '../service/audit-item.service';
+import { AuditCommentApprovalGmailApiService } from '../../email/audit-comment-approval-gmail-api.service';
+import { AuditJobsService } from '../service/audit-job.service';
+import { AuditJobWithUsers } from '../domain/type/audit-job.interface';
 
 @Controller('audit-items')
 export class AuditItemAuditCommentController {
   constructor(
     private readonly auditCommentService: AuditItemAuditCommentService,
+    private readonly auditCommentApprovalGmailService: AuditCommentApprovalGmailApiService,
+    private readonly auditItemsService: AuditItemsService,
+    private readonly auditJobsService: AuditJobsService,
     private readonly userRightService: UserRightService,
   ) {}
 
@@ -60,6 +67,40 @@ export class AuditItemAuditCommentController {
     try {
       createDto.itemId = itemId;
       const auditDetail = await this.auditCommentService.create(createDto);
+      if (createDto.approverStatus === 0) {
+        try {
+          const commenterData = await this.getUserData(createDto.userId);
+          if (commenterData && commenterData.empUpperId) {
+            const approverData = await this.getUserData(
+              commenterData.empUpperId,
+            );
+
+            if (approverData && approverData.email) {
+              const item = await this.auditItemsService.findOne(itemId);
+              const job: AuditJobWithUsers =
+                await this.auditJobsService.findOne(item.jobId);
+              await this.auditCommentApprovalGmailService.sendCommentApprovalEmail(
+                {
+                  approverEmail: approverData.email,
+                  approverFullname: approverData.fullname,
+                  commenterFullname: commenterData.fullname,
+                  commenterPosition: commenterData.position,
+                  commentText: createDto.note,
+                  jobNo: job.jobNo,
+                  categoryName: item.categoryItem?.categoryName || '-',
+                  itemId: itemId,
+                },
+              );
+
+              console.log(
+                `✓ Audit approval email sent to ${approverData.email}`,
+              );
+            }
+          }
+        } catch (emailError) {
+          console.error('Error sending approval email:', emailError);
+        }
+      }
       return res.status(HttpStatus.CREATED).json({
         success: true,
         data: auditDetail,

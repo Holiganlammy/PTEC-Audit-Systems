@@ -1,4 +1,4 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsNumber } from 'class-validator';
 export class SendAuditJobEmailDto {
   @IsOptional()
   @IsString({ each: true })
@@ -36,4 +36,63 @@ export class SendAuditJobEmailDto {
   @IsOptional()
   @IsString()
   jobUrl?: string;
+}
+
+export class MentionedUserDto {
+  @IsString()
+  userId!: string;
+
+  @IsString()
+  userCode!: string;
+
+  @IsString()
+  fullname!: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
+}
+
+export class SendMentionEmailDto {
+  @IsArray()
+  mentionedUsers!: MentionedUserDto[];
+
+  @IsString()
+  commentText!: string;
+
+  @IsString()
+  senderName!: string;
+
+  @IsNumber()
+  itemId!: number;
+
+  @IsNumber()
+  threadType!: number; // 1=Audit, 2=AM, 3=Other
+
+  @IsOptional()
+  @IsString()
+  jobNo?: string;
+
+  @IsOptional()
+  @IsString()
+  categoryName?: string;
+
+  @IsOptional()
+  @IsString()
+  branchName?: string;
+
+  @IsOptional()
+  @IsNumber()
+  itemStatus?: number; // 1=ปกติ, 2=อยู่ระหว่างดำเนินการ, 3=ผิดปกติ, 4=ปิดเคส
+
+  @IsOptional()
+  @IsNumber()
+  amChecklistStatus?: number | null; // null=ยังไม่เช็ค, 1=รอตรวจสอบ, 2=ผ่าน, 3=ไม่ผ่าน, 4=ต้องแก้ไข
+
+  @IsOptional()
+  auditChecked?: boolean; // Audit ตรวจแล้วหรือยัง
+
+  @IsOptional()
+  @IsString()
+  auditDate?: string;
 }

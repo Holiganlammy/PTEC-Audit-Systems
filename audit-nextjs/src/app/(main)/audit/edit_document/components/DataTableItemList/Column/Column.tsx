@@ -305,7 +305,7 @@ export const createAuditItemsColumns = (
   onEdit: (item: AuditItem) => void,
   onDelete: (item: AuditItem) => void,
   onRefresh?: () => void,
-  users: { UserID: string; UserCode: string; Fullname: string }[] = [],
+  users: { UserID: string; UserCode: string; Fullname: string; Email: string }[] = [],
   taggedUsersMap: Record<number, TaggedUser[]> = {},
   onTagChange?: (itemId: number, tags: TaggedUser[]) => void,
   onCommentsChange?: (itemId: number, threadType: 1 | 2 | 3, comments: AuditComment[]) => void,
@@ -411,6 +411,7 @@ export const createAuditItemsColumns = (
         onRefresh={onRefresh}
         onTagChange={onTagChange}
         onCommentsChange={onCommentsChange}
+        users={users}
         isLocked={isLocked}
       />
     ),
@@ -427,6 +428,7 @@ export const createAuditItemsColumns = (
         onRefresh={onRefresh}
         onTagChange={onTagChange}
         onCommentsChange={onCommentsChange}
+        users={users}
         isLocked={isLocked}
       />
     ),

@@ -14,6 +14,7 @@ interface ApiUser {
   UserID: string;
   UserCode: string;
   Fullname: string;
+  Email: string;
 }
 
 interface NoteCellProps {
@@ -82,6 +83,7 @@ export default function NoteCell({
 
   const canDelete = (roleId === 1 || roleId === 2) && !isLocked;
   const canEdit = (roleId === 1 || roleId === 2) && !isLocked;
+  const canMention = roleId === 1 || roleId === 2 || roleId === 3;
   
   const canComment = (() => {
     // Thread Type 1 (Audit): role 1, 2, 4
@@ -165,125 +167,178 @@ export default function NoteCell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openThread, itemId, threadType]);
 
-  const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
-    const endpoint = getEndpoint();
-  
-    const payload = {
-      itemId,
-      userId: session?.user?.UserID,
-      note: text,
-      createdBy: session?.user?.UserID,
-      approverStatus,
-    };
-  
-    // 1. Save comment
-    await client.post(
-      `/audit-items/${itemId}/${endpoint}`,
-      payload,
-      { headers: dataConfig().headers }
-    );
-  
-    // 2. Fetch comments (ทำครั้งเดียว)
-    const response = await client.get(`/audit-items/${itemId}/${endpoint}`, {
-      headers: dataConfig().headers,
-    });
-  
-    if (response.data.success) {
-      const latestComments = response.data.data;
-  
-      //  Auto-tag approver (ถ้าส่งเพื่ออนุมัติ)
-      if (approverStatus === 0) {
-        // หา comment ที่เพิ่งสร้าง
-        const myPendingComments = latestComments.filter(
-          (c: auditCommentsComment) =>
-            c.createdBy === session?.user?.UserID &&
-            c.approverStatus === 0 &&
-            c.requireApprovalFrom
-        );
-  
-        // เก็บ approver ที่ต้อง tag
-        const approversToTag = new Set<string>();
-  
-        myPendingComments.forEach((c: auditCommentsComment) => {
-          if (c.requireApprovalFrom) {
-            const approverUser = users.find(
-              (u: ApiUser) => u.UserCode === c.requireApprovalFrom!.userCode
-            );
-  
-            if (approverUser) {
-              approversToTag.add(approverUser.UserID);
-            }
-          }
-        });
-  
-        // Tag approvers
-        for (const approverUserId of approversToTag) {
-          const alreadyTagged = taggedUsers.some(
-            (t) => String(t.userId) === String(approverUserId)
+const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
+  const endpoint = getEndpoint();
+ 
+  const payload = {
+    itemId,
+    userId: session?.user?.UserID,
+    note: text,
+    createdBy: session?.user?.UserID,
+    approverStatus,
+  };
+ 
+  // 1. Save comment
+  await client.post(
+    `/audit-items/${itemId}/${endpoint}`,
+    payload,
+    { headers: dataConfig().headers }
+  );
+ 
+  // 2. Fetch comments (ทำครั้งเดียว)
+  const response = await client.get(`/audit-items/${itemId}/${endpoint}`, {
+    headers: dataConfig().headers,
+  });
+ 
+  if (response.data.success) {
+    const latestComments = response.data.data;
+ 
+    //  Auto-tag approver (ถ้าส่งเพื่ออนุมัติ)
+    if (approverStatus === 0) {
+      // หา comment ที่เพิ่งสร้าง
+      const myPendingComments = latestComments.filter(
+        (c: auditCommentsComment) =>
+          c.createdBy === session?.user?.UserID &&
+          c.approverStatus === 0 &&
+          c.requireApprovalFrom
+      );
+ 
+      // เก็บ approver ที่ต้อง tag
+      const approversToTag = new Set<string>();
+ 
+      myPendingComments.forEach((c: auditCommentsComment) => {
+        if (c.requireApprovalFrom) {
+          const approverUser = users.find(
+            (u: ApiUser) => u.UserCode === c.requireApprovalFrom!.userCode
           );
-  
-          if (!alreadyTagged) {
-            try {
-              await client.post(
-                `/audit-items/${itemId}/tagged-user`,
-                {
-                  userId: approverUserId,
-                  createdBy: session?.user?.UserID,
-                },
-                { headers: dataConfig().headers }
-              );
-              // console.log('Auto-tagged approver:', approverUserId);
-            } catch (error) {
-              console.error('❌ Failed to auto-tag:', error);
-            }
+ 
+          if (approverUser) {
+            approversToTag.add(approverUser.UserID);
           }
         }
-
-        // Update TagCell UI immediately without refresh
-        if (onTagChange) {
-          const newlyTagged = [...approversToTag]
-            .filter(uid => !taggedUsers.some(t => String(t.userId) === String(uid)))
-            .map(uid => {
-              const u = users.find(u => u.UserID === uid);
-              return u ? { userId: u.UserID, userCode: u.UserCode, fullname: u.Fullname } : null;
-            })
-            .filter((t): t is TaggedUser => t !== null);
-          if (newlyTagged.length > 0) {
-            onTagChange(itemId, [...taggedUsers, ...newlyTagged]);
+      });
+ 
+      // Tag approvers
+      for (const approverUserId of approversToTag) {
+        const alreadyTagged = taggedUsers.some(
+          (t) => String(t.userId) === String(approverUserId)
+        );
+ 
+        if (!alreadyTagged) {
+          try {
+            await client.post(
+              `/audit-items/${itemId}/tagged-user`,
+              {
+                userId: approverUserId,
+                createdBy: session?.user?.UserID,
+              },
+              { headers: dataConfig().headers }
+            );
+          } catch (error) {
+            console.error('❌ Failed to auto-tag:', error);
           }
         }
       }
-  
-      // Update UI
-      const transformedComments: AuditComment[] = latestComments.map(
-        (c: auditCommentsComment) => ({
-          id:
-            threadType === 1
-              ? c.auditDetailId!
-              : threadType === 2
-              ? c.amDetailId!
-              : c.otherDetailId!,
-          itemId: c.itemId,
-          userId: c.createdBy,
-          author: c.OwnerCommentUser?.fullname || "Unknown",
-          authorPosition: c.OwnerCommentUser?.position,
-          text: c.note,
-          approverStatus: c.approverStatus ?? null,
-          approverName: c.approverByUser?.fullname,
-          approverUsername: c.approverByUser?.userCode,
-          approverPosition: c.approverByUser?.position,
-          approverDate: c.approverDate,
-          requireApprovalFromUserCode: c.requireApprovalFrom?.userCode,
-          requireApprovalFromName: c.requireApprovalFrom?.fullname,
-          createdAt: c.createdAt,
-          updatedAt: c.updatedAt,
-        })
-      );
-  
-      setComments(transformedComments);
-      onCommentsChange?.(itemId, threadType, transformedComments);
+ 
+      // Update TagCell UI immediately without refresh
+      if (onTagChange) {
+        const newlyTagged = [...approversToTag]
+          .filter(uid => !taggedUsers.some(t => String(t.userId) === String(uid)))
+          .map(uid => {
+            const u = users.find(u => u.UserID === uid);
+            return u ? { userId: u.UserID, userCode: u.UserCode, fullname: u.Fullname } : null;
+          })
+          .filter((t): t is TaggedUser => t !== null);
+        if (newlyTagged.length > 0) {
+          onTagChange(itemId, [...taggedUsers, ...newlyTagged]);
+        }
+      }
     }
-  };
+ 
+    // Update UI
+    const transformedComments: AuditComment[] = latestComments.map(
+      (c: auditCommentsComment) => ({
+        id:
+          threadType === 1
+            ? c.auditDetailId!
+            : threadType === 2
+            ? c.amDetailId!
+            : c.otherDetailId!,
+        itemId: c.itemId,
+        userId: c.createdBy,
+        author: c.OwnerCommentUser?.fullname || "Unknown",
+        authorPosition: c.OwnerCommentUser?.position,
+        text: c.note,
+        approverStatus: c.approverStatus ?? null,
+        approverName: c.approverByUser?.fullname,
+        approverUsername: c.approverByUser?.userCode,
+        approverPosition: c.approverByUser?.position,
+        approverDate: c.approverDate,
+        requireApprovalFromUserCode: c.requireApprovalFrom?.userCode,
+        requireApprovalFromName: c.requireApprovalFrom?.fullname,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+      })
+    );
+ 
+    setComments(transformedComments);
+    onCommentsChange?.(itemId, threadType, transformedComments);
+  }
+ 
+  // 3. Send email notification to mentioned users
+  const mentionMatches = [...text.matchAll(/@(\w+)/g)];
+  const mentionedCodes = Array.from(
+    new Set(mentionMatches.map((m) => m[1]))
+  );
+  
+  if (mentionedCodes.length > 0) {
+    const mentionedUserList = users.filter((u) =>
+      mentionedCodes.includes(u.UserCode)
+    );
+    
+    if (mentionedUserList.length > 0) {
+      try {
+        // ดึงข้อมูล Item เพื่อส่งในเมล
+        const itemResponse = await client.get(
+          `/audit-items/${itemId}`,
+          { headers: dataConfig().headers }
+        );
+        
+        const item = itemResponse.data.data;
+ 
+        await client.post(
+          "/audit-email/mention-email",
+          {
+            mentionedUsers: mentionedUserList.map((u) => ({
+              userId: u.UserID,
+              userCode: u.UserCode,
+              fullname: u.Fullname,
+              email: u.Email, // ← จำเป็น!
+            })),
+            commentText: text,
+            senderName: session?.user?.UserCode || 
+                        `${session?.user?.fristName ?? ""} ${session?.user?.lastName ?? ""}`.trim() || 
+                        "Unknown",
+            itemId,
+            threadType,
+            jobNo: jobData?.jobNo || item?.job?.jobNo || '-',
+            branchName: jobData?.branchName || item?.job?.branchName || '-',
+            categoryName: item?.categoryItem?.categoryName || '-',
+            itemStatus: item?.itemStatus ?? 0,
+            amChecklistStatus: item?.amChecklistStatus ?? null,
+            auditChecked: item?.note_1 && item.note_1.length > 0,
+            auditDate: item?.inspectionDate || '-',
+          },
+          { headers: dataConfig().headers }
+        );
+        
+        console.log(`✓ Sent mention email to ${mentionedUserList.length} users`);
+      } catch (err) {
+        console.error("❌ Failed to send mention notification email:", err);
+      }
+    }
+  }
+};
 
   // Delete comment
   const handleDelete = async (commentId: number, remark: string) => {
@@ -522,8 +577,10 @@ export default function NoteCell({
         canComment={openThread && canComment && !viewOnly}
         canDelete={canDelete}
         canEdit={canEdit}
+        canMention={canMention}
         currentUserId={session?.user?.UserID}
         currentUserCode={session?.user?.UserCode}
+        users={users}
       />
     </div>
   );

@@ -1,7 +1,12 @@
+// mention-email.service.ts
+// Service สำหรับส่งเมลแจ้งเตือนเมื่อมีคนถูก @mention
+
 import * as fs from 'fs';
 import * as path from 'path';
 import { Injectable } from '@nestjs/common';
 import { google } from 'googleapis';
+import { format } from 'date-fns';
+import { th } from 'date-fns/locale';
 
 interface GoogleCredentials {
   installed: {
@@ -20,7 +25,7 @@ interface GoogleToken {
 }
 
 @Injectable()
-export class AuditCommentApprovalGmailApiService {
+export class MentionEmailService {
   private buildBasePaths() {
     const credentialsPath =
       process.env.GOOGLE_GMAIL_CREDENTIALS_PATH ||
@@ -97,7 +102,6 @@ export class AuditCommentApprovalGmailApiService {
       params.html,
     ].join('\n');
 
-    // Add inline attachments
     if (params.attachments && params.attachments.length > 0) {
       for (const attachment of params.attachments) {
         try {
@@ -125,39 +129,100 @@ export class AuditCommentApprovalGmailApiService {
     });
   }
 
+  // Helper: แปลง item status เป็น text + badge color
+  private getItemStatusText(status: number): { text: string; color: string } {
+    switch (status) {
+      case 1:
+        return { text: 'ปกติ', color: '#22C55E' };
+      case 2:
+        return { text: 'อยู่ระหว่างดำเนินการ', color: '#EAB308' };
+      case 3:
+        return { text: 'ผิดปกติ', color: '#EF4444' };
+      case 4:
+        return { text: 'ปิดเคส', color: '#6B7280' };
+      default:
+        return { text: 'ไม่ทราบ', color: '#9CA3AF' };
+    }
+  }
+
+  // Helper: แปลง AM checklist status
+  private getAMChecklistText(status: number | null): {
+    text: string;
+    color: string;
+  } {
+    if (status === null) {
+      return { text: 'ยังไม่เช็ค', color: '#9CA3AF' };
+    }
+    switch (status) {
+      case 1:
+        return { text: 'รอตรวจสอบ', color: '#EAB308' };
+      case 2:
+        return { text: 'ผ่าน', color: '#22C55E' };
+      case 3:
+        return { text: 'ไม่ผ่าน', color: '#EF4444' };
+      case 4:
+        return { text: 'ต้องแก้ไข', color: '#F97316' };
+      default:
+        return { text: 'ไม่ทราบ', color: '#9CA3AF' };
+    }
+  }
+
   /**
-   * ส่งเมลแจ้งเตือนผู้อนุมัติเมื่อมี Comment ที่ต้องอนุมัติ
-   * @param params - ข้อมูลสำหรับส่งเมล
+   * ส่งเมลแจ้งเตือนเมื่อมีคนถูก @mention ใน comment
    */
-  async sendCommentApprovalEmail(params: {
-    approverEmail: string;
-    approverFullname: string;
-    commenterFullname: string;
-    commenterPosition?: string;
+  async sendMentionNotification(params: {
+    recipientEmail: string;
+    recipientFullname: string;
+    recipientUserCode: string;
+    senderName: string;
     commentText: string;
-    jobNo: string;
-    categoryName: string;
     itemId: number;
-    commentUrl?: string;
+    threadType: number;
+    categoryName: string;
+    jobNo: string;
+    branchName: string;
+    itemStatus: number;
+    itemStatusEditName: number;
+    amChecklistStatus: number | null;
+    auditChecked: boolean;
+    auditDate: string;
   }) {
-    const approverName = params.approverFullname?.trim() || 'ผู้อนุมัติ';
-    const commenterName = params.commenterFullname?.trim() || 'ผู้ใช้งาน';
-    const commenterPosition = params.commenterPosition?.trim() || '';
-    const commentText = params.commentText?.trim() || '-';
+    const recipientName = params.recipientFullname?.trim() || 'ผู้รับ';
+    const senderName = params.senderName?.trim() || 'ผู้ใช้งาน';
+    // const commentText = params.commentText?.trim() || '-';
     const jobNo = params.jobNo?.trim() || '-';
+    const branchName = params.branchName?.trim() || '-';
     const categoryName = params.categoryName?.trim() || '-';
-    const itemId = params.itemId || 0;
+
+    const threadTypeText =
+      params.threadType === 1
+        ? 'หน่วยงานตรวจสอบ Audit'
+        : params.threadType === 2
+          ? 'หน่วยงาน AM'
+          : 'หน่วยงานอื่นๆ';
+
+    const amChecklistInfo = this.getAMChecklistText(params.amChecklistStatus);
+
+    // Format audit date
+    let auditDateFormatted = '-';
+    try {
+      if (params.auditDate) {
+        auditDateFormatted = format(new Date(params.auditDate), 'dd MMM yyyy', {
+          locale: th,
+        });
+      }
+    } catch {
+      auditDateFormatted = params.auditDate || '-';
+    }
 
     // Build comment URL
-    const baseUrl = process.env.FRONTEND_URL || 'https://audit.purethai.co.th';
-    const commentUrl =
-      params.commentUrl ||
-      `${baseUrl}/audit/edit_document?jobNo=${jobNo}#item-${itemId}`;
+    // const baseUrl = process.env.FRONTEND_URL || 'https://audit.purethai.co.th';
+    // const commentUrl = `${baseUrl}/audit/edit_document?jobNo=${jobNo}#item-${params.itemId}`;
 
     // Logo path
     const logoPath = path.resolve(process.cwd(), 'src/images/Header_Mail.png');
 
-    const subject = `[PTEC Audit] รออนุมัติ Comment: ${jobNo}`;
+    const subject = `[PTEC Audit] ${senderName} mentioned you in ${jobNo}`;
 
     const html = `
 <!DOCTYPE html>
@@ -178,78 +243,86 @@ export class AuditCommentApprovalGmailApiService {
               <img src="cid:header_logo" alt="PTEC Audit System" style="width: 100%; max-width: 600px; height: auto; display: block; border: none;" />
             </td>
           </tr>
- 
+
           <!-- Title Bar -->
           <tr>
-            <td style="background: linear-gradient(135deg, #DC2626 0%, #EF4444 100%); padding: 24px 32px; text-align: center;">
-              <h1 style="margin: 0; color: #000000; font-size: 22px; font-weight: bold;">รออนุมัติ Comment</h1>
+            <td style="background: linear-gradient(135deg, #3B82F6 0%, #60A5FA 100%); padding: 24px 32px; text-align: center;">
+              <h1 style="margin: 0; color: #000000; font-size: 22px; font-weight: bold;">คุณถูกแท็ก (กล่าวถึง)</h1>
               <p style="margin: 6px 0 0; color: #000000; font-size: 13px;">PTEC Audit System</p>
             </td>
           </tr>
- 
+
           <!-- Content -->
           <tr>
             <td style="padding: 32px;">
               
               <!-- Greeting -->
               <p style="margin: 0 0 24px; font-size: 16px; color: #1F2937;">
-                เรียน <strong>${approverName}</strong>
+                เรียน <strong>${recipientName}</strong> (<span style="color: #3B82F6;">@${params.recipientUserCode}</span>)
               </p>
- 
+
               <!-- Message -->
               <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #374151;">
-                มี Comment ที่ต้องการการอนุมัติจากท่าน<br/>
-                <strong>${commenterName}</strong>${commenterPosition ? ` (${commenterPosition})` : ''} ได้ Comment ในรายการตรวจสอบ
+                <strong>${senderName}</strong> ได้ mention คุณในความเห็นของ <strong>${threadTypeText}</strong>
               </p>
- 
-              <!-- Comment Box -->
-              <div style="background-color: #F9FAFB; border-left: 4px solid #DC2626; padding: 16px; margin-bottom: 24px; border-radius: 4px;">
-                <p style="margin: 0; font-size: 14px; color: #6B7280; font-weight: 600; margin-bottom: 8px;">Comment:</p>
-                <p style="margin: 0; font-size: 14px; color: #1F2937; line-height: 1.5;">"${commentText}"</p>
-              </div>
- 
+
               <!-- Details Card -->
               <table role="presentation" style="width: 100%; border: 1px solid #E5E7EB; border-radius: 6px; margin-bottom: 24px;">
                 <tr>
                   <td style="padding: 16px; background-color: #F9FAFB;">
                     <table role="presentation" style="width: 100%;">
                       <tr>
-                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280; width: 140px;">เลขที่เอกสาร:</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280; width: 180px;">เลขที่เอกสาร:</td>
                         <td style="padding: 8px 0; font-size: 14px; color: #1F2937; font-weight: 600;">${jobNo}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">สาขา:</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${branchName}</td>
                       </tr>
                       <tr>
                         <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">รายการ:</td>
                         <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${categoryName}</td>
                       </tr>
                       <tr>
-                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">Comment โดย:</td>
-                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${commenterName}${commenterPosition ? ` (${commenterPosition})` : ''}</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">วันที่ตรวจสอบ:</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${auditDateFormatted}</td>
                       </tr>
                     </table>
                   </td>
                 </tr>
               </table>
- 
-              <!-- CTA Button -->
-              <table role="presentation" style="width: 100%; margin-bottom: 24px;">
-                <tr>
-                  <td align="center">
-                    <a href="${commentUrl}" 
-                       style="display: inline-block; padding: 12px 32px; background-color: #DC2626; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px;">
-                      ตรวจสอบและอนุมัติ
-                    </a>
-                  </td>
-                </tr>
-              </table>
- 
-              <!-- Additional Info -->
-              <p style="margin: 0; font-size: 14px; color: #6B7280; line-height: 1.5;">
-                กรุณาเข้าสู่ระบบและพิจารณาอนุมัติ Comment นี้ในโอกาสแรก
-              </p>
- 
+
+              <!-- Status Section -->
+              <div style="background-color: #F9FAFB; border-radius: 6px; padding: 16px; margin-bottom: 24px;">
+                <h3 style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: #1F2937;">สถานะการตรวจสอบ</h3>
+                
+                <table role="presentation" style="width: 100%;">
+                  <tr>
+                    <td style="padding: 6px 0; font-size: 13px; color: #6B7280; width: 180px;">สถานะรายการ:</td>
+                    <td style="padding: 6px 0; font-size: 13px;">
+                      <span style="color: ${this.getItemStatusText(Number(params.itemStatus)).color}; font-size: 10px; margin-right: 5px;">&#9679;</span>
+                      <span style="color: #1F2937; font-weight: 600;">${this.getItemStatusText(Number(params.itemStatus)).text}</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 6px 0; font-size: 13px; color: #6B7280;">Audit ตรวจแล้ว:</td>
+                    <td style="padding: 6px 0; font-size: 13px;">
+                      <span style="color: ${this.getItemStatusText(Number(params.itemStatusEditName)).color}; font-size: 10px; margin-right: 5px;">&#9679;</span>
+                      <span style="color: #1F2937; font-weight: 600;">${this.getItemStatusText(Number(params.itemStatusEditName)).text}</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 6px 0; font-size: 13px; color: #6B7280;">AM Checklist:</td>
+                    <td style="padding: 6px 0; font-size: 13px;">
+                      <span style="color: ${amChecklistInfo.color}; font-size: 10px; margin-right: 5px;">&#9679;</span>
+                      <span style="color: #1F2937; font-weight: 600;">${amChecklistInfo.text}</span>
+                    </td>
+                  </tr>
+                </table>
+              </div>
             </td>
           </tr>
- 
+
           <!-- Footer -->
           <tr>
             <td style="padding: 24px 32px; background-color: #F9FAFB; border-top: 1px solid #E5E7EB; border-radius: 0 0 8px 8px;">
@@ -264,7 +337,7 @@ export class AuditCommentApprovalGmailApiService {
               </p>
             </td>
           </tr>
- 
+
         </table>
       </td>
     </tr>
@@ -295,15 +368,15 @@ export class AuditCommentApprovalGmailApiService {
 
     try {
       await this.sendHtmlMail({
-        to: params.approverEmail,
+        to: params.recipientEmail,
         subject,
         html,
         attachments: attachments.length > 0 ? attachments : undefined,
       });
-      console.log(`✓ Approval email sent to ${params.approverEmail}`);
+      console.log(`✓ Mention email sent to ${params.recipientEmail}`);
     } catch (error) {
       console.error(
-        `✗ Failed to send approval email to ${params.approverEmail}:`,
+        `✗ Failed to send mention email to ${params.recipientEmail}:`,
         error,
       );
       throw error;

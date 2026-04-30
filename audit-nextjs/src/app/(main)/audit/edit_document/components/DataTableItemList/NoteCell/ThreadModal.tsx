@@ -4,7 +4,7 @@
 
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,6 +31,12 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 // import type { AuditComment } from "../Column/Column";
+
+interface ApiUser {
+  UserID: string;
+  UserCode: string;
+  Fullname: string;
+}
 
 interface AuditComment {
   id: number;
@@ -65,8 +71,10 @@ interface ThreadModalProps {
   canComment: boolean;
   canDelete: boolean;
   canEdit: boolean;
+  canMention?: boolean;
   currentUserId?: string | number;
   currentUserCode?: string;
+  users?: ApiUser[];
 }
 
 // ── Avatar ────────────────────────────────────────────────────────────────
@@ -93,6 +101,111 @@ function Avatar({ name }: { name: string }) {
   );
 }
 
+// ── Render mentions ──────────────────────────────────────────────────────
+function renderMentions(text: string, users?: ApiUser[]) {
+  const parts = text.split(/(@\w+)/g);
+  return parts.map((part, i) => {
+    if (/^@\w+$/.test(part)) {
+      const userCode = part.slice(1); // ลบ @ ออก
+      const user = users?.find((u) => u.UserCode === userCode);
+      
+      return (
+        <span
+          key={i}
+          className="bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 rounded-sm px-0.5 font-medium"
+          title={user?.Fullname || userCode} // ← แสดง fullname ใน tooltip
+        >
+          {part}
+        </span>
+      );
+    }
+    return part;
+  });
+}
+
+// ── MentionTextarea – textarea with live highlight overlay ─────────────────
+function MentionTextarea({
+  value,
+  onChange,
+  onKeyDown,
+  placeholder,
+  rows,
+  disabled,
+  textareaRef,
+}: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  placeholder: string;
+  rows: number;
+  disabled: boolean;
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+}) {
+  const backdropRef = useRef<HTMLDivElement>(null);
+
+  const syncScroll = () => {
+    if (textareaRef.current && backdropRef.current) {
+      backdropRef.current.scrollTop = textareaRef.current.scrollTop;
+    }
+  };
+
+  const parts = value.split(/(@\w+)/g);
+
+  return (
+    <div className="relative w-full">
+      {/* Backdrop highlight layer – positioned behind the textarea */}
+      <div
+        ref={backdropRef}
+        aria-hidden="true"
+        className="pointer-events-none select-none absolute inset-0 overflow-hidden rounded-md px-3 py-2 text-base md:text-sm"
+        style={{
+          whiteSpace: "pre-wrap",
+          overflowWrap: "break-word",
+          wordBreak: "break-word",
+          lineHeight: "1.5",
+          fontFamily: "inherit",
+          boxSizing: "border-box",
+        }}
+      >
+        {parts.map((part, i) =>
+          /^@\w+$/.test(part) ? (
+            <span
+              key={i}
+              className="bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300 rounded-sm"
+            >
+              {part}
+            </span>
+          ) : (
+            // ข้อความธรรมดา – ใช้สี foreground ปกติ (ขาวใน dark / ดำใน light)
+            <span key={i} className="text-foreground">
+              {part}
+            </span>
+          )
+        )}
+        {"\u200b"}
+      </div>
+
+      {/* Actual textarea – text transparent to reveal backdrop, caret stays visible */}
+      <Textarea
+        ref={textareaRef}
+        value={value}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+        onScroll={syncScroll}
+        placeholder={placeholder}
+        rows={rows}
+        disabled={disabled}
+        className="resize-none w-full relative"
+        style={{
+          background: "transparent",
+          color: "transparent",
+          caretColor: "hsl(var(--foreground))",
+        }}
+      />
+    </div>
+  );
+}
+
 // ── Comment Item ──────────────────────────────────────────────────────────
 function CommentItem({
   comment,
@@ -102,6 +215,7 @@ function CommentItem({
   canDelete,
   onEdit,
   canEdit,
+  users
 }: {
   comment: AuditComment;
   onApprove: (commentId: number, status: 1 | 2) => Promise<void>;
@@ -110,6 +224,7 @@ function CommentItem({
   canDelete: boolean;
   onEdit: (commentId: number, note: string) => Promise<void>;
   canEdit: boolean;
+  users: ApiUser[];
 }) {
   const [isApproving, setIsApproving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -306,7 +421,7 @@ function CommentItem({
           </div>
         ) : (
           <div className="rounded-lg bg-muted/60 px-3 py-2 text-sm whitespace-pre-wrap break-words border">
-            {comment.text}
+            {renderMentions(comment.text, users)}
           </div>
         )}
 
@@ -426,13 +541,71 @@ export default function ThreadModal({
   canComment,
   canDelete,
   canEdit,
+  canMention = false,
   currentUserId,
   currentUserCode,
+  users = [],
 }: ThreadModalProps) {
   const [draft, setDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [sendForApproval, setSendForApproval] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // @mention state
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionStart, setMentionStart] = useState<number>(-1);
+  const [mentionIndex, setMentionIndex] = useState<number>(0);
+
+  const mentionUsers = mentionQuery !== null
+    ? users
+        .filter(
+          (u) =>
+            u.UserCode.toLowerCase().includes(mentionQuery.toLowerCase()) ||
+            u.Fullname.toLowerCase().includes(mentionQuery.toLowerCase())
+        )
+        .slice(0, 8)
+    : [];
+
+  const closeMention = useCallback(() => {
+    setMentionQuery(null);
+    setMentionStart(-1);
+    setMentionIndex(0);
+  }, []);
+
+  const handleSelectMention = useCallback(
+    (user: ApiUser) => {
+      const before = draft.slice(0, mentionStart);
+      const after = draft.slice(mentionStart + 1 + (mentionQuery?.length ?? 0));
+      const inserted = `@${user.UserCode} `;
+      const newDraft = before + inserted + after;
+      setDraft(newDraft);
+      closeMention();
+      setTimeout(() => {
+        if (textareaRef.current) {
+          const pos = before.length + inserted.length;
+          textareaRef.current.focus();
+          textareaRef.current.setSelectionRange(pos, pos);
+        }
+      }, 0);
+    },
+    [draft, mentionStart, mentionQuery, closeMention]
+  );
+
+  const handleDraftChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    const cursor = e.target.selectionStart ?? value.length;
+    const textBeforeCursor = value.slice(0, cursor);
+    const match = textBeforeCursor.match(/@(\w*)$/);
+    if (canMention && match) {
+      setMentionQuery(match[1]);
+      setMentionStart(cursor - match[0].length);
+      setMentionIndex(0);
+    } else {
+      closeMention();
+    }
+    setDraft(value);
+  };
 
   useEffect(() => {
     if (open)
@@ -477,6 +650,7 @@ export default function ThreadModal({
                 <CommentItem
                   key={c.id}
                   comment={c}
+                  users={users}
                   onApprove={onApprove}
                   onDelete={onDelete}
                   canDelete={canDelete}
@@ -503,20 +677,71 @@ export default function ThreadModal({
         {canComment && (
           <div className="border-t px-4 py-3 flex flex-col gap-2">
             <div className="flex gap-2">
-              <Textarea
+            <div className="relative flex-1">
+              {canMention && mentionUsers.length > 0 && (
+                <div className="absolute bottom-full mb-1 left-0 w-full z-50 rounded-md border bg-popover shadow-md overflow-hidden">
+                  <div className="px-3 py-1.5 border-b bg-amber-50 dark:bg-amber-950/40 flex items-center gap-1.5">
+                    <span className="text-xs text-amber-700 dark:text-amber-400">
+                      การ tag จะทำการส่งอีเมลแจ้งเตือนไปยังผู้ถูก tag ทุกครั้ง
+                    </span>
+                  </div>
+                  <ul className="max-h-48 overflow-y-auto py-1">
+                    {mentionUsers.map((u, i) => (
+                      <li
+                        key={u.UserID}
+                        className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer text-sm hover:bg-accent ${
+                          i === mentionIndex ? "bg-accent" : ""
+                        }`}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          handleSelectMention(u);
+                        }}
+                        onMouseEnter={() => setMentionIndex(i)}
+                      >
+                        <span className="font-medium text-primary">@{u.UserCode}</span>
+                        <span className="text-muted-foreground truncate">{u.Fullname}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <MentionTextarea
+                textareaRef={textareaRef}
                 value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                placeholder="พิมพ์ความเห็น..."
+                onChange={handleDraftChange}
+                placeholder={canMention ? "พิมพ์ความเห็น... (พิมพ์ @ เพื่อ tag ผู้ใช้)" : "พิมพ์ความเห็น..."}
                 rows={2}
-                className="resize-none flex-1 text-sm"
+                disabled={isSending}
                 onKeyDown={(e) => {
+                  if (mentionUsers.length > 0) {
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setMentionIndex((i) => Math.min(i + 1, mentionUsers.length - 1));
+                      return;
+                    }
+                    if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setMentionIndex((i) => Math.max(i - 1, 0));
+                      return;
+                    }
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleSelectMention(mentionUsers[mentionIndex]);
+                      return;
+                    }
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      closeMention();
+                      return;
+                    }
+                  }
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     handleSend();
                   }
                 }}
-                disabled={isSending}
               />
+            </div>
               <Button
                 size="icon"
                 onClick={handleSend}

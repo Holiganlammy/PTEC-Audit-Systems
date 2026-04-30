@@ -115,6 +115,7 @@ export interface AuditStatusInfo {
 
 // Interface for audit job with user data
 export interface AuditJobWithUsers {
+  jobNo: string;
   auditor?: UserData;
   districtManager?: UserData;
   branchManager?: UserData;
