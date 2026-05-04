@@ -224,13 +224,15 @@ export default function AddItemsPage() {
       // เตรียมข้อมูลส่งเมล
       const emailPayload = {
         groupEmails: [
-          'ptaudit@rpcthai.com',    // Group 1: PURE_GroupAM
-          'groupssd@rpcthai.com',   // Group 2: PTEC-Dept-SSD
-          // 'npc@rpcthai.com'
+          // 'ptaudit@rpcthai.com',    // Group 1: PURE_GroupAM
+          // 'groupssd@rpcthai.com',   // Group 2: PTEC-Dept-SSD
+          'pww@rpcthai.com',
+          'kkj@rpcthai.com',
+          'wsr@rpcthai.com'
         ],
-        additionalRecipients: [
-          'swp@rpcthai.com',        // บุคคลเพิ่มเติม
-        ],
+        // additionalRecipients: [
+        //   'swp@rpcthai.com',        // บุคคลเพิ่มเติม
+        // ],
         jobNo: jobData.jobNo,
         branchName: jobData.branchName,
         auditDate: auditDateFormatted,
