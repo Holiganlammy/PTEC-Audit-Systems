@@ -16,11 +16,15 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditUserRoles } from '../PTEC_USERIGHT/domain/model/audit-user-roles.entity';
 import { RoleSystemAudit } from '../PTEC_USERIGHT/domain/model/role-system-audit.entity';
 import { AuditUserRolesController } from './controller/audit-user-roles.controller';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   imports: [
     DatabaseManagerModule,
     TypeOrmModule.forFeature([AuditUserRoles, RoleSystemAudit]),
+    JwtModule.register({
+      secret: process.env.JWT_SECRET,
+    }),
   ],
   controllers: [AppController, AuditUserRolesController],
   providers: [AppService, AuditUserRolesService, redisProvider],

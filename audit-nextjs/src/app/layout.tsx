@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     default: "PTEC Audit System",
     template: "%s | PTEC Audit System",
   },
-  description: "ระบบตรวจสอบภายในบริษัท บริสุทธิ์ ไทย เอนเนอร์จี จำกัด",
+  description: "ระบบตรวจสอบภายในบริษัท เพียวไทยพลังงาน จำกัด",
   keywords: ["PTEC", "Audit", "ตรวจสอบภายใน", "Pure Thai Energy"],
   authors: [{ name: "PTEC IT Department" }],
   creator: "PTEC IT Department",

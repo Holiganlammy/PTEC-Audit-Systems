@@ -50,6 +50,14 @@ client.interceptors.response.use(
       });
     }
 
+    // Handle unauthorized: true in response body (user not registered in system)
+    if (response.data?.unauthorized === true) {
+      console.warn("Unauthorized user - redirecting to unauthorized page");
+      if (typeof window !== "undefined") {
+        window.location.href = "/unauthorized";
+      }
+    }
+
     return response;
   },
   async (error: AxiosError) => {
@@ -63,6 +71,16 @@ client.interceptors.response.use(
 
     //  Handle 401 Unauthorized
     if (error.response?.status === 401) {
+      const data = error.response?.data as Record<string, unknown> | undefined;
+      // User is authenticated but not registered in the system
+      if (data?.unauthorized === true) {
+        console.warn("User not registered in system - redirecting to unauthorized page");
+        if (typeof window !== "undefined") {
+          window.location.href = "/unauthorized";
+        }
+        return Promise.reject(error);
+      }
+      // Normal session expired → sign out
       console.warn("Unauthorized - Logging out...");
       await signOut({
         redirect: false,

@@ -7,23 +7,28 @@ import {
   Body,
   Param,
   Query,
+  Req,
   ParseIntPipe,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
 import { AuditUserRolesService } from '../service/audit-user-roles.service';
 import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec_useright.service';
+import { JwtService } from '@nestjs/jwt';
 import {
   CreateUserRoleDto,
   UpdateUserRoleDto,
   UserRoleResponseDto,
 } from '../dto/User_Role.dto';
+import express from 'express';
+import { UserInfo } from '../../PTEC_AUDIT/domain/type/audit-job.interface';
 
 @Controller('audit-user-roles')
 export class AuditUserRolesController {
   constructor(
     private readonly auditUserRolesService: AuditUserRolesService,
     private readonly userRightService: UserRightService,
+    private readonly jwtService: JwtService,
   ) {}
 
   // Helper: Get user data
@@ -55,11 +60,13 @@ export class AuditUserRolesController {
   // GET /audit-user-roles - Get all user roles with pagination
   @Get()
   async findAll(
+    @Req() req: express.Request,
     @Query('roleId') roleId?: string,
     @Query('active') active?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
+    await this.getUserFromJWT(req);
     try {
       const filters = {
         roleId: roleId ? parseInt(roleId) : undefined,
@@ -351,6 +358,70 @@ export class AuditUserRolesController {
       throw new HttpException(
         'Error deleting user role',
         HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  private async getUserFromJWT(
+    req: express.Request | undefined,
+  ): Promise<UserInfo | undefined> {
+    if (!req) {
+      return undefined;
+    }
+
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader?.startsWith('Bearer ')) {
+      throw new HttpException(
+        { success: false, message: 'No token provided', unauthorized: true },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    const token = authHeader.substring(7);
+
+    try {
+      const decoded = this.jwtService.verify<{
+        userId: string;
+        username: string;
+        role: string;
+      }>(token, {
+        secret: process.env.NEXTAUTH_SECRET,
+      });
+
+      if (!decoded.username) {
+        throw new Error('Username is missing from JWT');
+      }
+
+      const auditRole = await this.auditUserRolesService.getRoleByUserCode(
+        decoded.username,
+      );
+
+      if (!auditRole) {
+        throw new HttpException(
+          {
+            success: false,
+            message: `User ${decoded.username} is not registered in Audit System`,
+            unauthorized: true,
+          },
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      return {
+        user_id: parseInt(decoded.userId, 10),
+        role_id: auditRole.roleId,
+        username: decoded.username,
+        is_admin: auditRole.roleId === 1,
+      };
+    } catch (error) {
+      console.error('❌ Authorization failed:', error);
+      throw new HttpException(
+        {
+          success: false,
+          message: `Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          unauthorized: true,
+        },
+        HttpStatus.UNAUTHORIZED,
       );
     }
   }

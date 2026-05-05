@@ -146,7 +146,7 @@ export default function AddItemModal({
       if (values.remarks?.trim() && newItemId) {
         const approverStatus = values.auditCommentStatus === "0" ? 0 : null;
         await client.post(
-          `/audit-items/${newItemId}/audit-details`,
+          `/audit-items/${newItemId}/audit-comments`,
           {
             itemId: newItemId,
             note: values.remarks.trim(),

@@ -21,6 +21,7 @@ import {
   OnModuleInit,
   StreamableFile,
   InternalServerErrorException,
+  HttpException,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -35,7 +36,6 @@ import {
 import { CreateAuditJobDto } from '../dto/create-audit-job.dto';
 import { UpdateAuditJobDto } from '../dto/update-audit-job.dto';
 import { JwtService } from '@nestjs/jwt';
-import { UnauthorizedException } from '@nestjs/common';
 import { AuditUserRolesService } from '../../PTEC_USERIGHT/service/audit-user-roles.service';
 import { AuditFilesService } from '../service/audit-files.service';
 import { AuditFileType } from '../domain/enum/audit-file-type.enum';
@@ -126,7 +126,14 @@ export class AuditJobsController implements OnModuleInit {
     const user = req ? await this.getUserFromJWT(req) : undefined;
 
     if (!user) {
-      throw new UnauthorizedException('User information is required');
+      throw new HttpException(
+        {
+          success: false,
+          message: 'User information is required',
+          unauthorized: true,
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     return await this.auditJobsService.findAll(params, user);
@@ -183,9 +190,22 @@ export class AuditJobsController implements OnModuleInit {
   @Get('detail')
   async findOneByJobCodeQuery(
     @Query('jobNo') jobNo: string,
+    @Req() req: express.Request,
     @Res() res: express.Response,
   ) {
     try {
+      const user = req ? await this.getUserFromJWT(req) : undefined;
+
+      if (!user) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'User information is required',
+            unauthorized: true,
+          },
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
       const normalizedJobNo = typeof jobNo === 'string' ? jobNo.trim() : '';
       if (!normalizedJobNo) {
         throw new BadRequestException('jobNo is required');
@@ -201,6 +221,19 @@ export class AuditJobsController implements OnModuleInit {
       });
     } catch (error) {
       console.error('❌ Error fetching audit job by jobNo:', error);
+
+      if (error instanceof HttpException && error.getStatus() === 401) {
+        const errBody = error.getResponse() as Record<string, unknown>;
+        return res.status(HttpStatus.UNAUTHORIZED).json({
+          code: 401,
+          success: false,
+          unauthorized: true,
+          message:
+            typeof errBody.message === 'string'
+              ? errBody.message
+              : 'Unauthorized',
+        });
+      }
 
       if (error instanceof BadRequestException) {
         return res.status(HttpStatus.BAD_REQUEST).json({
@@ -582,7 +615,10 @@ export class AuditJobsController implements OnModuleInit {
     const authHeader = req.headers.authorization;
 
     if (!authHeader?.startsWith('Bearer ')) {
-      throw new UnauthorizedException('No token provided');
+      throw new HttpException(
+        { success: false, message: 'No token provided', unauthorized: true },
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     const token = authHeader.substring(7);
@@ -605,8 +641,13 @@ export class AuditJobsController implements OnModuleInit {
       );
 
       if (!auditRole) {
-        throw new UnauthorizedException(
-          `User ${decoded.username} is not registered in Audit System`,
+        throw new HttpException(
+          {
+            success: false,
+            message: `User ${decoded.username} is not registered in Audit System`,
+            unauthorized: true,
+          },
+          HttpStatus.UNAUTHORIZED,
         );
       }
 
@@ -618,8 +659,13 @@ export class AuditJobsController implements OnModuleInit {
       };
     } catch (error) {
       console.error('❌ Authorization failed:', error);
-      throw new UnauthorizedException(
-        `Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      throw new HttpException(
+        {
+          success: false,
+          message: `Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          unauthorized: true,
+        },
+        HttpStatus.UNAUTHORIZED,
       );
     }
   }

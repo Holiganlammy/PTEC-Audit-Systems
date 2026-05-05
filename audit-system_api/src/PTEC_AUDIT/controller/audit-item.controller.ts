@@ -10,6 +10,7 @@ import {
   ParseIntPipe,
   Patch,
   HttpStatus,
+  HttpException,
   Res,
   Req,
 } from '@nestjs/common';
@@ -150,6 +151,7 @@ export class AuditItemsController {
       if (!user) {
         return res?.status(HttpStatus.UNAUTHORIZED).json({
           success: false,
+          unauthorized: true,
           message: 'User authentication required',
         });
       }
@@ -181,10 +183,15 @@ export class AuditItemsController {
     } catch (error) {
       console.error('Error fetching audit items by job ID:', error);
 
-      if (error instanceof UnauthorizedException) {
+      if (error instanceof HttpException && error.getStatus() === 401) {
+        const errBody = error.getResponse() as Record<string, unknown>;
         return res?.status(HttpStatus.UNAUTHORIZED).json({
           success: false,
-          message: error.message,
+          unauthorized: true,
+          message:
+            typeof errBody.message === 'string'
+              ? errBody.message
+              : error.message,
         });
       }
 
@@ -317,7 +324,10 @@ export class AuditItemsController {
     const authHeader = req.headers.authorization;
 
     if (!authHeader?.startsWith('Bearer ')) {
-      throw new UnauthorizedException('No token provided');
+      throw new HttpException(
+        { success: false, message: 'No token provided', unauthorized: true },
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     const token = authHeader.substring(7);
@@ -345,8 +355,13 @@ export class AuditItemsController {
       );
 
       if (!auditRole) {
-        throw new UnauthorizedException(
-          `User ${decoded.username} is not registered in Audit System`,
+        throw new HttpException(
+          {
+            success: false,
+            message: `User ${decoded.username} is not registered in Audit System`,
+            unauthorized: true,
+          },
+          HttpStatus.UNAUTHORIZED,
         );
       }
 
@@ -392,6 +407,7 @@ export class AuditItemsController {
       if (!user) {
         return res.status(HttpStatus.UNAUTHORIZED).json({
           success: false,
+          unauthorized: true,
           message: 'User authentication required',
         });
       }
@@ -473,6 +489,7 @@ export class AuditItemsController {
       if (!user) {
         return res.status(HttpStatus.UNAUTHORIZED).json({
           success: false,
+          unauthorized: true,
           message: 'User authentication required',
         });
       }
