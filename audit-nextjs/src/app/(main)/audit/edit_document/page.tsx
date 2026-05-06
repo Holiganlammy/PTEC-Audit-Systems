@@ -1245,17 +1245,17 @@ export default function EditAuditJobPage() {
                                             key={u.UserID}
                                             value={`${u.PersonalCode} ${u.fristName} ${u.lastName} ${u.BranchName}`}
                                             onSelect={() => {
-                                              field.onChange(u.PersonalCode);
-                                              const matchedBranch = branches.find((b) => b.branchid === u.BranchID);
-                                              if (matchedBranch) {
-                                                form.setValue("Branch", matchedBranch.branchid.toString());
-                                                form.setValue("Address", matchedBranch.FullAddress || "");
-                                                setFormData({
-                                                  branchId: matchedBranch.branchid.toString(),
-                                                  branchName: `${matchedBranch.code || matchedBranch.branchid} / ${matchedBranch.name}`,
-                                                  address: matchedBranch.FullAddress || "",
-                                                });
-                                              }
+                                              // field.onChange(u.PersonalCode);
+                                              // const matchedBranch = branches.find((b) => b.branchid === u.BranchID);
+                                              // if (matchedBranch) {
+                                              //   form.setValue("Branch", matchedBranch.branchid.toString());
+                                              //   form.setValue("Address", matchedBranch.FullAddress || "");
+                                              //   setFormData({
+                                              //     branchId: matchedBranch.branchid.toString(),
+                                              //     branchName: `${matchedBranch.code || matchedBranch.branchid} / ${matchedBranch.name}`,
+                                              //     address: matchedBranch.FullAddress || "",
+                                              //   });
+                                              // }
                                               form.setValue("Firstname", u.fristName || "");
                                               form.setValue("Lastname", u.lastName || "");
                                               setPmSearch("");

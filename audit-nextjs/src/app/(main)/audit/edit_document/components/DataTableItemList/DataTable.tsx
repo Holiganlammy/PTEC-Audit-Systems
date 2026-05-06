@@ -281,7 +281,7 @@ export default function DataTableItemList({
   const isAMChecklistAllowed = (() => {
     const roleId = session?.user?.role_id;
     const userId = String(session?.user?.UserID ?? "");
-    if (roleId === 1) return true;
+    if (roleId === 1 || roleId === 2) return true;
     return userId !== "" && userId === String(jobData?.districtManager?.userId ?? "");
   })();
 

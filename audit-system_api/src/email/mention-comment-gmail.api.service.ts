@@ -189,7 +189,7 @@ export class MentionEmailService {
   }) {
     const recipientName = params.recipientFullname?.trim() || 'ผู้รับ';
     const senderName = params.senderName?.trim() || 'ผู้ใช้งาน';
-    // const commentText = params.commentText?.trim() || '-';
+    const commentText = params.commentText?.trim() || '-';
     const jobNo = params.jobNo?.trim() || '-';
     const branchName = params.branchName?.trim() || '-';
     const categoryName = params.categoryName?.trim() || '-';
@@ -263,7 +263,7 @@ export class MentionEmailService {
 
               <!-- Message -->
               <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #374151;">
-                <strong>${senderName}</strong> ได้ mention คุณในความเห็นของ <strong>${threadTypeText}</strong>
+                <strong>${senderName}</strong> ได้ กล่าวถึง คุณในความเห็นของ <strong>${threadTypeText}</strong>
               </p>
 
               <!-- Details Card -->
@@ -286,6 +286,10 @@ export class MentionEmailService {
                       <tr>
                         <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">วันที่ตรวจสอบ:</td>
                         <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${auditDateFormatted}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">เนื้อหา:</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937; white-space: pre-wrap;">${commentText}</td>
                       </tr>
                     </table>
                   </td>
