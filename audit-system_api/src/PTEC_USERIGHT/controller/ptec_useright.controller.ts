@@ -1,5 +1,5 @@
+// Audit Backend - PTEC User Rights Management
 import {
-  //ptecuseright audit
   Get,
   Post,
   Res,
@@ -86,9 +86,12 @@ export class AppController {
   @Post('login')
   async login(
     @Body() LoginDto: LoginDto,
+    @Req() req: express.Request,
     @Res() res: express.Response,
   ): Promise<express.Response> {
     try {
+      const cookies = req.headers.cookie || '';
+
       const response: AxiosResponse<PortalLoginResponse> =
         await axios.post<PortalLoginResponse>(
           `${process.env.PORTAL_API_URL}/login`,
@@ -98,7 +101,10 @@ export class AppController {
             source: 'audit',
           } satisfies PortalLoginRequest,
           {
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              Cookie: cookies,
+            },
             timeout: 10000,
           },
         );
@@ -113,6 +119,7 @@ export class AppController {
         userCode,
         expiresAt,
       } = data;
+      console.log('Response Data:', data);
 
       if (request_Mfa === true) {
         return res.status(HttpStatus.OK).json({
@@ -124,27 +131,43 @@ export class AppController {
         });
       }
 
-      console.log('=== LOGIN START ===');
-      console.log(
-        '🍪 Portal Login Set-Cookie:',
-        response.headers['set-cookie'],
-      );
+      // console.log('=== LOGIN START ===');
+      // console.log(
+      //   '🍪 Portal Login Set-Cookie:',
+      //   response.headers['set-cookie'],
+      // );
 
       const portalCookies = response.headers['set-cookie'];
       if (portalCookies && Array.isArray(portalCookies)) {
-        portalCookies.forEach((cookie) => {
-          res.setHeader('Set-Cookie', cookie);
+        const isDevelopment = process.env.NODE_ENV !== 'production';
+
+        const modifiedCookies = portalCookies.map((cookie) => {
+          let modified = cookie;
+
+          if (isDevelopment) {
+            modified = modified.replace(/; Secure/gi, '');
+          }
+
+          // เปลี่ยน SameSite
+          if (modified.includes('SameSite=None')) {
+            modified = modified.replace(/SameSite=None/gi, 'SameSite=Lax');
+          }
+
+          return modified;
         });
-      }
-      if (portalCookies) {
-        console.log('Login Cookies received:', portalCookies.length);
+
+        modifiedCookies.forEach((cookie) => {
+          res.append('Set-Cookie', cookie);
+        });
+
+        // console.log('✓ Forwarded cookies:', modifiedCookies.length);
       } else {
-        console.log('ℹ No cookies (normal for first login)');
+        console.log('ℹ️  No cookies (normal for first login)');
       }
+
       // Handle success login
       if (success === true && access_token) {
-        // ดึง role_id จาก Audit_User_Roles แทนค่าจาก Portal
-        let auditRoleId = user?.role_id ?? null;
+        let auditRoleId: number | null = null;
         let auditRoleName: string | null = null;
         if (user?.UserCode) {
           try {
@@ -308,7 +331,6 @@ export class AppController {
     try {
       const { usercode, otpCode, trustDevice } = body;
 
-      // Validate input
       if (!usercode || !otpCode) {
         return res.status(HttpStatus.BAD_REQUEST).json({
           success: false,
@@ -334,19 +356,40 @@ export class AppController {
       const data = response.data;
 
       console.log('=== VERIFY OTP START ===');
-      console.log('📥 Request Body:', { usercode, otpCode, trustDevice });
+      console.log('📥 Request:', { usercode, otpCode, trustDevice });
       console.log('🍪 Portal Set-Cookie:', response.headers['set-cookie']);
+
+      // ✅ Forward cookies with environment-aware modifications
       const portalCookies = response.headers['set-cookie'];
       if (portalCookies && Array.isArray(portalCookies)) {
-        portalCookies.forEach((cookie) => {
-          res.setHeader('Set-Cookie', cookie);
+        const isDevelopment = process.env.NODE_ENV !== 'production';
+
+        const modifiedCookies = portalCookies.map((cookie) => {
+          let modified = cookie;
+
+          // Development: เอา Secure ออก (เพราะใช้ HTTP)
+          if (isDevelopment) {
+            modified = modified.replace(/; Secure/gi, '');
+          }
+
+          // เปลี่ยน SameSite=None เป็น Lax
+          if (modified.includes('SameSite=None')) {
+            modified = modified.replace(/SameSite=None/gi, 'SameSite=Lax');
+          }
+
+          return modified;
         });
+
+        modifiedCookies.forEach((cookie) => {
+          res.append('Set-Cookie', cookie);
+        });
+
+        console.log('✓ Forwarded', modifiedCookies.length, 'cookies');
       }
 
       // Success - OTP ถูกต้อง
       if (data.success && data.access_token) {
-        // ดึง role_id จาก Audit_User_Roles
-        let auditRoleId = data.user?.role_id ?? null;
+        let auditRoleId: number | null = null;
         let auditRoleName: string | null = null;
         if (data.user?.UserCode) {
           try {
@@ -372,7 +415,6 @@ export class AppController {
         });
       }
 
-      // Failed - OTP ผิด
       return res.status(HttpStatus.UNAUTHORIZED).json({
         success: false,
         message: data.message ?? 'Invalid or expired OTP',
