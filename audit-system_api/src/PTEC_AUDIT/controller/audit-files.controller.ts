@@ -75,7 +75,7 @@ export class AuditFilesController implements OnModuleInit {
           cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
         },
       }),
-      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB per file
+      limits: { fileSize: 30 * 1024 * 1024 }, // 30MB per file
       fileFilter: (req, file, cb) => {
         const allowedMimes = [
           'image/jpeg',
