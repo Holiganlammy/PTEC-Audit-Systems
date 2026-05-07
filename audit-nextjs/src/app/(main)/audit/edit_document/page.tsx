@@ -740,6 +740,7 @@ export default function EditAuditJobPage() {
   const { isDirty } = form.formState;
 
   const isFormLocked = jobData?.status === 2;
+  const canEdit = session?.user?.role_id === 1 || session?.user?.role_id === 2;
 
   const canConfirm =
     !isLoadingItems &&
@@ -785,28 +786,30 @@ export default function EditAuditJobPage() {
     setIsSubmitting(true);
  
     try {
-      const selectedBranch = branches.find((b) => b.branchid.toString() === values.Branch);
-      const pmUser = users.find((u) => u.PersonalCode === values.PMCode);
-      const branchManager = branchManagers.find((u) => u.BranchID === pmUser?.BranchID);
- 
-      const payload = {
-        branchId: parseInt(values.Branch),
-        branchName: formData.branchName,
-        auditDate: format(values.Date, "yyyy-MM-dd"),
-        address: values.Address || "",
-        pmCode: values.PMCode || "",
-        auditorUserId: parseInt(values.Auditor),
-        districtManagerUserId: parseInt(values.DistrictManager),
-        branchManagerUserId: parseInt(branchManager?.UserID || "0"),
-        additionalNotes: values.AdditionalNotes || "",
-        positionType: values.Type,
-        updatedBy: session?.user?.UserID,
-      };
- 
-      await client.put(`/audit-jobs/${jobData?.jobId}`, payload, {
-        headers: dataConfig().headers,
-      });
- 
+      if (canEdit) {
+        const selectedBranch = branches.find((b) => b.branchid.toString() === values.Branch);
+        const pmUser = users.find((u) => u.PersonalCode === values.PMCode);
+        const branchManager = branchManagers.find((u) => u.BranchID === pmUser?.BranchID);
+
+        const payload = {
+          branchId: parseInt(values.Branch),
+          branchName: formData.branchName,
+          auditDate: format(values.Date, "yyyy-MM-dd"),
+          address: values.Address || "",
+          pmCode: values.PMCode || "",
+          auditorUserId: parseInt(values.Auditor),
+          districtManagerUserId: parseInt(values.DistrictManager),
+          branchManagerUserId: parseInt(branchManager?.UserID || "0"),
+          additionalNotes: values.AdditionalNotes || "",
+          positionType: values.Type,
+          updatedBy: session?.user?.UserID,
+        };
+
+        await client.put(`/audit-jobs/${jobData?.jobId}`, payload, {
+          headers: dataConfig().headers,
+        });
+      }
+
       if (newJobHeaderFiles.length > 0) {
         const formData = new FormData();
         newJobHeaderFiles.forEach((file) => {
@@ -989,7 +992,7 @@ export default function EditAuditJobPage() {
                       "Save Changes"
                     )}
                   </Button>
-                  {!isLoadingData && <AlertDialog>
+                  {!isLoadingData && canEdit && <AlertDialog>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -1048,7 +1051,7 @@ export default function EditAuditJobPage() {
         </div>
 
         <form onSubmit={form.handleSubmit(onSubmit, handleFormError)} className="space-y-6">
-          <fieldset disabled={isFormLocked} className="contents">
+          <fieldset disabled={isFormLocked || !canEdit} className="contents">
           {/* Main Card with all fields */}
           <Card>
             <CardContent className="pt-6">
@@ -1572,138 +1575,143 @@ export default function EditAuditJobPage() {
                     />
                   </div>
 
-                  {/* Row 5: Excel File (Full Width) */}
-                  <div className="grid grid-cols-1">
-                    <Field>
-                      <FieldLabel>แนบไฟล์เอกสาร (Header)</FieldLabel>
-                      <FieldDescription>
-                        รองรับไฟล์รูปภาพ, PDF, Excel (สูงสุด 10 ไฟล์, แต่ละไฟล์ไม่เกิน 10MB)
-                      </FieldDescription>
-
-                      {isLoadingData ? (
-                        <div className="space-y-2">
-                          <Skeleton className="h-4 w-32" />
-                          <Skeleton className="h-10 w-full" />
-                          <Skeleton className="h-10 w-full" />
-                        </div>
-                      ) : (
-                      <>
-                      {existingJobHeaderFiles.length > 0 && (
-                        <div className="space-y-2 mb-4">
-                          <p className="text-sm text-muted-foreground">
-                            ไฟล์ที่แนบไว้ ({existingJobHeaderFiles.length})
-                          </p>
-                          <ul className="space-y-2">
-                            {existingJobHeaderFiles.map((file) => (
-                              <li
-                                key={file.fileId}
-                                className="flex items-center justify-between gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm"
-                              >
-                                <div className="flex items-center gap-2 min-w-0 flex-1">
-                                  {getFileIcon(file.fileName)}
-                                  <div className="flex flex-col min-w-0 flex-1">
-                                    <span className="truncate font-medium">{file.fileName}</span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {(file.fileSize / 1024).toFixed(1)} KB
-                                    </span>
-                                  </div>
-                                </div>
-
-                                <div className="flex items-center gap-1 shrink-0">
-                                  {canPreviewFile(file.fileName) && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handlePreviewFile(file.fileId, file.fileName)}
-                                      className="p-1.5 text-muted-foreground hover:text-primary transition-colors rounded"
-                                      title="ดูไฟล์"
-                                    >
-                                      <Eye className="h-4 w-4" />
-                                    </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDownloadFile(file.fileId, file.fileName)}
-                                    className="p-1.5 text-muted-foreground hover:text-primary transition-colors rounded"
-                                    title="ดาวน์โหลด"
-                                  >
-                                    <Download className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteExistingFile(file.fileId)}
-                                    className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded"
-                                    disabled={isSubmitting}
-                                    title="ลบ"
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </button>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                    
-                      <input
-                        ref={jobHeaderFileInputRef}
-                        type="file"
-                        multiple
-                        accept=".jpg,.jpeg,.png,.gif,.pdf,.xlsx,.xls"
-                        onChange={handleNewJobHeaderFilesChange}
-                        className="hidden"
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() => jobHeaderFileInputRef.current?.click()}
-                        className="flex items-center gap-2 w-full border border-dashed border-muted-foreground/40 rounded-md px-4 py-3 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-                      >
-                        <Upload className="h-4 w-4" />
-                        คลิกเพื่อเลือกไฟล์ใหม่
-                      </button>
-
-                      {/*  New Files List */}
-                      {newJobHeaderFiles.length > 0 && (
-                        <div className="mt-3 space-y-2">
-                          <p className="text-sm text-muted-foreground">
-                            ไฟล์ใหม่ที่เลือก ({newJobHeaderFiles.length})
-                          </p>
-                          <ul className="space-y-2">
-                            {newJobHeaderFiles.map((file, idx) => (
-                              <li
-                                key={idx}
-                                className="flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-2 text-sm"
-                              >
-                                <div className="flex items-center gap-2 min-w-0 flex-1">
-                                  {getFileIcon(file.name)}
-                                  <div className="flex flex-col min-w-0 flex-1">
-                                    <span className="truncate font-medium">{file.name}</span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {(file.size / 1024).toFixed(1)} KB
-                                    </span>
-                                  </div>
-                                </div>
-
-                                <button
-                                  type="button"
-                                  onClick={() => removeNewJobHeaderFile(idx)}
-                                  className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded"
-                                  title="ลบ"
-                                >
-                                  <X className="h-4 w-4" />
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      </>
-                      )}
-                    </Field>
-                  </div>
                 </div>
               </FieldSet>
+            </CardContent>
+          </Card>
+
+          </fieldset>
+
+          {/* File Attachment - ทุก role สามารถแนบไฟล์ได้ */}
+          <Card>
+            <CardContent className="pt-6">
+              <Field>
+                <FieldLabel>แนบไฟล์เอกสาร (Header)</FieldLabel>
+                <FieldDescription>
+                  รองรับไฟล์รูปภาพ, PDF, Excel (สูงสุด 10 ไฟล์, แต่ละไฟล์ไม่เกิน 10MB)
+                </FieldDescription>
+
+                {isLoadingData ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                ) : (
+                <>
+                {existingJobHeaderFiles.length > 0 && (
+                  <div className="space-y-2 mb-4">
+                    <p className="text-sm text-muted-foreground">
+                      ไฟล์ที่แนบไว้ ({existingJobHeaderFiles.length})
+                    </p>
+                    <ul className="space-y-2">
+                      {existingJobHeaderFiles.map((file) => (
+                        <li
+                          key={file.fileId}
+                          className="flex items-center justify-between gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            {getFileIcon(file.fileName)}
+                            <div className="flex flex-col min-w-0 flex-1">
+                              <span className="truncate font-medium">{file.fileName}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {(file.fileSize / 1024).toFixed(1)} KB
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            {canPreviewFile(file.fileName) && (
+                              <button
+                                type="button"
+                                onClick={() => handlePreviewFile(file.fileId, file.fileName)}
+                                className="p-1.5 text-muted-foreground hover:text-primary transition-colors rounded"
+                                title="ดูไฟล์"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadFile(file.fileId, file.fileName)}
+                              className="p-1.5 text-muted-foreground hover:text-primary transition-colors rounded"
+                              title="ดาวน์โหลด"
+                            >
+                              <Download className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteExistingFile(file.fileId)}
+                              className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded"
+                              disabled={isSubmitting || isFormLocked}
+                              title="ลบ"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <input
+                  ref={jobHeaderFileInputRef}
+                  type="file"
+                  multiple
+                  accept=".jpg,.jpeg,.png,.gif,.pdf,.xlsx,.xls"
+                  onChange={handleNewJobHeaderFilesChange}
+                  className="hidden"
+                  disabled={isFormLocked}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => jobHeaderFileInputRef.current?.click()}
+                  disabled={isFormLocked}
+                  className="flex items-center gap-2 w-full border border-dashed border-muted-foreground/40 rounded-md px-4 py-3 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Upload className="h-4 w-4" />
+                  คลิกเพื่อเลือกไฟล์ใหม่
+                </button>
+
+                {newJobHeaderFiles.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      ไฟล์ใหม่ที่เลือก ({newJobHeaderFiles.length})
+                    </p>
+                    <ul className="space-y-2">
+                      {newJobHeaderFiles.map((file, idx) => (
+                        <li
+                          key={idx}
+                          className="flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-2 text-sm"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            {getFileIcon(file.name)}
+                            <div className="flex flex-col min-w-0 flex-1">
+                              <span className="truncate font-medium">{file.name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {(file.size / 1024).toFixed(1)} KB
+                              </span>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => removeNewJobHeaderFile(idx)}
+                            className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded"
+                            title="ลบ"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                </>
+                )}
+              </Field>
             </CardContent>
           </Card>
 
@@ -1730,7 +1738,6 @@ export default function EditAuditJobPage() {
               </Button>
             </div>
           )}
-          </fieldset>
         </form>
 
         {/* Audit Items */}
