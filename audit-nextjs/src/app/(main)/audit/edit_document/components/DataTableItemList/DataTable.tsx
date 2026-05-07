@@ -80,7 +80,7 @@ interface ApiUser {
 }
 
 type BranchScoreValue = -1 | 0 | 1;
-type BranchScoreEntry = { score: BranchScoreValue; note?: string };
+type BranchScoreEntry = { scoreId?: number; score: BranchScoreValue; note?: string };
 
 type BranchAuditScoreApiRow = {
   scoreId: number;
@@ -206,53 +206,54 @@ export default function DataTableItemList({
   }, []);
 
   // Fetch branch audit scores and group by itemId
-  useEffect(() => {
+  const fetchBranchScores = useCallback(async () => {
     const branchId = Number(jobData?.branchId);
     if (!Number.isFinite(branchId)) return;
 
-    client
-      .get("/branch-audit-scores/list", {
-        params: { jobId, branchId },
-        headers: dataConfig().headers,
-      })
-      .then((res) => {
-        const list: BranchAuditScoreApiRow[] = Array.isArray(res.data)
-          ? res.data
-          : Array.isArray(res.data?.data)
-          ? res.data.data
-          : [];
+    const res = await client.get("/branch-audit-scores/list", {
+      params: { jobId, branchId },
+      headers: dataConfig().headers,
+    });
 
-        // If there are multiple rows per item, prefer the latest createdAt.
-        const latestByItem: Record<number, BranchAuditScoreApiRow> = {};
-        for (const row of list) {
-          if (!row?.active) continue;
-          const prev = latestByItem[row.itemId];
-          if (!prev) {
-            latestByItem[row.itemId] = row;
-            continue;
-          }
-          const prevTime = Date.parse(prev.createdAt);
-          const nextTime = Date.parse(row.createdAt);
-          if (!Number.isNaN(nextTime) && (Number.isNaN(prevTime) || nextTime >= prevTime)) {
-            latestByItem[row.itemId] = row;
-          }
-        }
+    const list: BranchAuditScoreApiRow[] = Array.isArray(res.data)
+      ? res.data
+      : Array.isArray(res.data?.data)
+      ? res.data.data
+      : [];
 
-        const map: Record<number, BranchScoreEntry> = {};
-        for (const [itemIdText, row] of Object.entries(latestByItem)) {
-          const itemId = Number(itemIdText);
-          map[itemId] = {
-            score: row.score,
-            note: row.remarks ?? undefined,
-          };
-        }
+    const latestByItem: Record<number, BranchAuditScoreApiRow> = {};
+    for (const row of list) {
+      if (!row?.active) continue;
+      const prev = latestByItem[row.itemId];
+      if (!prev) {
+        latestByItem[row.itemId] = row;
+        continue;
+      }
+      const prevTime = Date.parse(prev.createdAt);
+      const nextTime = Date.parse(row.createdAt);
+      if (!Number.isNaN(nextTime) && (Number.isNaN(prevTime) || nextTime >= prevTime)) {
+        latestByItem[row.itemId] = row;
+      }
+    }
 
-        setBranchScoresMap(map);
-      })
-      .catch((err) => {
-        console.error("❌ Error fetching branch audit scores:", err);
-      });
+    const map: Record<number, BranchScoreEntry> = {};
+    for (const [itemIdText, row] of Object.entries(latestByItem)) {
+      const id = Number(itemIdText);
+      map[id] = {
+        scoreId: row.scoreId,
+        score: row.score,
+        note: row.remarks ?? undefined,
+      };
+    }
+
+    setBranchScoresMap(map);
   }, [jobId, jobData?.branchId]);
+
+  useEffect(() => {
+    fetchBranchScores().catch((err) => {
+      console.error("❌ Error fetching branch audit scores:", err);
+    });
+  }, [fetchBranchScores]);
 
   const handleEdit = useCallback((item: AuditItem) => {
     setSelectedItem(item);
@@ -320,27 +321,47 @@ export default function DataTableItemList({
   // onSubmit ของ BranchScoreCell จะส่ง itemId, score, note มาให้ handleBranchScoreSubmit เพื่อบันทึกผ่าน API และอัปเดต state
   const handleBranchScoreSubmit = useCallback(
     async (itemId: number, score: BranchScoreValue, note?: string) => {
-      await client.post(
-        "/branch-audit-scores/create",
-        {
-          jobId,
-          itemId,
-          branchId: Number(jobData?.branchId),
-          score,
-          remarks: note,
-          createdBy: String(session?.user?.UserID ?? ""),
-          createdDate: new Date().toISOString(),
-        },
-        { headers: dataConfig().headers }
-      );
+      const existing = branchScoresMap[itemId];
 
-      setBranchScoresMap((prev) => ({
-        ...prev,
-        [itemId]: { score, note },
-      }));
-      toast.success("บันทึกคะแนนสาขาเรียบร้อย");
+      if (existing?.scoreId) {
+        // แก้ไข — PUT /branch-audit-scores/:id
+        await client.put(
+          `/branch-audit-scores/${existing.scoreId}`,
+          {
+            score,
+            remarks: note,
+            updatedBy: session?.user?.UserID,
+          },
+          { headers: dataConfig().headers }
+        );
+
+        setBranchScoresMap((prev) => ({
+          ...prev,
+          [itemId]: { scoreId: existing.scoreId, score, note },
+        }));
+        toast.success("แก้ไขคะแนนสาขาเรียบร้อย");
+      } else {
+        // เพิ่มใหม่ — POST /branch-audit-scores/create
+        await client.post(
+          "/branch-audit-scores/create",
+          {
+            jobId,
+            itemId,
+            branchId: Number(jobData?.branchId),
+            score,
+            remarks: note,
+            createdBy: String(session?.user?.UserID ?? ""),
+            createdDate: new Date().toISOString(),
+          },
+          { headers: dataConfig().headers }
+        );
+
+        // refetch เพื่อให้ได้ scoreId ที่ถูกต้องสำหรับการแก้ไขครั้งถัดไป
+        await fetchBranchScores();
+        toast.success("บันทึกคะแนนสาขาเรียบร้อย");
+      }
     },
-    [jobId, jobData, session]
+    [jobId, jobData, session, branchScoresMap, fetchBranchScores]
   );
 
   const branchScoreSummary = useMemo(() => {

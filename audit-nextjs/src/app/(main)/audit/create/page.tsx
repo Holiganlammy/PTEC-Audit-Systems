@@ -548,7 +548,7 @@ export default function CreateAuditJobPage() {
                                                   : "opacity-0"
                                               )}
                                             />
-                                            {u.PersonalCode} - {u.fristName} {u.lastName} {u.BranchName}
+                                            {u.PersonalCode} - {u.fristName} {u.lastName}
                                           </CommandItem>
                                         ))}
                                     </CommandGroup>

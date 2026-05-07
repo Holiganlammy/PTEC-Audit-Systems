@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Loader2, X } from "lucide-react";
+import { Plus, Loader2, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { DataTable } from "@/components/DataTable";
@@ -113,18 +113,17 @@ export default function AuditJobsListPage() {
   const session = useSession();
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
 
+  // Bulk delete state
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [bulkDeleteNote, setBulkDeleteNote] = useState("");
 
-  useEffect(() => {
-    const selectedIds = Object.keys(selectedRows).filter(key => selectedRows[key]);
-    const selectedCount = selectedIds.length;
-    
-    console.log('📊 Page: selectedRows changed:', {
-      selectedRows,
-      selectedIds,
-      selectedCount,
-      selectedJobs: jobs.filter(job => selectedIds.includes(job.jobId.toString()))
-    });
-  }, [selectedRows, jobs]);
+  const canDelete = session.data?.user?.role_id === 1 || session.data?.user?.role_id === 2;
+
+  const selectedJobIds = Object.keys(selectedRows)
+    .filter((key) => selectedRows[key])
+    .map((key) => parseInt(key));
+  const selectedCount = selectedJobIds.length;
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -202,6 +201,39 @@ export default function AuditJobsListPage() {
     setSelectedRows({});
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedJobIds.length === 0 || !bulkDeleteNote.trim()) return;
+
+    setIsBulkDeleting(true);
+    try {
+      await Promise.all(
+        selectedJobIds.map((jobId) =>
+          client.delete(`/audit-jobs/${jobId}`, {
+            headers: dataConfig().headers,
+            data: { delete_reason: bulkDeleteNote, deleted_by: session.data?.user.UserID },
+          })
+        )
+      );
+
+      toast.success(`ลบงานสำเร็จ ${selectedJobIds.length} รายการ`);
+      setSelectedRows({});
+      fetchJobs();
+    } catch (error: unknown) {
+      console.error("Error bulk deleting audit jobs:", error);
+      const errorMessage =
+        error instanceof Error && "response" in error
+          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      toast.error("ไม่สามารถลบงานบางรายการได้", {
+        description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
+      });
+    } finally {
+      setIsBulkDeleting(false);
+      setShowBulkDeleteDialog(false);
+      setBulkDeleteNote("");
+    }
+  };
+
   const clearFilters = () => {
     setStatusFilter("all");
     setBranchFilter("all");
@@ -256,14 +288,29 @@ export default function AuditJobsListPage() {
                   disabled={isLoading}
                 />
 
+                {/* Bulk Delete Button */}
+                {canDelete && (
+                  <Button
+                    variant="destructive"
+                    size="lg"
+                    disabled={selectedCount === 0 || isLoading}
+                    onClick={() => setShowBulkDeleteDialog(true)}
+                  >
+                    <Trash2 className="mr-2 h-5 w-5" />
+                    ลบที่เลือก {selectedCount > 0 && `(${selectedCount})`}
+                  </Button>
+                )}
+
                 {/* Create Button */}
-                <Button
-                  onClick={() => router.push("/audit/create")}
-                  size="lg"
-                >
-                  <Plus className="mr-2 h-5 w-5" />
-                  Create New Job
-                </Button>
+                {canDelete && (
+                  <Button
+                    onClick={() => router.push("/audit/create")}
+                    size="lg"
+                  >
+                    <Plus className="mr-2 h-5 w-5" />
+                    Create New Job
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -362,7 +409,7 @@ export default function AuditJobsListPage() {
             ) : (
               <Button
                 variant="outline"
-                onClick={() => router.push("/audit-jobs/create")}
+                onClick={() => router.push("/audit/create")}
                 size="sm"
               >
                 <Plus className="mr-2 h-4 w-4" />
@@ -392,6 +439,65 @@ export default function AuditJobsListPage() {
             onRowSelectionChange={setSelectedRows}
           />
         )}
+
+        {/* Bulk Delete Confirmation Dialog */}
+        <Dialog
+          open={showBulkDeleteDialog}
+          onOpenChange={(open) => {
+            if (!open) {
+              setShowBulkDeleteDialog(false);
+              setBulkDeleteNote("");
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>ยืนยันการลบ {selectedCount} รายการ</DialogTitle>
+              <DialogDescription>
+                การลบนี้ไม่สามารถย้อนกลับได้ กรุณาระบุหมายเหตุก่อนดำเนินการ
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-2 py-2">
+              <Label htmlFor="bulk-delete-note">
+                หมายเหตุ <span className="text-red-500">*</span>
+              </Label>
+              <Textarea
+                id="bulk-delete-note"
+                placeholder="กรอกหมายเหตุการลบ..."
+                value={bulkDeleteNote}
+                onChange={(e) => setBulkDeleteNote(e.target.value)}
+                rows={3}
+                disabled={isBulkDeleting}
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowBulkDeleteDialog(false);
+                  setBulkDeleteNote("");
+                }}
+                disabled={isBulkDeleting}
+              >
+                ยกเลิก
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleBulkDelete}
+                disabled={isBulkDeleting || !bulkDeleteNote.trim()}
+              >
+                {isBulkDeleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    กำลังลบ...
+                  </>
+                ) : (
+                  `ยืนยันลบ ${selectedCount} รายการ`
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Delete Confirmation Dialog */}
         <Dialog

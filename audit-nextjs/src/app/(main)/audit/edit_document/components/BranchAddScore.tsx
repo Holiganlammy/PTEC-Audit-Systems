@@ -116,14 +116,14 @@ export default function BranchAddScore({
         >
             <DialogContent className="sm:max-w-130">
                 <DialogHeader>
-                    <DialogTitle>เพิ่มคะแนนสาขา</DialogTitle>
+                    <DialogTitle>{initialScore !== null ? "แก้ไขคะแนนสาขา" : "เพิ่มคะแนนสาขา"}</DialogTitle>
                     <DialogDescription>
                         {itemName ? (
                             <span>
-                                เพิ่มคะแนนสำหรับรายการ: <span className="font-medium">{itemName}</span>
+                                {initialScore !== null ? "แก้ไข" : "เพิ่ม"}คะแนนสำหรับรายการ: <span className="font-medium">{itemName}</span>
                             </span>
                         ) : (
-                            "เพิ่มคะแนนให้สาขา"
+                            initialScore !== null ? "แก้ไขคะแนนให้สาขา" : "เพิ่มคะแนนให้สาขา"
                         )}
                     </DialogDescription>
                 </DialogHeader>
@@ -222,7 +222,7 @@ export default function BranchAddScore({
                         </DialogClose>
                         <Button type="submit" disabled={!canSubmit}>
                             <Save className="mr-2 h-4 w-4" />
-                            {isSubmitting ? "กำลังบันทึก..." : "บันทึกคะแนน"}
+                            {isSubmitting ? "กำลังบันทึก..." : initialScore !== null ? "บันทึกการแก้ไข" : "บันทึกคะแนน"}
                         </Button>
                     </DialogFooter>
                 </form>
