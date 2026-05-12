@@ -58,7 +58,7 @@ export class AppService {
     userCode: string,
   ): Promise<MenuAuditResponseDto[]> {
     const roleId = await this.getRoleIdByUserCode(userCode);
-    console.log(`UserCode ${userCode} has roleId:`, roleId);
+    // console.log(`UserCode ${userCode} has roleId:`, roleId); logging นี้อาจจะมีความสำคัญในการดีบัก ถ้า userCode ที่ส่งมาไม่มี mapping ในระบบ จะทำให้ roleId เป็น null และไม่สามารถดึงเมนูได้
     if (roleId === null) {
       return [];
     }

@@ -1,10 +1,61 @@
- export default function HomePage() {
+// app/home/page.tsx
+"use client";
+
+import { useSession } from "next-auth/react";
+import { redirect } from "next/navigation";
+import { AMDashboard } from "./am-dashboard";
+// import { AuditDashboard } from "./audit-dashboard";
+// import { UserDashboard } from "./user-dashboard";
+// import { ManagerDashboard } from "./manager-dashboard";
+import { Skeleton } from "@/components/ui/skeleton";
+
+export default function HomePage() {
+  const { data: session, status } = useSession();
+
+  // Loading state
+  if (status === "loading") {
+    return <DashboardSkeleton />;
+  }
+
+  // Not authenticated
+  if (!session) {
+    redirect("/login");
+  }
+
+  const roleId = session.user?.role_id;
+
+  // Render dashboard based on role
+  switch (roleId) {
+    case 3: // AM
+      return <AMDashboard />;
+    
+    // case 2: // Audit
+    //   return <AuditDashboard />;
+    
+    // case 4: // Manager (DM)
+    //   return <ManagerDashboard />;
+    
+    // case 1: // Admin - can see Audit dashboard or custom admin dashboard
+    //   return <AuditDashboard />;
+    
+    // default: // Other users
+    //   return <UserDashboard />;
+  }
+}
+
+function DashboardSkeleton() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-white to-gray-100">
-      <h1 className="text-4xl font-bold mb-4">Welcome to the Home Page</h1>
-      <p className="text-lg text-gray-700">
-        This is the main landing page of the application.
-      </p>
+    <div className="space-y-6">
+      <Skeleton className="h-12 w-64" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} className="h-32" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Skeleton className="h-96" />
+        <Skeleton className="h-96" />
+      </div>
     </div>
   );
 }

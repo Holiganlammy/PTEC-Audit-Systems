@@ -49,6 +49,8 @@ import { AuditItemOtherUserCommentTagController } from './controller/audit-item-
 import { AuditFilesController } from './controller/audit-files.controller';
 import { BranchAuditScoreController } from './controller/branch-audit-score.controller';
 import { AuditEmailController } from './controller/audit-email.controller';
+import { DashboardController } from './controller/dashboard.controller';
+import { DashboardService } from './service/dashboard.service';
 
 @Module({
   controllers: [
@@ -64,6 +66,7 @@ import { AuditEmailController } from './controller/audit-email.controller';
     AuditFilesController,
     BranchAuditScoreController,
     AuditEmailController,
+    DashboardController,
   ],
   imports: [
     TypeOrmModule.forFeature([
@@ -103,7 +106,9 @@ import { AuditEmailController } from './controller/audit-email.controller';
     AuditCommentApprovalGmailApiService,
     MentionEmailService,
     AuditSummaryEmailService,
+    DashboardService,
   ],
+  exports: [AppService, DashboardService],
 })
 export class PTEC_AUDIT_Module implements NestModule {
   configure(consumer: MiddlewareConsumer) {

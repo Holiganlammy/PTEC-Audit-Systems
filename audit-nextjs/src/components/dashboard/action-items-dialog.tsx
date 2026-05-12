@@ -1,0 +1,110 @@
+// components/dashboard/action-items-dialog.tsx
+"use client";
+
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Clock, ExternalLink } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useRouter } from "next/navigation";
+
+interface ActionItem {
+  id: number;
+  jobNo: string;
+  branchName: string;
+  status: string;
+  daysAgo: number;
+  statusColor: "default" | "secondary" | "destructive" | "outline";
+}
+
+interface ActionItemsDialogProps {
+  title: string;
+  items: ActionItem[];
+  totalCount: number;
+  triggerIcon?: React.ReactNode;
+  triggerLabel?: string;
+  triggerClassName?: string;
+}
+
+export function ActionItemsDialog({
+  title,
+  items,
+  totalCount,
+  triggerIcon,
+  triggerLabel,
+  triggerClassName,
+}: ActionItemsDialogProps) {
+  const [open, setOpen] = useState(false);
+  const router = useRouter();
+
+  const handleItemClick = (itemId: number, jobNo: string) => {
+    setOpen(false);
+    router.push(`/audit-jobs/${jobNo}`);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" className={triggerClassName}>
+          <span className="flex flex-col items-center gap-1 w-full">
+            <span className="flex items-center gap-1.5">
+              {triggerIcon}
+              {triggerLabel && (
+                <span className="font-semibold text-sm">{triggerLabel}</span>
+              )}
+            </span>
+            <span className="text-xs font-normal opacity-75">ดูทั้งหมด ({totalCount})</span>
+          </span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-3xl max-h-[80vh]">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-semibold">{title}</DialogTitle>
+        </DialogHeader>
+        <ScrollArea className="h-[60vh] pr-4">
+          <div className="space-y-2">
+            {items.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                ไม่มีรายการ
+              </p>
+            ) : (
+              items.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => handleItemClick(item.id, item.jobNo)}
+                  className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent cursor-pointer transition-colors group"
+                >
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">{item.jobNo}</span>
+                      <Badge variant={item.statusColor} className="text-xs">
+                        {item.status}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {item.branchName}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      <span>{item.daysAgo} วัน</span>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+}
