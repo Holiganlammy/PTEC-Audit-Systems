@@ -578,13 +578,13 @@ export default function DataTableItemList({
       </DndContext>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between px-2">
+      <div className="flex flex-col gap-3 px-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-muted-foreground">
           {table.getFilteredRowModel().rows.length} รายการทั้งหมด
         </div>
-        <div className="flex items-center space-x-6">
-          <div className="flex items-center space-x-2">
-            <p className="text-sm font-medium">Rows per page</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium whitespace-nowrap">Rows per page</p>
             <Select
               value={`${pageSize}`}
               onValueChange={(v) => {
@@ -604,7 +604,7 @@ export default function DataTableItemList({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-1">
             <Button
               variant="outline"
               size="icon"
@@ -623,7 +623,7 @@ export default function DataTableItemList({
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm">
+            <span className="text-sm whitespace-nowrap px-1">
               หน้า {pageIndex + 1} / {table.getPageCount() || 1}
             </span>
             <Button

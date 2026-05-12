@@ -14,6 +14,16 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +31,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import NoteCell from "../NoteCell/NoteCell";
 import TagCell, { TaggedUser } from "../TagCell/TagCell";
 export type { TaggedUser };import { useSession } from "next-auth/react";
-import { CheckCircle2, XCircle, Clock, AlertCircle, FileEdit, Calendar, CircleFadingPlus  } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, AlertCircle, FileEdit, Calendar, CircleFadingPlus, Loader2, Mail } from "lucide-react";
+import { toast } from "sonner";
+import client from "@/lib/axios/interceptors";
+import { dataConfig } from "@/config/config";
 import { useState } from "react";
 import BranchAddScore from "../../BranchAddScore";
  
@@ -167,6 +180,160 @@ function ActionsCell({
   );
 }
 
+
+// ── Send Email Cell Component ──
+function SendEmailCell({ item, isLocked }: { item: AuditItem; isLocked?: boolean }) {
+    const [isSending, setIsSending] = useState(false);
+    const [confirmOpen, setConfirmOpen] = useState(false);
+ 
+    const handleSendSummary = async () => {
+      try {
+        setIsSending(true);
+ 
+        // 1. Fetch ALL audit comments (note_1)
+        const auditResponse = await client.get(
+          `/audit-items/${item.item_id}/audit-comments`,
+          { headers: dataConfig().headers }
+        );
+ 
+        const auditComments = auditResponse.data.data || [];
+ 
+        // 2. Fetch ALL other comments (note_3)
+        const otherResponse = await client.get(
+          `/audit-items/${item.item_id}/other-comments`,
+          { headers: dataConfig().headers }
+        );
+ 
+        const otherComments = otherResponse.data.data || [];
+ 
+        // 3. Check if there's anything to send
+        if (auditComments.length === 0 && otherComments.length === 0) {
+          toast.error('ไม่มีข้อความที่จะส่ง');
+          return;
+        }
+ 
+        // 4. Get job data (สำหรับดึง branchEmails)
+        const jobResponse = await client.get(
+          `/audit-jobs/${item.job_id}`,
+          { headers: dataConfig().headers }
+        );
+ 
+        const job = jobResponse.data.data;
+        // const branchEmails = job?.branchManager.email || [];
+        const branchEmails = ['npc@rpcthai.com'];
+ 
+        if (branchEmails.length === 0) {
+          toast.error('ไม่พบอีเมลของสาขา');
+          return;
+        }
+ 
+        // 5. Prepare payload (ส่งทุก comment)
+        const payload = {
+          itemId: item.item_id,
+          jobNo: job?.jobNo || '-',
+          branchName: job?.branchName || '-',
+          branchEmails,
+          categoryName: item.category_name || '-',
+          itemStatus: item.item_status ?? null,
+          amChecklistStatus: item.amChecklistStatus ?? null,
+          auditItemStatus: item.item_status_edit,
+          auditDate: item.inspection_date || '-',
+          
+          // ALL audit comments
+          auditComments: auditComments.map((c: {
+            OwnerCommentUser?: { fullname?: string; userCode?: string };
+            note: string;
+            createdAt: string;
+          }) => ({
+            author: c.OwnerCommentUser?.fullname || 'Unknown',
+            authorUserCode: c.OwnerCommentUser?.userCode || '-',
+            text: c.note,
+            createdAt: c.createdAt,
+          })),
+          
+          // ALL other comments
+          otherComments: otherComments.map((c: {
+            OwnerCommentUser?: { fullname?: string; userCode?: string };
+            note: string;
+            createdAt: string;
+          }) => ({
+            author: c.OwnerCommentUser?.fullname || 'Unknown',
+            authorUserCode: c.OwnerCommentUser?.userCode || '-',
+            text: c.note,
+            createdAt: c.createdAt,
+          })),
+        };
+ 
+        // 6. Send email
+        const response = await client.post(
+          '/audit-email/send-summary',
+          payload,
+          { headers: dataConfig().headers }
+        );
+ 
+        // const { auditCommentsCount, otherCommentsCount, recipientCount } = 
+        //   response.data;
+ 
+        toast.success(
+          `ส่งเมลสำเร็จ`
+        );
+      } catch (error) {
+        console.error('❌ Failed to send summary email:', error);
+        toast.error('ส่งเมลไม่สำเร็จ');
+      } finally {
+        setIsSending(false);
+      }
+    };
+ 
+    return (
+      <div className="flex justify-center">
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 px-2 gap-1.5"
+          onClick={() => setConfirmOpen(true)}
+          disabled={isSending || isLocked}
+          title={isLocked ? "รายการถูกล็อก" : "ส่งเมลสรุปไปยังสาขา"}
+        >
+          {isSending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Mail className="h-3.5 w-3.5" />
+          )}
+          <span className="text-xs">ส่งเมล</span>
+        </Button>
+
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>ยืนยันการส่งเมล</AlertDialogTitle>
+              <AlertDialogDescription>
+                คุณต้องการส่งเมลสรุปรายการ{" "}
+                <span className="font-medium text-foreground">{item.category_name}</span>{" "}
+                ไปยังสาขาใช่หรือไม่?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isSending}>ยกเลิก</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={isSending}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setConfirmOpen(false);
+                  handleSendSummary();
+                }}
+              >
+                {isSending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                ส่งเมล
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    );
+}
 
 // export interface AuditItem {
 //   item_id: number;
@@ -523,6 +690,18 @@ export const createAuditItemsColumns = (
   //     );
   //   },
   // },
+  // ── Send Email ────────────────────────────────────────────────────────────
+  {
+    id: "send_email",
+    header: () => (
+      <div className="text-center">
+        ส่งเมลสรุป
+      </div>
+    ),
+    cell: ({ row }) => (
+      <SendEmailCell item={row.original} isLocked={isLocked} />
+    ),
+  },
   // ── Actions ───────────────────────────────────────────────────────────────
   {
     id: "actions",

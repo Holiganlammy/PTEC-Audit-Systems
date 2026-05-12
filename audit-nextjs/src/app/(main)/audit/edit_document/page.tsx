@@ -947,10 +947,10 @@ export default function EditAuditJobPage() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold">Edit Audit Job</h1>
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-2xl font-bold sm:text-3xl">Edit Audit Job</h1>
                 {!isLoadingData && jobData?.status === 2 && (
                   <Badge variant="secondary" className="flex items-center gap-1 bg-green-100 text-green-700 border-green-300">
                     <Lock className="h-3 w-3" />
@@ -967,7 +967,7 @@ export default function EditAuditJobPage() {
               )}
             </div>
             
-            <div className="flex gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <ExportDropdown
                 jobData={jobData ?? undefined}
                 auditItems={auditItems}

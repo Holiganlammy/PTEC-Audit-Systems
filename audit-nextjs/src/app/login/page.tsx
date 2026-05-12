@@ -394,6 +394,36 @@ export default function LoginPage() {
                       )}
                     </Button>
                   </FieldGroup>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t dark:border-zinc-800" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-white dark:bg-zinc-950 px-2 text-zinc-500 dark:text-zinc-400">
+                        หรือ
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Microsoft SSO Button */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full h-11 border-zinc-300 dark:border-zinc-700"
+                    onClick={() => signIn('azure-ad', { 
+                      callbackUrl: redirectPath 
+                    })}
+                    disabled={isLoading}
+                  >
+                    {/* Microsoft Logo */}
+                    <svg className="mr-2 h-5 w-5" viewBox="0 0 21 21">
+                      <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                      <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                      <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                      <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                    </svg>
+                    เข้าสู่ระบบด้วย Microsoft
+                  </Button>
                 </form>
               </TabsContent>
 

@@ -34,6 +34,7 @@ import { TagOtherUserGmailApiService } from '../email/tag-other-user-gmail-api.s
 import { AuditCreateDocGmailApiService } from '../email/audit-create-doc-gmail-api.service';
 import { AuditCommentApprovalGmailApiService } from '../email/audit-comment-approval-gmail-api.service';
 import { MentionEmailService } from '../email/mention-comment-gmail.api.service';
+import { AuditSummaryEmailService } from '../email/audit-sumary-comment-send-items.api.service';
 
 // Controllers
 import { AuditJobsController } from './controller/audit-job.controller';
@@ -101,6 +102,7 @@ import { AuditEmailController } from './controller/audit-email.controller';
     AuditCreateDocGmailApiService,
     AuditCommentApprovalGmailApiService,
     MentionEmailService,
+    AuditSummaryEmailService,
   ],
 })
 export class PTEC_AUDIT_Module implements NestModule {

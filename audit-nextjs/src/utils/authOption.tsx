@@ -1,6 +1,8 @@
-// utils/authOptions.ts - with Portal SSO support
+// utils/authOptions.ts - เพิ่ม AzureADProvider
+
 import type { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import AzureADProvider from "next-auth/providers/azure-ad";
 import type { User } from "next-auth";
 
 let isTokenExpired = false;
@@ -8,73 +10,31 @@ let isTokenExpired = false;
 export const authOptions: AuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   providers: [
+    AzureADProvider({
+      clientId: process.env.AZURE_AD_CLIENT_ID!,
+      clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
+      tenantId: process.env.AZURE_AD_TENANT_ID!,
+      
+      // Custom authorization params
+      authorization: {
+        params: {
+          scope: "openid profile email User.Read",
+        },
+      },
+    }),
+
+    // Credentials Provider (existing)
     CredentialsProvider({
       name: "Credentials",
       credentials: {
         response: { label: "Response", type: "json" },
         responseLogin: { label: "Response Login", type: "json" },
         responseCondition: { label: "Response Condition", type: "text" },
-        // เพิ่ม SSO credential
-        ssoToken: { label: "SSO Token", type: "text" },
       },
 
       async authorize(credentials): Promise<User | null> {
         try {
-          // ============================================
-          // SSO Login from Portal
-          // ============================================
-          if (credentials?.ssoToken) {
-            try {
-              // Validate Portal token
-              const validateRes = await fetch(`${process.env.PORTAL_API_URL}/api/validate`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${credentials.ssoToken}`,
-                },
-                body: JSON.stringify({ access_token: credentials.ssoToken }),
-              });
-              console.log('[SSO] Validating Portal token...');
-              if (!validateRes.ok) {
-                console.log('[SSO] Portal token validation failed');
-                return null;
-              }
-
-              const data = await validateRes.json();
-              const portalUser = data.user;
-
-              if (!portalUser) {
-                console.log('[SSO] No user data from Portal');
-                return null;
-              }
-
-              console.log('[SSO] Portal token validated, creating Audit session for:', portalUser.UserCode);
-
-              isTokenExpired = false;
-
-              return {
-                id: portalUser.UserID.toString(),
-                UserID: portalUser.UserID,
-                UserCode: portalUser.UserCode,
-                fristName: portalUser.Fullname?.split(' ')[0] || portalUser.UserCode,
-                lastName: portalUser.Fullname?.split(' ').slice(1).join(' ') || '',
-                Email: portalUser.Email,
-                access_token: credentials.ssoToken,
-                img_profile: portalUser.img_profile || '',
-                role_id: portalUser.role_id,
-                branchid: portalUser.BranchID || 0,
-                depid: portalUser.depid || 0,
-                loginMethod: 'sso',
-              };
-            } catch (error) {
-              console.error('[SSO] Error during SSO login:', error);
-              return null;
-            }
-          }
-
-          // ============================================
-          // OTP Login (existing)
-          // ============================================
+          // OTP Login
           if (credentials?.response) {
             type OTPResponse = {
               access_token: string;
@@ -116,9 +76,7 @@ export const authOptions: AuthOptions = {
             };
           }
 
-          // ============================================
-          // Normal Login (existing)
-          // ============================================
+          // Normal Login
           if (credentials?.responseCondition === 'pass' && credentials?.responseLogin) {
             type ResponseLogin = {
               access_token: string;
@@ -169,8 +127,78 @@ export const authOptions: AuthOptions = {
   ],
 
   callbacks: {
-    async jwt({ token, user, trigger }) {
-      if (user) {
+    async signIn({ user, account, profile }) {
+      if (account?.provider === "azure-ad") {
+        try {
+          const email = user.email;
+          
+          if (!email) {
+            console.error("No email from Azure AD");
+            return false;
+          }
+
+          // Validate with Audit backend
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/validate-microsoft`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email,
+              azureId: user.id,
+              name: user.name,
+            }),
+          });
+
+          if (!response.ok) {
+            console.error("User validation failed");
+            return false;
+          }
+
+          const data = await response.json();
+          
+          // เก็บข้อมูล user จาก backend
+          user.UserID = data.user.UserID;
+          user.UserCode = data.user.UserCode;
+          user.fristName = data.user.fristName;
+          user.lastName = data.user.lastName;
+          user.access_token = data.access_token;
+          user.role_id = data.user.role_id;
+          user.branchid = data.user.branchid;
+          user.depid = data.user.depid;
+          user.role_name = data.user.role_name;
+          user.img_profile = data.user.img_profile;
+          user.loginMethod = 'sso';
+
+          return true;
+        } catch (error) {
+          console.error("Azure AD sign in error:", error);
+          return false;
+        }
+      }
+
+      return true;
+    },
+
+    async jwt({ token, user, account, trigger }) {
+      // ✅ Azure AD Login
+      if (account?.provider === "azure-ad" && user) {
+        token.UserID = user.UserID;
+        token.UserCode = user.UserCode;
+        token.fristName = user.fristName;
+        token.lastName = user.lastName;
+        token.Email = user.Email;
+        token.access_token = user.access_token;
+        token.img_profile = user.img_profile;
+        token.role_id = user.role_id;
+        token.branchid = user.branchid;
+        token.depid = user.depid;
+        token.loginMethod = 'sso';
+        token.role_name = user.role_name;
+        token.accessTokenExpires = Date.now() + 240 * 60 * 1000; // 4 hours
+        isTokenExpired = false;
+      }
+
+      // Credentials Login
+      if (user && account?.type === "credentials") {
         token.UserID = user.UserID;
         token.UserCode = user.UserCode;
         token.fristName = user.fristName;
@@ -198,12 +226,12 @@ export const authOptions: AuthOptions = {
         return { error: "TokenExpired" };
       }
 
+      // Refresh user data
       if (trigger === "update" && token.UserCode) {
         const lastRefresh = token.lastRefresh as number | undefined;
         const now = Date.now();
         
         if (lastRefresh && (now - lastRefresh) < 30000) {
-          console.log("Skip refresh (too soon)");
           return token;
         }
 
@@ -227,7 +255,6 @@ export const authOptions: AuthOptions = {
           clearTimeout(timeoutId);
           
           if (response.status === 401) {
-            console.log("Token invalid (401)");
             isTokenExpired = true;
             return {};
           }
@@ -247,8 +274,6 @@ export const authOptions: AuthOptions = {
               token.depid = userData.depid;
               token.role_name = userData.role_name;
               token.lastRefresh = now;
-
-              console.log("User data refreshed successfully");
             }
           }
         } catch (error) {
@@ -261,7 +286,6 @@ export const authOptions: AuthOptions = {
 
     async session({ session, token }) {
       if (!token || Object.keys(token).length === 0 || token.error === "TokenExpired") {
-        console.log("Empty or expired token in session callback");
         return {
           ...session,
           user: undefined,
@@ -285,7 +309,6 @@ export const authOptions: AuthOptions = {
           depid: token.depid as number,
           loginMethod: token.loginMethod as string,
           role_name: token.role_name as string,
-
         };
       }
       
@@ -302,7 +325,7 @@ export const authOptions: AuthOptions = {
 
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 60, // 30 นาที
+    maxAge: 30 * 60, // 30 minutes
   },
 
   pages: {

@@ -184,7 +184,7 @@ export class MentionEmailService {
     itemStatus: number;
     itemStatusEditName: number;
     amChecklistStatus: number | null;
-    auditChecked: boolean;
+    // auditChecked: boolean;
     auditDate: string;
   }) {
     const recipientName = params.recipientFullname?.trim() || 'ผู้รับ';
