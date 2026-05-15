@@ -421,7 +421,8 @@ export default function DataTableItemList({
         handleAMChecklistClick,
         isAMChecklistAllowed,
         branchScoresMap,
-        handleBranchScoreSubmit
+        handleBranchScoreSubmit,
+        session?.user?.role_id === 1 || session?.user?.role_id === 2
       ),
     [
       handleEdit,
@@ -437,6 +438,7 @@ export default function DataTableItemList({
       isAMChecklistAllowed,
       branchScoresMap,
       handleBranchScoreSubmit,
+      session,
     ]
   );
 

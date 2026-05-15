@@ -185,6 +185,10 @@ function ActionsCell({
 function SendEmailCell({ item, isLocked }: { item: AuditItem; isLocked?: boolean }) {
     const [isSending, setIsSending] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
+    const { data: session } = useSession();
+
+    const canSendEmail = session?.user?.role_id === 1 || session?.user?.role_id === 2;
+    if (!canSendEmail) return null;
  
     const handleSendSummary = async () => {
       try {
@@ -481,8 +485,10 @@ export const createAuditItemsColumns = (
   onAMChecklistClick?: (item: AuditItem) => void,
   isAMChecklistAllowed?: boolean,
   branchScoresMap: Record<number, BranchScoreEntry> = {},
-  onBranchScoreSubmit?: (itemId: number, score: BranchScoreValue, note?: string) => void
-): ColumnDef<AuditItem>[] => [
+  onBranchScoreSubmit?: (itemId: number, score: BranchScoreValue, note?: string) => void,
+  canSendEmail?: boolean
+): ColumnDef<AuditItem>[] => {
+  return [
   {
     id: "drag",
     header: () => null,
@@ -691,17 +697,17 @@ export const createAuditItemsColumns = (
   //   },
   // },
   // ── Send Email ────────────────────────────────────────────────────────────
-  {
+  ...(canSendEmail ? [{
     id: "send_email",
     header: () => (
       <div className="text-center">
         ส่งเมลสรุป
       </div>
     ),
-    cell: ({ row }) => (
+    cell: ({ row }: { row: import('@tanstack/react-table').Row<AuditItem> }) => (
       <SendEmailCell item={row.original} isLocked={isLocked} />
     ),
-  },
+  } satisfies ColumnDef<AuditItem>] : []),
   // ── Actions ───────────────────────────────────────────────────────────────
   {
     id: "actions",
@@ -715,3 +721,4 @@ export const createAuditItemsColumns = (
       ),
   },
 ];
+};
