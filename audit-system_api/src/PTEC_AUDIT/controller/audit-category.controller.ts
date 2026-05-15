@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   ParseIntPipe,
   HttpStatus,
   Res,
@@ -21,14 +22,23 @@ import {
 export class AuditCategoryController {
   constructor(private readonly categoryService: AuditCategoryService) {}
 
-  // GET /audit-categories - Get all categories
+  // GET /audit-categories - Get all categories with pagination
   @Get()
-  async findAll(@Res() res: express.Response) {
+  async findAll(
+    @Res() res: express.Response,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ) {
     try {
-      const categories = await this.categoryService.findAll();
+      const result = await this.categoryService.findAll({
+        page: page ? parseInt(page) : 1,
+        limit: limit ? parseInt(limit) : 20,
+        search: search || undefined,
+      });
       return res.status(HttpStatus.OK).json({
         success: true,
-        data: categories,
+        ...result,
       });
     } catch (error) {
       console.error('Error fetching categories:', error);

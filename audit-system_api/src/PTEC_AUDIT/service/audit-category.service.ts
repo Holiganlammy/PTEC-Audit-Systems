@@ -28,12 +28,36 @@ export class AuditCategoryService {
     private readonly categoryRepository: Repository<AuditCategoryItem>,
   ) {}
 
-  // Get all active categories
-  async findAll(): Promise<AuditCategoryItem[]> {
-    return await this.categoryRepository.find({
-      where: { active: true },
-      order: { categoryName: 'ASC' },
-    });
+  // Get all active categories with pagination
+  async findAll(filters?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<{
+    data: AuditCategoryItem[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const page = filters?.page || 1;
+    const limit = filters?.limit || 20;
+    const skip = (page - 1) * limit;
+
+    const query = this.categoryRepository
+      .createQueryBuilder('cat')
+      .where('cat.active = :active', { active: true });
+
+    if (filters?.search) {
+      query.andWhere(
+        '(cat.categoryName LIKE :search OR CAST(cat.categoryCode AS NVARCHAR) LIKE :search)',
+        { search: `%${filters.search}%` },
+      );
+    }
+
+    query.orderBy('cat.categoryName', 'ASC').skip(skip).take(limit);
+
+    const [data, total] = await query.getManyAndCount();
+    return { data, total, page, limit };
   }
 
   // Get category by ID
@@ -68,6 +92,7 @@ export class AuditCategoryService {
       categoryName: createDto.categoryName,
       categoryCode: createDto.categoryCode,
       description: createDto.description,
+      active: true,
       createdBy: createDto.createdBy,
     });
 
