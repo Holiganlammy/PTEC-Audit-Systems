@@ -4,13 +4,6 @@ import { Controller, Get, Query, Req, HttpStatus, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { DashboardService } from '../service/dashboard.service';
 
-interface DashboardData {
-  stats: Record<string, unknown>;
-  actionItems: unknown[];
-  recentActivities: unknown[];
-  branchRankings?: unknown[];
-}
-
 @Controller('dashboard')
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
@@ -74,11 +67,10 @@ export class DashboardController {
         });
       }
 
-      const data: DashboardData =
-        await this.dashboardService.getAuditDashboardData(
-          userId,
-          parseInt(dateRange, 10),
-        );
+      const data = await this.dashboardService.getAuditDashboardData(
+        userId,
+        parseInt(dateRange, 10),
+      );
 
       return res.status(HttpStatus.OK).json({
         success: true,
@@ -97,7 +89,7 @@ export class DashboardController {
 
   /**
    * GET /dashboard/user
-   * User Dashboard data (default role)
+   * User Dashboard data (role_id = 5)
    */
   @Get('user')
   async getUserDashboard(
@@ -107,6 +99,7 @@ export class DashboardController {
   ): Promise<Response> {
     try {
       const userId = req.user;
+      console.log(userId, 'userId');
 
       if (!userId) {
         return res.status(HttpStatus.BAD_REQUEST).json({
@@ -115,11 +108,10 @@ export class DashboardController {
         });
       }
 
-      const data: DashboardData =
-        await this.dashboardService.getUserDashboardData(
-          userId,
-          parseInt(dateRange, 10),
-        );
+      const data = await this.dashboardService.getUserDashboardData(
+        userId,
+        parseInt(dateRange, 10),
+      );
 
       return res.status(HttpStatus.OK).json({
         success: true,
@@ -148,6 +140,7 @@ export class DashboardController {
   ): Promise<Response> {
     try {
       const userId = req.user;
+
       if (!userId) {
         return res.status(HttpStatus.BAD_REQUEST).json({
           success: false,
@@ -155,11 +148,10 @@ export class DashboardController {
         });
       }
 
-      const data: DashboardData =
-        await this.dashboardService.getManagerDashboardData(
-          userId,
-          parseInt(dateRange, 10),
-        );
+      const data = await this.dashboardService.getManagerDashboardData(
+        userId,
+        parseInt(dateRange, 10),
+      );
 
       return res.status(HttpStatus.OK).json({
         success: true,
@@ -171,6 +163,129 @@ export class DashboardController {
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: 'Failed to fetch Manager dashboard',
+        error: error.message,
+      });
+    }
+  }
+
+  @Get('am/chart')
+  async getAMChartData(
+    @Query('dateRange') dateRange = '7',
+    @Res() res: Response,
+  ): Promise<Response> {
+    try {
+      const data = await this.dashboardService.getAMChartData(
+        parseInt(dateRange, 10),
+      );
+
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        data,
+      });
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('❌ Error fetching AM chart data:', error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Failed to fetch AM chart data',
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * GET /dashboard/audit/chart
+   * Audit Chart Data
+   */
+  @Get('audit/chart')
+  async getAuditChartData(
+    @Query('dateRange') dateRange = '7',
+    @Res() res: Response,
+  ): Promise<Response> {
+    try {
+      const data = await this.dashboardService.getAuditChartData(
+        parseInt(dateRange, 10),
+      );
+
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        data,
+      });
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('❌ Error fetching Audit chart data:', error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Failed to fetch Audit chart data',
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * GET /dashboard/user/chart
+   * User Chart Data
+   */
+  @Get('user/chart')
+  async getUserChartData(
+    @Query('dateRange') dateRange = '7',
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<Response> {
+    try {
+      const userId = req.user;
+
+      if (!userId) {
+        return res.status(HttpStatus.BAD_REQUEST).json({
+          success: false,
+          message: 'User ID is required',
+        });
+      }
+
+      const data = await this.dashboardService.getUserChartData(
+        userId,
+        parseInt(dateRange, 10),
+      );
+
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        data,
+      });
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('❌ Error fetching User chart data:', error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Failed to fetch User chart data',
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * GET /dashboard/manager/chart
+   * Manager Chart Data
+   */
+  @Get('manager/chart')
+  async getManagerChartData(
+    @Query('dateRange') dateRange = '7',
+    @Res() res: Response,
+  ): Promise<Response> {
+    try {
+      const data = await this.dashboardService.getManagerChartData(
+        parseInt(dateRange, 10),
+      );
+
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        data,
+      });
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('❌ Error fetching Manager chart data:', error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Failed to fetch Manager chart data',
         error: error.message,
       });
     }

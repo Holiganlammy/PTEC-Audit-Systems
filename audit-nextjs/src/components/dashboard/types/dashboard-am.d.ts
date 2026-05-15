@@ -63,6 +63,8 @@ export interface ActionItemData {
   status: string;
   daysAgo: number;
   statusColor: "default" | "secondary" | "destructive" | "outline";
+  categoryCode: string | null;
+  categoryName: string | null;
 }
 
 export interface ActivityData {

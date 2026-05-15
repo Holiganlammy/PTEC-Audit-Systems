@@ -14,18 +14,29 @@ import { KPICard } from "@/components/dashboard/kpi-card";
 import { ActionItemsDialog } from "@/components/dashboard/action-items-dialog";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
+import { AMInspectionChart } from "@/components/dashboard/am-inspection-chart";
 import { dashboardApi } from "@/lib/api/dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { DashboardResponse } from "@/components/dashboard/types/dashboard";
+import type { DashboardResponse } from "@/components/dashboard/types/dashboard-am";
+
+interface AMChartData {
+  date: string;
+  passed: number;
+  failed: number;
+  needFix: number;
+}
 
 export function AMDashboard() {
   const [loading, setLoading] = useState(true);
+  const [chartLoading, setChartLoading] = useState(true);
   const [dateRange, setDateRange] = useState("7");
+  const [chartTimeRange, setChartTimeRange] = useState("7");
   const [dashboardData, setDashboardData] = useState<DashboardResponse | null>(
     null
   );
+  const [chartData, setChartData] = useState<AMChartData[]>([]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -39,9 +50,25 @@ export function AMDashboard() {
     }
   }, [dateRange]);
 
+  const fetchChartData = useCallback(async () => {
+    try {
+      setChartLoading(true);
+      const data = await dashboardApi.getAMChart(chartTimeRange);
+      setChartData(data);
+    } catch (error) {
+      console.error("Failed to fetch AM chart:", error);
+    } finally {
+      setChartLoading(false);
+    }
+  }, [chartTimeRange]);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    fetchChartData();
+  }, [fetchChartData]);
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -67,9 +94,11 @@ export function AMDashboard() {
   return (
     <div className="space-y-6">
       <DashboardHeader
-        title="AM Dashboard"
         notificationCount={stats.totalIssues}
-        onRefresh={fetchData}
+        onRefresh={() => {
+          fetchData();
+          fetchChartData();
+        }}
         onDateRangeChange={setDateRange}
         dateRange={dateRange}
         showFilters
@@ -120,6 +149,17 @@ export function AMDashboard() {
           iconClassName="text-red-600 dark:text-red-400"
         />
       </div>
+
+      {/* Chart - วางเหนือ Dialog Buttons */}
+      {chartLoading ? (
+        <Skeleton className="h-[350px] w-full" />
+      ) : (
+        <AMInspectionChart
+          data={chartData}
+          timeRange={chartTimeRange}
+          onTimeRangeChange={setChartTimeRange}
+        />
+      )}
 
       {/* Dialog Buttons - 3 ปุ่ม */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -215,6 +255,7 @@ function DashboardSkeleton() {
           <Skeleton key={i} className="h-32" />
         ))}
       </div>
+      <Skeleton className="h-[350px] w-full" />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[1, 2, 3].map((i) => (
           <Skeleton key={i} className="h-20" />

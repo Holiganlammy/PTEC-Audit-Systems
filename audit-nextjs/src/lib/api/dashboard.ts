@@ -2,7 +2,7 @@
 
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
-import { DashboardResponse } from "@/components/dashboard/types/dashboard";
+import { DashboardResponse } from "@/components/dashboard/types/dashboard-am";
 
 export const dashboardApi = {
   /**
@@ -47,7 +47,7 @@ export const dashboardApi = {
   async getUserDashboard(userId: string, dateRange: string = "30") {
     const response = await client.get(`/dashboard/user`, {
       headers: dataConfig().headers,
-      params: { userId, dateRange },
+      params: { dateRange },
     });
     return response.data.data;
   },
@@ -57,6 +57,47 @@ export const dashboardApi = {
    */
   async getManagerDashboard(dateRange: string = "30") {
     const response = await client.get(`/dashboard/manager`, {
+      headers: dataConfig().headers,
+      params: { dateRange },
+    });
+    return response.data.data;
+  },
+
+    async getUserChart(userId: string, dateRange: string = "7") {
+    const response = await client.get(`/dashboard/user/chart`, {
+      headers: dataConfig().headers,
+      params: { dateRange },
+    });
+    return response.data.data;
+  },
+ 
+  /**
+   * Fetch AM Chart Data
+   */
+  async getAMChart(dateRange: string = "7") {
+    const response = await client.get(`/dashboard/am/chart`, {
+      headers: dataConfig().headers,
+      params: { dateRange },
+    });
+    return response.data.data;
+  },
+ 
+  /**
+   * Fetch Audit Chart Data
+   */
+  async getAuditChart(dateRange: string = "7") {
+    const response = await client.get(`/dashboard/audit/chart`, {
+      headers: dataConfig().headers,
+      params: { dateRange },
+    });
+    return response.data.data;
+  },
+ 
+  /**
+   * Fetch Manager Chart Data
+   */
+  async getManagerChart(dateRange: string = "7") {
+    const response = await client.get(`/dashboard/manager/chart`, {
       headers: dataConfig().headers,
       params: { dateRange },
     });

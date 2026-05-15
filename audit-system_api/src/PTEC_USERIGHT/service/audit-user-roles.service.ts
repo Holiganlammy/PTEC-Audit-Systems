@@ -58,8 +58,17 @@ export class AuditUserRolesService {
     };
   }
 
-  async getAllRoles(): Promise<RoleSystemAudit[]> {
-    return this.roleSystemAuditRepo.find({ order: { roleId: 'ASC' } });
+  async getAllRoles(currentRoleId?: number): Promise<RoleSystemAudit[]> {
+    const query = this.roleSystemAuditRepo
+      .createQueryBuilder('r')
+      .orderBy('r.roleId', 'ASC');
+
+    // Only Admin (role 1) can see role 1 in the list
+    if (currentRoleId !== 1) {
+      query.where('r.role_id != :adminRoleId', { adminRoleId: 1 });
+    }
+
+    return await query.getMany();
   }
 
   async findAll(filters?: {

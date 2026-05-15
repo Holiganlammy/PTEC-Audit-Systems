@@ -119,7 +119,7 @@ export class AppController {
         userCode,
         expiresAt,
       } = data;
-      console.log('Response Data:', data);
+      // console.log('Response Data:', data);
 
       if (request_Mfa === true) {
         return res.status(HttpStatus.OK).json({

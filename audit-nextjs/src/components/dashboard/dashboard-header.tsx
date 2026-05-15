@@ -11,17 +11,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+// import {
+//   DropdownMenu,
+//   DropdownMenuContent,
+//   DropdownMenuItem,
+//   DropdownMenuTrigger,
+// } from "@/components/ui/dropdown-menu";
 import { Bell, Download, RefreshCw, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface DashboardHeaderProps {
-  title: string;
+  title?: string;
   notificationCount?: number;
   onRefresh?: () => void;
   onExport?: () => void;
@@ -33,7 +33,7 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({
   title,
-  notificationCount = 0,
+  // notificationCount = 0,
   onRefresh,
   onExport,
   onSearch,
@@ -63,7 +63,7 @@ export function DashboardHeader({
         
         <div className="flex items-center gap-2">
           {/* Notifications */}
-          <DropdownMenu>
+          {/* <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon" className="relative">
                 <Bell className="h-4 w-4" />
@@ -96,7 +96,7 @@ export function DashboardHeader({
                 )}
               </div>
             </DropdownMenuContent>
-          </DropdownMenu>
+          </DropdownMenu> */}
 
           {/* Export */}
           {onExport && (

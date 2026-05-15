@@ -19,6 +19,8 @@ interface ActionItem {
   id: number;
   jobNo: string;
   branchName: string;
+  categoryCode: string | null;
+  categoryName: string | null;
   status: string;
   daysAgo: number;
   statusColor: "default" | "secondary" | "destructive" | "outline";
@@ -31,6 +33,7 @@ interface ActionItemsDialogProps {
   triggerIcon?: React.ReactNode;
   triggerLabel?: string;
   triggerClassName?: string;
+  titleHeader?: string;
 }
 
 export function ActionItemsDialog({
@@ -40,6 +43,7 @@ export function ActionItemsDialog({
   triggerIcon,
   triggerLabel,
   triggerClassName,
+  titleHeader,
 }: ActionItemsDialogProps) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
@@ -54,6 +58,7 @@ export function ActionItemsDialog({
       <DialogTrigger asChild>
         <Button variant="outline" className={triggerClassName}>
           <span className="flex flex-col items-center gap-1 w-full">
+            {titleHeader && <p>{titleHeader}</p>}
             <span className="flex items-center gap-1.5">
               {triggerIcon}
               {triggerLabel && (
@@ -83,13 +88,14 @@ export function ActionItemsDialog({
                 >
                   <div className="flex-1 space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">{item.jobNo}</span>
+                      <span className="font-medium text-sm">{item.categoryName ?? item.branchName}</span>
                       <Badge variant={item.statusColor} className="text-xs">
                         {item.status}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {item.branchName}
+                      {item.jobNo}
+                      <span className="ml-2 text-muted-foreground/70">· {item.branchName}</span>
                     </p>
                   </div>
                   <div className="flex items-center gap-3">

@@ -117,17 +117,23 @@ export class AuditUserRolesController {
     }
   }
 
-  // GET /audit-user-roles/roles - Get all available roles
+  // GET /audit-user-roles/roles - Get all available roles (filtered by caller's role)
   @Get('roles')
-  async getAllRoles() {
+  async getAllRoles(@Req() req: express.Request) {
     try {
-      const roles = await this.auditUserRolesService.getAllRoles();
+      const currentUser = await this.getUserFromJWT(req);
+      const roles = await this.auditUserRolesService.getAllRoles(
+        currentUser?.role_id,
+      );
       return {
         success: true,
         data: roles,
       };
     } catch (error) {
       console.error('Error fetching roles:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         'Error fetching roles',
         HttpStatus.INTERNAL_SERVER_ERROR,
