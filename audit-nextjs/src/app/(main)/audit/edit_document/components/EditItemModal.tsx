@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
+import { auditCategoriesApi, type AuditCategory } from "@/lib/api/audit-categories";
 import { useSession } from "next-auth/react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -40,15 +41,6 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
-
-interface CategoryItem {
-  categoryItemId: number;
-  categoryName: string;
-  categoryCode: number;
-  description: string;
-  active: boolean;
-  positionType: string | null;
-}
 
 interface EditItemModalProps {
   open: boolean;
@@ -78,7 +70,7 @@ export default function EditItemModal({
   onItemUpdated,
 }: EditItemModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [categories, setCategories] = useState<AuditCategory[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
 
   const { data: session } = useSession();
@@ -114,29 +106,8 @@ export default function EditItemModal({
     const fetchCategories = async () => {
       try {
         setIsLoadingCategories(true);
-        const response = await client.get("/audit-categories", {
-          headers: dataConfig().headers,
-        });
-        
-        if (response.data.success) {
-          // Filter: active = true AND positionType ตรงกับ jobData
-          const filtered = response.data.data.filter((c: CategoryItem) => {
-            const isActive = c.active === true;
-            
-            // ถ้า category ไม่มี positionType (null) แสดงทั้ง visit และ online
-            if (c.positionType === null) {
-              return isActive;
-            }
-            
-            // ถ้า category มี positionType  ต้องตรงกับ jobData.positionType
-            const matchPositionType = c.positionType === jobData?.positionType;
-            
-            return isActive && matchPositionType;
-          });
-          
-          setCategories(filtered);
-          
-        }
+        const filtered = await auditCategoriesApi.getForSelect(jobData?.positionType);
+        setCategories(filtered);
       } catch (error) {
         console.error("Error fetching categories:", error);
         toast.error("ไม่สามารถโหลดหมวดหมู่ได้");

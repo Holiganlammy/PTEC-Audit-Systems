@@ -29,12 +29,14 @@ export class AuditCategoryController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
+    @Query('positionType') positionType?: string,
   ) {
     try {
       const result = await this.categoryService.findAll({
         page: page ? parseInt(page) : 1,
         limit: limit ? parseInt(limit) : 20,
         search: search || undefined,
+        positionType: positionType || undefined,
       });
       return res.status(HttpStatus.OK).json({
         success: true,

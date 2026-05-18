@@ -39,7 +39,7 @@ export interface AuditCategoryPaginatedResponse {
 
 export const auditCategoriesApi = {
   /**
-   * Get all categories with pagination
+   * Get all categories with pagination (for management table — shows all positionTypes)
    */
   async getAll(page = 1, limit = 20): Promise<AuditCategoryPaginatedResponse> {
     const response = await client.get("/audit-categories", {
@@ -52,6 +52,26 @@ export const auditCategoriesApi = {
       page: response.data.page,
       limit: response.data.limit,
     };
+  },
+
+  /**
+   * Get active categories for select/dropdown use.
+   * Passes positionType as a query param so the backend handles filtering.
+   * - positionType omitted → backend returns all active categories
+   * - positionType provided → backend returns categories matching that positionType
+   */
+  async getForSelect(positionType?: string | null): Promise<AuditCategory[]> {
+    const params: Record<string, unknown> = { page: 1, limit: 9999 };
+    if (positionType) {
+      params.positionType = positionType;
+    }
+
+    const response = await client.get("/audit-categories", {
+      headers: dataConfig().headers,
+      params,
+    });
+
+    return response.data.data as AuditCategory[];
   },
 
   /**

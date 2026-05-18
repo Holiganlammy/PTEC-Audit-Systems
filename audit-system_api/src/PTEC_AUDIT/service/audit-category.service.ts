@@ -33,6 +33,7 @@ export class AuditCategoryService {
     page?: number;
     limit?: number;
     search?: string;
+    positionType?: string;
   }): Promise<{
     data: AuditCategoryItem[];
     total: number;
@@ -52,6 +53,12 @@ export class AuditCategoryService {
         '(cat.categoryName LIKE :search OR CAST(cat.categoryCode AS NVARCHAR) LIKE :search)',
         { search: `%${filters.search}%` },
       );
+    }
+
+    if (filters?.positionType) {
+      query.andWhere('cat.positionType = :positionType', {
+        positionType: filters.positionType,
+      });
     }
 
     query.orderBy('cat.categoryName', 'ASC').skip(skip).take(limit);

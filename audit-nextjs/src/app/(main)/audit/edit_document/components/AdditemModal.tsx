@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
+import { auditCategoriesApi, type AuditCategory } from "@/lib/api/audit-categories";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useSession } from "next-auth/react";
@@ -37,15 +38,6 @@ const formSchema = z.object({
   remarks: z.string().optional(),
   auditCommentStatus: z.enum(["0", "null"]),
 });
-
-interface CategoryItem {
-  categoryItemId: number;
-  categoryName: string;
-  categoryCode: number;
-  description: string;
-  active: boolean;
-  positionType: string | null;
-}
 
 interface AddItemModalProps {
   open: boolean;
@@ -66,7 +58,7 @@ export default function AddItemModal({
 }: AddItemModalProps) {
   const { data: session } = useSession();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [categories, setCategories] = useState<AuditCategory[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -85,25 +77,8 @@ export default function AddItemModal({
     const fetchCategories = async () => {
       try {
         setIsLoadingCategories(true);
-        const response = await client.get("/audit-categories", {
-          headers: dataConfig().headers,
-        });
-  
-        if (response.data.success) {
-          const filtered = response.data.data.filter((c: CategoryItem) => {
-            const isActive = c.active === true;
-            
-            if (c.positionType === null) {
-              return isActive;
-            }
-            
-            const matchPositionType = c.positionType === jobData?.positionType;
-            
-            return isActive && matchPositionType;
-          });
-          
-          setCategories(filtered);
-        }
+        const filtered = await auditCategoriesApi.getForSelect(jobData?.positionType);
+        setCategories(filtered);
       } catch (error) {
         console.error("Error fetching categories:", error);
         toast.error("ไม่สามารถโหลดหมวดหมู่ได้");
