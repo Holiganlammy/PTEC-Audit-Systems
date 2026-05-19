@@ -6,6 +6,9 @@ import {
   IsObject,
 } from 'class-validator';
 export class SendAuditJobEmailDto {
+  @IsNumber()
+  jobId!: number;
+
   @IsOptional()
   @IsString({ each: true })
   groupEmails!: string[]; // ['ptaudit@rpcthai.com', 'groupssd@rpcthai.com']
@@ -42,6 +45,10 @@ export class SendAuditJobEmailDto {
   @IsOptional()
   @IsString()
   jobUrl?: string;
+
+  @IsNumber()
+  @IsOptional()
+  userby!: number;
 }
 
 export class MentionedUserDto {

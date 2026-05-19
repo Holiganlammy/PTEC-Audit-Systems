@@ -34,7 +34,7 @@ export class AuthMiddleware implements NestMiddleware {
     );
 
     if (isPublic) {
-      console.log(`🔓 Public: ${method} ${path}`);
+      console.log(`API Public: ${method} ${path}`);
       return next();
     }
 

@@ -132,10 +132,12 @@ function ActionsCell({
   item,
   onEdit,
   onDelete,
+  isDraftMode,
 }: {
   item: AuditItem;
   onEdit: (item: AuditItem) => void;
   onDelete: (item: AuditItem) => void;
+  isDraftMode?: boolean;
 }) {
   const session = useSession();
   return (
@@ -149,13 +151,13 @@ function ActionsCell({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-          {session.data?.user.role_id == 1 || session.data?.user.role_id == 2 ?
+          {!isDraftMode && (session.data?.user.role_id == 1 || session.data?.user.role_id == 2) ?
             <DropdownMenuItem onClick={() => onEdit(item)}>
               <Pencil className="mr-2 h-4 w-4" />
               แก้ไข
             </DropdownMenuItem>
           : null}
-          {session.data?.user.role_id === 1 || session.data?.user.role_id === 2 ?
+          {(isDraftMode || session.data?.user.role_id === 1 || session.data?.user.role_id === 2) ?
           <DropdownMenuItem
             onClick={() => onDelete(item)}
             className="text-red-600 focus:text-red-600"
@@ -164,7 +166,7 @@ function ActionsCell({
             ลบ
           </DropdownMenuItem>
           : null}
-          <DropdownMenuItem
+          {!isDraftMode && <DropdownMenuItem
             onClick={() =>
               navigator.clipboard.writeText(
                 format(new Date(item.inspection_date), "dd/MM/yyyy", { locale: th })
@@ -173,7 +175,7 @@ function ActionsCell({
           >
             <Calendar className="mr-2 h-4 w-4" />
             คัดลอกวันที่ตรวจสอบ
-          </DropdownMenuItem>
+          </DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -486,13 +488,17 @@ export const createAuditItemsColumns = (
   isAMChecklistAllowed?: boolean,
   branchScoresMap: Record<number, BranchScoreEntry> = {},
   onBranchScoreSubmit?: (itemId: number, score: BranchScoreValue, note?: string) => void,
-  canSendEmail?: boolean
+  canSendEmail?: boolean,
+  isDraftMode?: boolean
 ): ColumnDef<AuditItem>[] => {
+  // ถ้า draft mode ให้ treat ทุกอย่างเหมือน isLocked แต่ยังแสดงปุ่มลบ
+  const effectiveLocked = isLocked || !!isDraftMode;
+
   return [
   {
     id: "drag",
     header: () => null,
-    cell: () => isLocked ? null : <DragHandle />,
+    cell: () => effectiveLocked ? null : <DragHandle />,
   },
   {
     id: "select",
@@ -507,6 +513,7 @@ export const createAuditItemsColumns = (
             table.toggleAllPageRowsSelected(!!value)
           }
           aria-label="Select all"
+          disabled={isDraftMode}
         />
       </div>
     ),
@@ -516,6 +523,7 @@ export const createAuditItemsColumns = (
           checked={row.getIsSelected()}
           onCheckedChange={(value: boolean) => row.toggleSelected(!!value)}
           aria-label="Select row"
+          disabled={isDraftMode}
         />
       </div>
     ),
@@ -553,24 +561,12 @@ export const createAuditItemsColumns = (
         <BranchScoreCell
           item={row.original}
           entry={entry}
-          disabled={isLocked}
+          disabled={effectiveLocked}
           onSubmit={onBranchScoreSubmit}
         />
       );
     },
   },
-  // {
-  //   accessorKey: "inspection_date",
-  //   header: "วันที่ตรวจสอบ",
-  //   cell: ({ row }) => {
-  //     const date = row.getValue("inspection_date") as string;
-  //     return (
-  //       <div className="text-sm">
-  //         {format(new Date(date), "dd/MM/yyyy", { locale: th })}
-  //       </div>
-  //     );
-  //   },
-  // },
   // thread columns 
   {
     id: "note_1",
@@ -585,7 +581,7 @@ export const createAuditItemsColumns = (
         onTagChange={onTagChange}
         onCommentsChange={onCommentsChange}
         users={users}
-        isLocked={isLocked}
+        isLocked={effectiveLocked}
       />
     ),
   },
@@ -602,7 +598,7 @@ export const createAuditItemsColumns = (
         onTagChange={onTagChange}
         onCommentsChange={onCommentsChange}
         users={users}
-        isLocked={isLocked}
+        isLocked={effectiveLocked}
       />
     ),
   },
@@ -621,7 +617,7 @@ export const createAuditItemsColumns = (
         onTagChange={onTagChange}
         onCommentsChange={onCommentsChange}
         taggedUsers={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []}
-        isLocked={isLocked}
+        isLocked={effectiveLocked}
       />
     ),
   },
@@ -635,7 +631,7 @@ export const createAuditItemsColumns = (
           users={users}
           initialTags={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []}
           onTagChange={(tags) => onTagChange?.(row.original.item_id, tags)}
-          isLocked={isLocked}
+          isLocked={effectiveLocked}
         />
       );
     },
@@ -664,7 +660,7 @@ export const createAuditItemsColumns = (
     ),
     cell: ({ row }) => {
       const item = row.original;
-      const interactive = !!isAMChecklistAllowed;
+      const interactive = !!isAMChecklistAllowed && !isDraftMode;
       return (
         <div className="flex justify-center">
           {interactive ? (
@@ -682,20 +678,6 @@ export const createAuditItemsColumns = (
       );
     },
   },
-  // {
-  //   accessorKey: "remarks",
-  //   header: "หมายเหตุ",
-  //   cell: ({ row }) => {
-  //     const remarks = row.getValue("remarks") as string;
-  //     return remarks ? (
-  //       <span className="text-sm text-muted-foreground line-clamp-2">
-  //         {remarks}
-  //       </span>
-  //     ) : (
-  //       <span className="text-sm text-muted-foreground italic">-</span>
-  //     );
-  //   },
-  // },
   // ── Send Email ────────────────────────────────────────────────────────────
   ...(canSendEmail ? [{
     id: "send_email",
@@ -705,18 +687,19 @@ export const createAuditItemsColumns = (
       </div>
     ),
     cell: ({ row }: { row: import('@tanstack/react-table').Row<AuditItem> }) => (
-      <SendEmailCell item={row.original} isLocked={isLocked} />
+      <SendEmailCell item={row.original} isLocked={effectiveLocked} />
     ),
   } satisfies ColumnDef<AuditItem>] : []),
   // ── Actions ───────────────────────────────────────────────────────────────
   {
     id: "actions",
     cell: ({ row }) =>
-      isLocked ? null : (
+      effectiveLocked && !isDraftMode ? null : (
         <ActionsCell
           item={row.original}
-          onEdit={onEdit}
+          onEdit={isDraftMode ? () => {} : onEdit}
           onDelete={onDelete}
+          isDraftMode={isDraftMode}
         />
       ),
   },

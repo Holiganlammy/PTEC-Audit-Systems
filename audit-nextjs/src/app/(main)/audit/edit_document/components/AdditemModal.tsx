@@ -39,6 +39,16 @@ const formSchema = z.object({
   auditCommentStatus: z.enum(["0", "null"]),
 });
 
+export interface DraftAddItem {
+  category_item_id: number;
+  category_name: string;
+  inspection_date: string;
+  item_status: number;
+  item_status_edit: number | null;
+  remarks: string;
+  auditCommentStatus: string; // "0" = อนุมัติ, "null" = ยังไม่อนุมัติ
+}
+
 interface AddItemModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -46,6 +56,10 @@ interface AddItemModalProps {
   jobId: number;
   jobData?: AuditJobData;
   onItemAdded: () => void;
+  // Draft mode
+  isDraftMode?: boolean;
+  inspectionDate?: string;
+  onDraftItemAdd?: (item: DraftAddItem) => void;
 }
 
 export default function AddItemModal({
@@ -55,6 +69,9 @@ export default function AddItemModal({
   jobId,
   jobData,
   onItemAdded,
+  isDraftMode = false,
+  inspectionDate,
+  onDraftItemAdd,
 }: AddItemModalProps) {
   const { data: session } = useSession();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -99,6 +116,25 @@ export default function AddItemModal({
   }, [open, form, jobData]); 
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    // Draft mode: add item locally without API call
+    if (isDraftMode && onDraftItemAdd) {
+      const selectedCategory = categories.find(
+        (c) => c.categoryItemId.toString() === values.categoryItemId
+      );
+      onDraftItemAdd({
+        category_item_id: parseInt(values.categoryItemId),
+        category_name: selectedCategory?.categoryName ?? "",
+        inspection_date: inspectionDate ?? new Date().toISOString(),
+        item_status: parseInt(values.itemStatus),
+        item_status_edit: null,
+        remarks: values.remarks?.trim() ?? "",
+        auditCommentStatus: values.auditCommentStatus,
+      });
+      onOpenChange(false);
+      toast.success("เพิ่มรายการสำเร็จ");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 

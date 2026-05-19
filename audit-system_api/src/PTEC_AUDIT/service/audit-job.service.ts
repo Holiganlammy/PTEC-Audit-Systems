@@ -566,4 +566,28 @@ export class AuditJobsService {
       relations: ['items'],
     });
   }
+
+  // ตรวจสอบว่าส่งเมล job-created แล้วหรือยัง และถ้ายังให้ mark ว่าส่งแล้ว
+  // คืนค่า: { alreadySent: true } ถ้าส่งไปแล้ว, { alreadySent: false } ถ้ายังไม่เคยส่ง
+  async checkAndMarkJobCreatedEmail(
+    jobId: number,
+    userby: number,
+  ): Promise<{ alreadySent: boolean; sentAt: Date | null }> {
+    const job = await this.auditJobsRepository.findOne({ where: { jobId } });
+
+    if (!job) {
+      throw new NotFoundException(`Job id ${jobId} not found`);
+    }
+
+    if (job.jobCreatedEmailSentAt !== null) {
+      return { alreadySent: true, sentAt: job.jobCreatedEmailSentAt };
+    }
+
+    await this.auditJobsRepository.update(jobId, {
+      jobCreatedEmailSentAt: new Date(),
+      jobCreatedEmailSentBy: userby,
+    });
+
+    return { alreadySent: false, sentAt: null };
+  }
 }

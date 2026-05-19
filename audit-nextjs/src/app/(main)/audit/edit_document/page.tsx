@@ -39,6 +39,7 @@ import {
   X,
   Eye,
   Download,
+  Mail,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -229,6 +230,7 @@ export default function EditAuditJobPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingBranches, setIsLoadingBranches] = useState(true);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
@@ -868,6 +870,52 @@ export default function EditAuditJobPage() {
     }
   };
 
+  const handleSendEmail = async () => {
+    if (!jobData) return;
+    setIsSendingEmail(true);
+    try {
+      const auditDateFormatted = format(
+        new Date(jobData.auditDate),
+        "dd MMMM yyyy",
+        { locale: th }
+      );
+
+      const emailPayload = {
+        groupEmails: ["npc@rpcthai.com"],
+        additionalRecipients: [''],
+        jobNo: jobData.jobNo,
+        jobId: jobData.jobId,
+        branchName: jobData.branchName,
+        auditDate: auditDateFormatted,
+        createdByFullname: jobData.createdByUser?.fullname ?? "",
+        auditorFullname: jobData.auditor?.fullname ?? "",
+        districtManagerFullname: jobData.districtManager?.fullname ?? "",
+        branchManagerFullname: jobData.branchManager?.fullname ?? "",
+        jobUrl: `${window.location.origin}/audit/edit_document?jobNo=${jobData.jobNo}`,
+        userby: session?.user?.UserID || 0,
+      };
+
+      const response = await client.post(
+        "/audit-email/send-job-created",
+        emailPayload,
+        { headers: dataConfig().headers }
+      );
+
+      if (!response.data.success) throw new Error("Failed to send email");
+
+      toast.success("ส่งเมลแจ้งเตือนเรียบร้อยแล้ว", {
+        description: `ส่งแจ้งงาน ${jobData.jobNo} ไปยังผู้ที่เกี่ยวข้องแล้ว`,
+      });
+
+      await fetchJobData();
+    } catch (error) {
+      console.error("Error sending email:", error);
+      toast.error("เกิดข้อผิดพลาด", { description: "ไม่สามารถส่งเมลได้ กรุณาลองใหม่อีกครั้ง" });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   const handleConfirm = async () => {
     if (!jobData?.jobId) return;
     setIsConfirming(true);
@@ -973,6 +1021,64 @@ export default function EditAuditJobPage() {
                 auditItems={auditItems}
                 disabled={isLoadingData || isLoadingItems}
               />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span tabIndex={jobData?.jobCreatedEmailSentAt ? 0 : undefined}>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            disabled={isLoadingData || isSendingEmail || !jobData || !!jobData?.jobCreatedEmailSentAt}
+                            className="gap-2"
+                          >
+                            {isSendingEmail ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Mail className="h-4 w-4" />
+                            )}
+                            ส่งเมลแจ้งเตือน
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>ส่งเมลแจ้งเตือน</AlertDialogTitle>
+                            <AlertDialogDescription asChild>
+                              <div className="space-y-2 text-sm text-muted-foreground">
+                                <p>ระบบจะส่งเมลแจ้งเตือนไปยังผู้ที่เกี่ยวข้องดังนี้:</p>
+                                <ul className="list-disc list-inside space-y-1 ml-2">
+                                  <li>เลขที่งาน: <strong className="text-foreground">{jobData?.jobNo}</strong></li>
+                                  <li>สาขา: <strong className="text-foreground">{jobData?.branchName}</strong></li>
+                                  <li>ผู้ตรวจสอบ: <strong className="text-foreground">{jobData?.auditor?.fullname}</strong></li>
+                                  <li>ผู้จัดการเขต: <strong className="text-foreground">{jobData?.districtManager?.fullname}</strong></li>
+                                  <li>ผู้จัดการสาขา: <strong className="text-foreground">{jobData?.branchManager?.fullname}</strong></li>
+                                </ul>
+                                <p className="pt-1">คุณต้องการส่งเมลแจ้งเตือนหรือไม่?</p>
+                              </div>
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleSendEmail} disabled={isSendingEmail}>
+                              {isSendingEmail ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <Mail className="mr-2 h-4 w-4" />
+                              )}
+                              ส่งเมล
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </span>
+                  </TooltipTrigger>
+                  {jobData?.jobCreatedEmailSentAt && (
+                    <TooltipContent>
+                      <p>ส่งเมลไปแล้วเมื่อ {format(new Date(jobData.jobCreatedEmailSentAt), "dd/MM/yyyy HH:mm")}</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
               <Button variant="outline" onClick={() => router.back()}>
                 Back
               </Button>

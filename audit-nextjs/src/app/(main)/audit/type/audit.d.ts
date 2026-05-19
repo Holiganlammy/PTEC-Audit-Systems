@@ -55,6 +55,8 @@ interface AuditJobData {
     districtManager: districtManager;
     createdByUser: CreatedByUser;
     positionType: string;
+    jobCreatedEmailSentAt: string | null;
+    jobCreatedEmailSentBy: number | null;
 }
 
 interface Auditor {

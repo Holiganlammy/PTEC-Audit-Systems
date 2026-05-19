@@ -1,4 +1,4 @@
-// Version: 2.0.0 | Date: 2025-04-07 18:20:00 | Updated: ใช้ ExportToExcel Component
+// Version: 3.0.0 | Date: 2025-05-18 | Updated: Added Draft Card support
 
 "use client";
 
@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Loader2, X, Trash2 } from "lucide-react";
+import { Plus, Loader2, X, Trash2, Edit, FileText } from "lucide-react";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { DataTable } from "@/components/DataTable";
@@ -31,6 +31,26 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useSession } from "next-auth/react";
 import ExportListDropdown from "@/components/ExportListDropdown";
+import { loadDraft, clearDraft, getDraftInfo } from "@/utils/audit-draft";
+import { format } from "date-fns";
+import { th } from "date-fns/locale";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Types
 interface AuditStatusInfo {
@@ -113,6 +133,16 @@ export default function AuditJobsListPage() {
   const session = useSession();
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
 
+  // Draft state
+  const [hasDraft, setHasDraft] = useState(false);
+  const [draftInfo, setDraftInfo] = useState<{
+    branchName: string;
+    auditDate: string;
+    itemCount: number;
+    timestamp: number;
+  } | null>(null);
+  const [showDeleteDraftDialog, setShowDeleteDraftDialog] = useState(false);
+
   // Bulk delete state
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
@@ -124,6 +154,16 @@ export default function AuditJobsListPage() {
     .filter((key) => selectedRows[key])
     .map((key) => parseInt(key));
   const selectedCount = selectedJobIds.length;
+
+  // Check for draft on mount
+  useEffect(() => {
+    const draft = loadDraft();
+    if (draft) {
+      setHasDraft(true);
+      const info = getDraftInfo();
+      setDraftInfo(info);
+    }
+  }, []);
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -197,7 +237,6 @@ export default function AuditJobsListPage() {
   };
 
   const handleExportComplete = () => {
-    // Clear selection after export
     setSelectedRows({});
   };
 
@@ -232,6 +271,22 @@ export default function AuditJobsListPage() {
       setShowBulkDeleteDialog(false);
       setBulkDeleteNote("");
     }
+  };
+
+  const handleDeleteDraft = () => {
+    clearDraft();
+    setHasDraft(false);
+    setDraftInfo(null);
+    setShowDeleteDraftDialog(false);
+    toast.success("ลบ Draft สำเร็จ");
+  };
+
+  const handleEditDraft = () => {
+    router.push("/audit/create");
+  };
+
+  const handleContinueDraft = () => {
+    router.push("/audit/create/add_items?mode=draft");
   };
 
   const clearFilters = () => {
@@ -389,6 +444,80 @@ export default function AuditJobsListPage() {
           </div>
         </div>
 
+        {/* Draft Card */}
+        {hasDraft && draftInfo && (
+          <Card className="mb-6 border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/20">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                    <FileText className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      Draft - กำลังสร้างงานตรวจสอบ
+                      <Badge variant="outline" className="text-orange-600 border-orange-600">
+                        Draft
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription>
+                      บันทึกเมื่อ:{" "}
+                      {format(new Date(draftInfo.timestamp), "dd/MM/yyyy HH:mm", {
+                        locale: th,
+                      })}
+                    </CardDescription>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleEditDraft}
+                  >
+                    <Edit className="mr-2 h-4 w-4" />
+                    แก้ไข Header
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleContinueDraft}
+                  >
+                    เพิ่มรายการต่อ
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowDeleteDraftDialog(true)}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">สาขา</p>
+                  <p className="font-medium">{draftInfo.branchName}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">วันที่ตรวจ</p>
+                  <p className="font-medium">
+                    {format(new Date(draftInfo.auditDate), "dd/MM/yyyy", {
+                      locale: th,
+                    })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">รายการตรวจสอบ</p>
+                  <p className="font-medium">{draftInfo.itemCount} รายการ</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* DataTable */}
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
@@ -439,6 +568,32 @@ export default function AuditJobsListPage() {
             onRowSelectionChange={setSelectedRows}
           />
         )}
+
+        {/* Delete Draft Confirmation */}
+        <AlertDialog
+          open={showDeleteDraftDialog}
+          onOpenChange={setShowDeleteDraftDialog}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>ยืนยันการลบ Draft</AlertDialogTitle>
+              <AlertDialogDescription>
+                คุณต้องการลบ Draft นี้หรือไม่?
+                <br />
+                ข้อมูลทั้งหมดที่บันทึกไว้จะถูกลบและไม่สามารถกู้คืนได้
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteDraft}
+                className="bg-destructive hover:bg-destructive/90"
+              >
+                ลบ Draft
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Bulk Delete Confirmation Dialog */}
         <Dialog

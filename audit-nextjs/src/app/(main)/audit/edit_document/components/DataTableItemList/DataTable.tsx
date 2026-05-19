@@ -65,7 +65,7 @@ import {
 } from "lucide-react";
 import { createAuditItemsColumns, DragHandleContext } from "./Column/Column";
 import EditItemModal from "../EditItemModal";
-import AddItemModal from "../AdditemModal";
+import AddItemModal, { type DraftAddItem } from "../AdditemModal";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
 import { toast } from "sonner";
@@ -135,7 +135,9 @@ interface DataTableItemListProps {
   isLoading?: boolean;
   isLocked?: boolean;
   showAddButton?: boolean;
-  onItemsChange: () => void;
+  isDraftMode?: boolean;
+  inspectionDate?: string;
+  onItemsChange: (updatedItems?: AuditItem[]) => void;
   onCommentsChange?: (
     itemId: number,
     threadType: 1 | 2 | 3,
@@ -151,6 +153,8 @@ export default function DataTableItemList({
   isLoading = false,
   isLocked = false,
   showAddButton = false,
+  isDraftMode = false,
+  inspectionDate,
   onItemsChange,
   onCommentsChange,
 }: DataTableItemListProps) {
@@ -393,6 +397,15 @@ export default function DataTableItemList({
 
   const confirmDelete = async () => {
     if (!deleteItem) return;
+    // Draft mode: remove locally without API call
+    if (isDraftMode) {
+      const newItems = orderedItems.filter((item) => item.item_id !== deleteItem.item_id);
+      setOrderedItems(newItems);
+      onItemsChange(newItems);
+      setDeleteItem(null);
+      toast.success("ลบรายการสำเร็จ");
+      return;
+    }
     try {
       await client.delete(`/audit-items/${deleteItem.item_id}`, {
         headers: dataConfig().headers,
@@ -405,6 +418,52 @@ export default function DataTableItemList({
       setDeleteItem(null);
     }
   };
+
+  // Draft mode: add item to local state without API call
+  const handleDraftItemAdd = useCallback(
+    (draftItem: DraftAddItem) => {
+      const now = new Date().toISOString();
+      // Build a temp audit comment in note_1 if remarks provided
+      const tempNote1: AuditComment[] = draftItem.remarks
+        ? [
+            {
+              id: -(Date.now()),
+              itemId: 0,
+              userId: Number(session?.user?.UserID ?? 0),
+              author: [
+                session?.user?.fristName ?? "",
+                session?.user?.lastName ?? "",
+              ].filter(Boolean).join(" ") || session?.user?.UserCode || "Draft",
+              text: draftItem.remarks,
+              approverStatus: draftItem.auditCommentStatus === "0" ? 0 : null,
+              createdAt: now,
+              updatedAt: now,
+            },
+          ]
+        : [];
+
+      const newItem: AuditItem = {
+        item_id: -(Date.now()), // negative temp ID to distinguish from real
+        job_id: 0,
+        category_item_id: draftItem.category_item_id,
+        category_name: draftItem.category_name,
+        inspection_date: draftItem.inspection_date,
+        item_status: draftItem.item_status,
+        item_status_edit: null,
+        remarks: draftItem.remarks,
+        note_1: tempNote1,
+        note_2: [],
+        note_3: [],
+        created_at: now,
+        updated_at: now,
+        active: true,
+      };
+      const newItems = [...orderedItems, newItem];
+      setOrderedItems(newItems);
+      onItemsChange(newItems);
+    },
+    [orderedItems, onItemsChange, session]
+  );
 
   const columns = useMemo(
     () =>
@@ -422,7 +481,8 @@ export default function DataTableItemList({
         isAMChecklistAllowed,
         branchScoresMap,
         handleBranchScoreSubmit,
-        session?.user?.role_id === 1 || session?.user?.role_id === 2
+        session?.user?.role_id === 1 || session?.user?.role_id === 2,
+        isDraftMode
       ),
     [
       handleEdit,
@@ -439,6 +499,7 @@ export default function DataTableItemList({
       branchScoresMap,
       handleBranchScoreSubmit,
       session,
+      isDraftMode,
     ]
   );
 
@@ -657,6 +718,9 @@ export default function DataTableItemList({
         jobNo={jobNo}
         jobId={jobId}
         jobData={jobData || undefined}
+        isDraftMode={isDraftMode}
+        inspectionDate={inspectionDate}
+        onDraftItemAdd={isDraftMode ? handleDraftItemAdd : undefined}
         onItemAdded={() => {
           setOpenAddModal(false);
           onItemsChange();

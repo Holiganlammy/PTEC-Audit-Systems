@@ -115,6 +115,8 @@ export default function NoteCell({
   useEffect(() => {
     const fetchComments = async () => {
       if (!openThread) return;
+      // Draft items have negative itemId — skip API fetch, keep initialComments
+      if (itemId <= 0) return;
 
       try {
         setIsLoading(true);

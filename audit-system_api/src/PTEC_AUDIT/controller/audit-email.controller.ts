@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Res,
+  ConflictException,
 } from '@nestjs/common';
 import { AuditCreateDocGmailApiService } from '../../email/audit-create-doc-gmail-api.service';
 import {
@@ -32,6 +33,21 @@ export class AuditEmailController {
   @Post('send-job-created')
   @HttpCode(HttpStatus.OK)
   async sendJobCreatedEmail(@Body() body: SendAuditJobEmailDto) {
+    const { alreadySent, sentAt } =
+      await this.auditJobsService.checkAndMarkJobCreatedEmail(
+        body.jobId,
+        body.userby,
+      );
+
+    if (alreadySent) {
+      throw new ConflictException({
+        code: 409,
+        success: false,
+        message: `เมลถูกส่งไปแล้วสำหรับเอกสารนี้ (jobNo: ${body.jobNo})`,
+        sentAt,
+      });
+    }
+
     await this.auditCreateDocGmailService.sendAuditJobCreatedEmail({
       groupEmails: body.groupEmails,
       additionalRecipients: body.additionalRecipients,

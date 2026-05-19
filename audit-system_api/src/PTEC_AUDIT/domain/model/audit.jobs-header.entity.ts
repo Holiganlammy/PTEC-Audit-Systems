@@ -197,6 +197,21 @@ export class AuditJobsHeader {
   active!: boolean;
 
   @Column({
+    name: 'job_created_email_sent_at',
+    type: 'datetime',
+    nullable: true,
+    default: null,
+  })
+  jobCreatedEmailSentAt!: Date | null;
+
+  @Column({
+    name: 'job_created_email_sent_by',
+    type: 'int',
+    nullable: true,
+  })
+  jobCreatedEmailSentBy!: number | null;
+
+  @Column({
     name: 'position_type',
     type: 'nvarchar',
     length: 100,

@@ -1,3 +1,5 @@
+// app/audit/create/add_items/page.tsx
+// Version: 2.0.0 | Date: 2024-05-18 | Updated: Added Draft Mode support with SessionStorage
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -14,94 +16,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, CheckCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle, Loader2, X, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
-// import { AuditItem } from "@/app/(main)/audit/edit_document/components/DataTableItemList/Column/Column";
 import DataTableItemList from "@/app/(main)/audit/edit_document/components/DataTableItemList/DataTable";
-import { format } from 'date-fns';
-import { th } from 'date-fns/locale';
-
-// ── Local type definitions (mirrors editdoc.d.ts) ────────────────────────────
-
-interface DetailUser {
-  userCode: string;
-  fullname: string;
-  email: string;
-  position: string;
-  branchId: number;
-}
-
-interface AuditCategoryItem {
-  categoryItemId: number;
-  categoryName: string;
-  categoryCode: number;
-  description: string;
-  active: boolean;
-}
-
-interface auditComments {
-  auditDetailId: number;
-  itemId: number;
-  approverBy: number | null;
-  approverStatus: number;
-  approverDate: string | null;
-  note: string;
-  createdBy: number;
-  createdAt: string;
-  updatedAt: string;
-  active: boolean;
-  OwnerCommentUser?: DetailUser;
-  approverByUser?: DetailUser;
-}
-
-interface amComments {
-  amDetailId: number;
-  itemId: number;
-  approverBy: number | null;
-  approverStatus: number;
-  approverDate: string | null;
-  note: string;
-  createdBy: number;
-  createdAt: string;
-  updatedAt: string;
-  active: boolean;
-  OwnerCommentUser?: DetailUser;
-  approverByUser?: DetailUser;
-}
-
-interface otherComments {
-  otherDetailId: number;
-  itemId: number;
-  approverBy: number | null;
-  approverStatus: number;
-  approverDate: string | null;
-  note: string;
-  createdBy: number;
-  createdAt: string;
-  updatedAt: string;
-  active: boolean;
-  OwnerCommentUser?: DetailUser;
-  approverByUser?: DetailUser;
-}
-
-interface AuditItemData {
-  itemId: number;
-  jobId: number;
-  categoryItemId: number;
-  inspectionDate: string;
-  itemStatus: number;
-  itemStatusEdit: number;
-  remarks: string;
-  createdBy: number;
-  createdAt: string;
-  updatedAt: string;
-  active: boolean;
-  categoryItem?: AuditCategoryItem;
-  auditComments: auditComments[];
-  amComments: amComments[];
-  otherComments: otherComments[];
-}
+import { format } from "date-fns";
+import { loadDraft, clearDraft, updateDraftItems } from "@/utils/audit-draft";
+import { useSession } from "next-auth/react";
 
 // ── Transform helper ──────────────────────────────────────────────────────────
 
@@ -113,7 +35,7 @@ function transformItems(data: AuditItemData[]): AuditItem[] {
     category_name: item.categoryItem?.categoryName ?? "",
     inspection_date: item.inspectionDate,
     item_status: item.itemStatus,
-    item_status_edit: item.itemStatusEdit, // default to same as item_status
+    item_status_edit: item.itemStatusEdit,
     remarks: item.remarks || "",
     note_1: (item.auditComments || []).map((c) => ({
       id: c.auditDetailId,
@@ -174,30 +96,92 @@ function transformItems(data: AuditItemData[]): AuditItem[] {
 export default function AddItemsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
 
-  const jobNo = searchParams.get("jobNo") ?? "";
-  const jobId = parseInt(searchParams.get("jobId") ?? "0");
+  const mode = searchParams.get("mode"); // "draft" or null
+  const jobNoParam = searchParams.get("jobNo") ?? "";
+  const jobIdParam = parseInt(searchParams.get("jobId") ?? "0");
 
+  const [isDraftMode, setIsDraftMode] = useState(false);
   const [auditItems, setAuditItems] = useState<AuditItem[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
   const [jobData, setJobData] = useState<AuditJobData | null>(null);
   const [showFinishDialog, setShowFinishDialog] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Draft state
+  const [draftHeader, setDraftHeader] = useState<DraftHeader | null>(null);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+
+  // ตรวจสอบโหมด Draft
   useEffect(() => {
-    if (!jobNo) return;
-    client
-      .get("/audit-jobs/detail", { params: { jobNo }, headers: dataConfig().headers })
-      .then((res) => {
-        if (res.data?.success) setJobData(res.data.data);
-      })
-      .catch(() => {});
-  }, [jobNo]);
+    if (mode === "draft") {
+      const draft = loadDraft();
+      if (!draft) {
+        toast.error("ไม่พบข้อมูล Draft", {
+          description: "กรุณาสร้าง Header ก่อน",
+        });
+        router.push("/audit/create");
+        return;
+      }
 
+      setIsDraftMode(true);
+      setDraftHeader(draft.header);
+
+      // โหลด Items จาก Draft
+      if (draft.items && draft.items.length > 0) {
+        // แปลง Draft Items เป็น AuditItem format
+        const draftItems: AuditItem[] = draft.items.map((item) => ({
+          item_id: 0, // Temp ID
+          job_id: 0,
+          category_item_id: item.category_item_id,
+          category_name: item.category_name,
+          inspection_date: item.inspection_date,
+          item_status: item.item_status,
+          item_status_edit: item.item_status_edit,
+          remarks: item.remarks,
+          note_1: item.note_1 || [],
+          note_2: item.note_2 || [],
+          note_3: item.note_3 || [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          active: true,
+        }));
+        setAuditItems(draftItems);
+      }
+
+      toast.info("โหมด Draft", {
+        id: "draft-mode-info",
+        description: "กำลังเพิ่มรายการตรวจสอบ",
+      });
+    } else if (jobNoParam && jobIdParam) {
+      setIsDraftMode(false);
+    }
+  }, [mode, jobNoParam, jobIdParam, router]);
+
+  // Fetch Job Data (ถ้าไม่ใช่ Draft Mode)
+  useEffect(() => {
+    if (!isDraftMode && jobNoParam) {
+      client
+        .get("/audit-jobs/detail", {
+          params: { jobNo: jobNoParam },
+          headers: dataConfig().headers,
+        })
+        .then((res) => {
+          if (res.data?.success) setJobData(res.data.data);
+        })
+        .catch(() => {});
+    }
+  }, [isDraftMode, jobNoParam]);
+
+  // Fetch Items (ถ้าไม่ใช่ Draft Mode)
   const fetchItems = useCallback(async () => {
-    if (!jobId) return;
+    if (isDraftMode || !jobIdParam) return;
+
     try {
       setIsLoadingItems(true);
-      const response = await client.get(`/audit-items/job/${jobId}`, {
+      const response = await client.get(`/audit-items/job/${jobIdParam}`, {
         headers: dataConfig().headers,
       });
       if (response.data.success) {
@@ -209,126 +193,340 @@ export default function AddItemsPage() {
     } finally {
       setIsLoadingItems(false);
     }
-  }, [jobId]);
+  }, [isDraftMode, jobIdParam]);
 
   useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
+    if (!isDraftMode) {
+      fetchItems();
+    }
+  }, [fetchItems, isDraftMode]);
 
-  const handleFinish = async () => {
-    if (!jobData) return;
+  // Fetch branches & users (สำหรับ Draft Mode)
+  useEffect(() => {
+    if (!isDraftMode) return;
+
+    const fetchBranches = async () => {
+      try {
+        const response = await client.get("/branch", {
+          headers: dataConfig().headers,
+        });
+        if (response.data.success) {
+          setBranches(response.data.data);
+        }
+      } catch (error) {
+        console.error("Error fetching branches:", error);
+      }
+    };
+
+    const fetchUsers = async () => {
+      try {
+        const response = await client.get("/users", {
+          headers: dataConfig().headers,
+        });
+        if (Array.isArray(response.data)) {
+          setUsers(response.data);
+        }
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      }
+    };
+
+    fetchBranches();
+    fetchUsers();
+  }, [isDraftMode]);
+
+  /**
+   * เสร็จสิ้น - สร้าง Job + Items (Draft Mode)
+   */
+  const handleFinishDraft = async () => {
+    if (!draftHeader) return;
+
     try {
-      // Format วันที่เป็นภาษาไทย
-      const auditDateFormatted = format(jobData.auditDate, 'dd MMMM yyyy', { locale: th });
- 
-      // เตรียมข้อมูลส่งเมล
-      const emailPayload = {
-        groupEmails: [
-          // 'ptaudit@rpcthai.com',    // Group 1: PURE_GroupAM
-          // 'groupssd@rpcthai.com',   // Group 2: PTEC-Dept-SSD
-          'pww@rpcthai.com',
-          'kkj@rpcthai.com',
-          'wsr@rpcthai.com'
-        ],
-        // additionalRecipients: [
-        //   'swp@rpcthai.com',        // บุคคลเพิ่มเติม
-        // ],
-        jobNo: jobData.jobNo,
-        branchName: jobData.branchName,
-        auditDate: auditDateFormatted,
-        createdByFullname: jobData.createdByUser.fullname,
-        auditorFullname: jobData.auditor.fullname,
-        districtManagerFullname: jobData.districtManager.fullname,
-        branchManagerFullname: jobData.branchManager.fullname,
-        jobUrl: `${window.location.origin}/audit/edit_document?jobNo=${jobData.jobNo}`,
+      setIsSubmitting(true);
+
+      // 1. หา Branch Manager
+      const selectedBranch = branches.find(
+        (b) => b.branchid.toString() === draftHeader.Branch
+      );
+      const branchManagers = users.filter(
+        (u) =>
+          u.Position?.toLowerCase().includes("ผู้จัดการสาขา") ||
+          u.PositionCode === "BM"
+      );
+      const branchManager = branchManagers.find(
+        (u) => u.BranchID === selectedBranch?.branchid
+      );
+
+      // 2. สร้าง Header Payload
+      const headerPayload = {
+        branchId: parseInt(draftHeader.Branch),
+        branchName: selectedBranch?.name || "",
+        auditDate: format(new Date(draftHeader.Date), "yyyy-MM-dd"),
+        address: draftHeader.Address || "",
+        pmCode: draftHeader.PMCode || "",
+        auditorUserId: parseInt(draftHeader.Auditor),
+        districtManagerUserId: parseInt(draftHeader.DistrictManager),
+        branchManagerUserId: parseInt(branchManager?.UserID || "0"),
+        additionalNotes: draftHeader.AdditionalNotes || "",
+        positionType: draftHeader.Type,
+        status: 1,
+        createdBy: session?.user?.UserID,
       };
- 
-      // ส่งเมล
-      const response = await client.post('/audit-email/send-job-created', emailPayload, {
+
+      // 3. สร้าง Job
+      const result = await client.post("/audit-jobs/create", headerPayload, {
         headers: dataConfig().headers,
       });
- 
-      if (!response.data.success) {
-        throw new Error('Failed to send email');
+
+      const createdJobNo = result.data.jobNo ?? result.data.data?.jobNo ?? "";
+      const createdJobId = result.data.jobId ?? result.data.data?.jobId ?? "";
+
+      if (!createdJobId) {
+        throw new Error("ไม่สามารถสร้าง Job ได้");
       }
- 
-      const result = response.data;
-      console.log('✓ Email sent:', result);
- 
-      // แสดง Toast หรือ Alert
-      toast.success('เสร็จสิ้น! ส่งเมลแจ้งเตือนเรียบร้อยแล้ว');
- 
-      // Redirect ไปหน้าอื่น (ถ้าต้องการ)
-      // router.push('/audit/list');
- 
+
+      // 4. สร้าง Items (ถ้ามี)
+      if (auditItems.length > 0) {
+        const itemsPayload = auditItems.map((item) => ({
+          jobId: createdJobId,
+          categoryItemId: item.category_item_id,
+          inspectionDate: item.inspection_date,
+          itemStatus: item.item_status,
+          remarks: item.remarks,
+          createdBy: session?.user?.UserID,
+        }));
+
+        const bulkResult = await client.post(
+          `/audit-items/bulk`,
+          itemsPayload,
+          { headers: dataConfig().headers }
+        );
+
+        // 4.1 Post audit comments (note_1) ที่บันทึกไว้ใน draft
+        const createdItems: { itemId: number }[] =
+          bulkResult.data?.data ?? bulkResult.data ?? [];
+        if (Array.isArray(createdItems) && createdItems.length === auditItems.length) {
+          for (let i = 0; i < auditItems.length; i++) {
+            const item = auditItems[i];
+            const created = createdItems[i];
+            if (!created?.itemId) continue;
+            const draftComment = item.note_1?.[0];
+            if (!draftComment?.text?.trim()) continue;
+            const approverStatus = draftComment.approverStatus === 0 ? 0 : null;
+            await client.post(
+              `/audit-items/${created.itemId}/audit-comments`,
+              {
+                itemId: created.itemId,
+                note: draftComment.text,
+                userId: draftHeader.Auditor,
+                createdBy: session?.user?.UserID,
+                approverStatus,
+              },
+              { headers: dataConfig().headers }
+            );
+          }
+        }
+      }
+
+      // 5. Clear Draft
+      clearDraft();
+
+      toast.success("เสร็จสิ้น!", {
+        description: `งาน ${createdJobNo} ถูกสร้างเรียบร้อยแล้ว`,
+      });
+
+      router.push("/audit/list");
     } catch (error) {
-      console.error('Error sending email:', error);
-      toast.error('เกิดข้อผิดพลาดในการส่งเมล');
+      console.error("Error creating job:", error);
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response
+          ?.data?.message ?? "ไม่สามารถสร้างงานได้";
+      toast.error("เกิดข้อผิดพลาด", { description: message });
+    } finally {
+      setIsSubmitting(false);
     }
   };
+
+  const handleFinish = () => {
+    if (isDraftMode) {
+      handleFinishDraft();
+    } else {
+      router.push("/audit/list");
+    }
+  };
+
+  // Items เปลี่ยน → อัพเดท Draft (ถ้าเป็น Draft Mode)
+  const handleItemsChange = useCallback((updatedItems?: AuditItem[]) => {
+    if (isDraftMode) {
+      if (updatedItems !== undefined) {
+        setAuditItems(updatedItems);
+        const draftItems = updatedItems.map((item) => ({
+          tempId: `temp-${item.item_id}`,
+          category_item_id: item.category_item_id,
+          category_name: item.category_name,
+          inspection_date: item.inspection_date,
+          item_status: item.item_status,
+          item_status_edit: item.item_status_edit || null,
+          remarks: item.remarks,
+          note_1: item.note_1 ?? [],
+          note_2: item.note_2 ?? [],
+          note_3: item.note_3 ?? [],
+        }));
+        updateDraftItems(draftItems);
+      }
+    } else {
+      fetchItems();
+    }
+  }, [isDraftMode, fetchItems]);
+
+  const handleBack = () => {
+    if (isDraftMode) {
+      // กลับไป Create Page (Draft ยังอยู่)
+      router.push("/audit/create");
+    } else {
+      router.push("/audit/list");
+    }
+  };
+
+  // ถ้าเป็น Normal Mode แต่ Job ถูกยกเลิก
+  if (!isDraftMode && jobData?.active === false) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center gap-6 text-center px-4">
+        <div className="rounded-full bg-red-100 p-8">
+          <X className="h-20 w-20 text-red-500" />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold text-red-600">
+            เอกสารถูกยกเลิกแล้ว
+          </h1>
+          <p className="text-muted-foreground">
+            งาน:{" "}
+            <span className="font-medium text-foreground">{jobNoParam}</span>
+          </p>
+          <p className="text-sm text-muted-foreground">
+            เอกสารนี้ถูกยกเลิกและไม่สามารถดำเนินการใดๆ ได้
+          </p>
+        </div>
+        <Button variant="outline" onClick={() => router.push("/audit/list")}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          กลับรายการ
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="">
       <div className="max-w-[1400px] mx-auto px-4">
         {/* Header */}
         <div className="mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => router.push("/audit/list")}
-            className="mb-4"
-          >
+          <Button variant="ghost" onClick={handleBack} className="mb-4">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            กลับรายการ
+            {isDraftMode ? "กลับไปแก้ไข Header" : "กลับรายการ"}
           </Button>
 
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold">เพิ่มรายการตรวจสอบ</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                งาน:{" "}
-                <span className="font-medium text-foreground">{jobNo}</span>
-              </p>
+              {isDraftMode ? (
+                <p className="text-sm text-muted-foreground mt-1">
+                  โหมด:{" "}
+                  <span className="font-medium text-orange-600">Draft</span> |
+                  สาขา:{" "}
+                  <span className="font-medium text-foreground">
+                    {branches.find(
+                      (b) => b.branchid.toString() === draftHeader?.Branch
+                    )?.name || "ไม่ระบุ"}
+                  </span>
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground mt-1">
+                  งาน:{" "}
+                  <span className="font-medium text-foreground">
+                    {jobNoParam}
+                  </span>
+                </p>
+              )}
             </div>
-            <Button onClick={() => setShowFinishDialog(true)}>
-              <CheckCircle className="mr-2 h-4 w-4" />
-              เสร็จสิ้น
+            <Button onClick={() => setShowFinishDialog(true)} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  กำลังบันทึก...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  เสร็จสิ้น
+                </>
+              )}
             </Button>
           </div>
         </div>
 
+        {/* Draft Mode Warning */}
+        {isDraftMode && (
+          <Alert className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>โหมด Draft:</strong> ข้อมูลจะถูกบันทึกชั่วคราวใน
+              SessionStorage เมื่อกด <strong>&ldquo;เสร็จสิ้น&rdquo;</strong>{" "}
+              ระบบจะสร้างเอกสารทันที
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Finish confirmation dialog */}
-        <AlertDialog open={showFinishDialog} onOpenChange={setShowFinishDialog}>
+        <AlertDialog
+          open={showFinishDialog}
+          onOpenChange={setShowFinishDialog}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>ยืนยันการเสร็จสิ้น</AlertDialogTitle>
               <AlertDialogDescription asChild>
                 <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>
-                    เมื่อกด <strong className="text-foreground">ยืนยัน</strong> ระบบจะ
-                    <strong className="text-foreground"> ส่งเมลแจ้งเตือน</strong> ไปยังผู้ที่เกี่ยวข้องทันที
-                  </p>
-                  <p>
-                    หากยังต้องการเพิ่มรายการตรวจสอบ กรุณากด <strong className="text-foreground">ยกเลิก</strong> แล้วเพิ่มรายการให้ครบก่อน
-                  </p>
+                  {isDraftMode ? (
+                    <>
+                      <p>
+                        เมื่อกด <strong className="text-foreground">ยืนยัน</strong>{" "}
+                        ระบบจะ:
+                      </p>
+                      <ul className="list-disc list-inside space-y-1 ml-2">
+                        <li>สร้างเอกสารงานตรวจสอบ</li>
+                        <li>บันทึกรายการตรวจสอบทั้งหมด ({auditItems.length} รายการ)</li>
+                        <li>ลบข้อมูล Draft</li>
+                      </ul>
+                    </>
+                  ) : (
+                    <p>
+                      เมื่อกด <strong className="text-foreground">ยืนยัน</strong>{" "}
+                      ระบบจะพาคุณกลับไปยังหน้ารายการ
+                    </p>
+                  )}
                 </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>ยกเลิก (เพิ่มรายการต่อ)</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={async () => {
-                  await handleFinish();
-                  router.push("/audit/list");
-                }}
-              >
-                ยืนยัน (ส่งเมลและเสร็จสิ้น)
+              <AlertDialogCancel>
+                ยกเลิก (เพิ่มรายการต่อ)
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={handleFinish} disabled={isSubmitting || (!isDraftMode)}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    กำลังบันทึก...
+                  </>
+                ) : (
+                  isDraftMode ? "ยืนยัน (สร้างเอกสาร)" : "ยืนยัน"
+                )}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
 
         {/* Loading guard */}
-        {!jobId ? (
+        {!isDraftMode && !jobIdParam ? (
           <div className="flex items-center justify-center py-32">
             <div className="text-center">
               <Loader2 className="h-10 w-10 animate-spin text-muted-foreground mx-auto mb-4" />
@@ -338,12 +536,14 @@ export default function AddItemsPage() {
         ) : (
           <DataTableItemList
             items={auditItems}
-            jobNo={jobNo}
-            jobId={jobId}
+            jobNo={isDraftMode ? "DRAFT" : jobNoParam}
+            jobId={isDraftMode ? 0 : jobIdParam}
             jobData={jobData ?? undefined}
             isLoading={isLoadingItems}
             showAddButton
-            onItemsChange={fetchItems}
+            isDraftMode={isDraftMode}
+            inspectionDate={draftHeader?.Date}
+            onItemsChange={handleItemsChange}
           />
         )}
       </div>

@@ -1,3 +1,5 @@
+// app/audit/create/page.tsx
+// Version: 2.0.0 | Date: 2024-05-18 | Updated: Added Draft Stage with SessionStorage
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -8,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Popover,
   PopoverContent,
@@ -35,6 +38,8 @@ import {
   FileText,
   FileSpreadsheet,
   X,
+  AlertCircle,
+  FileWarning,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -50,41 +55,42 @@ import {
   FieldSet,
 } from "@/components/ui/field";
 import { useSession } from "next-auth/react";
-import Branch from "./components/Branch"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-
+import Branch from "./components/Branch";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { saveDraft, loadDraft, clearDraft, updateDraftHeader } from "@/utils/audit-draft";
 
 const formSchema = z.object({
   Branch: z.string().nonempty("กรุณาเลือกสาขา"),
   Firstname: z.string().optional(),
   Lastname: z.string().optional(),
-  Date: z.date({ error: "กรุณาเลือกวันที่" }),
+  Date: z.date().refine((date) => !isNaN(date.getTime()), {
+    message: "กรุณาเลือกวันที่",
+  }),
   PMCode: z.string().min(1, "กรุณาเลือก PM Code"),
   Address: z.string().optional(),
   Auditor: z.string().nonempty("กรุณาเลือกผู้ตรวจสอบ"),
   DistrictManager: z.string().nonempty("กรุณาเลือกผู้จัดการเขต"),
   BranchManager: z.string().optional(),
   AdditionalNotes: z.string().optional(),
-  Type: z.enum(["visit", "online"]),
+  Type: z.enum(["visit", "online"]).refine((val) => val !== undefined, { message: "กรุณาเลือกประเภทการตรวจ" }),
 });
 
 const getFileIcon = (fileName: string) => {
-  const ext = fileName.split('.').pop()?.toLowerCase();
-  
-  if (ext === 'pdf') {
+  const ext = fileName.split(".").pop()?.toLowerCase();
+
+  if (ext === "pdf") {
     return <FileText className="h-4 w-4 text-red-500" />;
   }
-  if (ext === 'xlsx' || ext === 'xls') {
+  if (ext === "xlsx" || ext === "xls") {
     return <FileSpreadsheet className="h-4 w-4 text-green-600" />;
   }
-  if (['jpg', 'jpeg', 'png', 'gif'].includes(ext || '')) {
+  if (["jpg", "jpeg", "png", "gif"].includes(ext || "")) {
     return <ImageIcon className="h-4 w-4 text-blue-500" />;
   }
-  
+
   return <Paperclip className="h-4 w-4 text-muted-foreground" />;
 };
- 
 
 export default function CreateAuditJobPage() {
   const router = useRouter();
@@ -107,7 +113,6 @@ export default function CreateAuditJobPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [userPersonalCodes, setUserPersonalCodes] = useState<User[]>([]);
-  const [excelFile, setExcelFile] = useState<File | null>(null);
 
   // Form state
   const form = useForm<z.infer<typeof formSchema>>({
@@ -126,6 +131,29 @@ export default function CreateAuditJobPage() {
       Type: undefined,
     },
   });
+
+  // โหลด Draft เมื่อ Component Mount
+  useEffect(() => {
+    const draft = loadDraft();
+    if (draft) {
+      toast.info("พบข้อมูล Draft", {
+        description: "กำลังโหลดข้อมูลที่บันทึกไว้...",
+      });
+
+      // Restore form values
+      form.setValue("Branch", draft.header.Branch);
+      form.setValue("Firstname", draft.header.Firstname);
+      form.setValue("Lastname", draft.header.Lastname);
+      form.setValue("Date", new Date(draft.header.Date));
+      form.setValue("PMCode", draft.header.PMCode);
+      form.setValue("Address", draft.header.Address);
+      form.setValue("Auditor", draft.header.Auditor);
+      form.setValue("DistrictManager", draft.header.DistrictManager);
+      form.setValue("BranchManager", draft.header.BranchManager || "");
+      form.setValue("AdditionalNotes", draft.header.AdditionalNotes || "");
+      form.setValue("Type", draft.header.Type);
+    }
+  }, [form]);
 
   // Fetch branches from API
   useEffect(() => {
@@ -149,7 +177,7 @@ export default function CreateAuditJobPage() {
         toast.error("ไม่สามารถโหลดข้อมูลสาขาได้", {
           description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
         });
-      } finally{
+      } finally {
         setIsLoadingBranches(false);
       }
     };
@@ -197,7 +225,10 @@ export default function CreateAuditJobPage() {
 
         if (Array.isArray(response.data)) {
           setUserPersonalCodes(response.data);
-        } else if (response.data?.success && Array.isArray(response.data?.data)) {
+        } else if (
+          response.data?.success &&
+          Array.isArray(response.data?.data)
+        ) {
           setUserPersonalCodes(response.data.data);
         } else if (Array.isArray(response.data?.data)) {
           setUserPersonalCodes(response.data.data);
@@ -221,27 +252,33 @@ export default function CreateAuditJobPage() {
   }, []);
 
   // Filter users by position/role
-  const auditors = users.filter((u) => ["KKJ", "PWW", "WSR"].includes(u.UserCode));
+  const auditors = users.filter((u) =>
+    ["KKJ", "PWW", "WSR"].includes(u.UserCode)
+  );
 
   const districtManagers = users.filter((u) =>
     ["TNM", "KTK", "PRH", "STJ", "TKA"].includes(u.UserCode)
   );
-    const handleJobHeaderFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+
+  const handleJobHeaderFilesChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     if (e.target.files && e.target.files.length > 0) {
       const selectedFiles = Array.from(e.target.files);
-      
+
       // เพิ่มไฟล์ใหม่ (ไม่ซ้ำ)
       setJobHeaderFiles((prev) => [
         ...prev,
         ...selectedFiles.filter(
-          (newFile) => !prev.some(
-            (existingFile) => 
-              existingFile.name === newFile.name && 
-              existingFile.size === newFile.size
-          )
+          (newFile) =>
+            !prev.some(
+              (existingFile) =>
+                existingFile.name === newFile.name &&
+                existingFile.size === newFile.size
+            )
         ),
       ]);
-      
+
       // Reset input
       e.target.value = "";
     }
@@ -265,7 +302,7 @@ export default function CreateAuditJobPage() {
       form.setValue("Address", branch.FullAddress || "");
     }
     setOpenBranch(false);
-  }; 
+  };
 
   // Get display text for selected values
   const getSelectedBranchText = () => {
@@ -284,94 +321,46 @@ export default function CreateAuditJobPage() {
     const user = usersList.find((u) => u.UserID === fieldValue);
     return user ? `${user.Fullname}` : placeholder;
   };
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    setIsSubmitting(true);
-    
+
+  /**
+   * บันทึก Draft และไปหน้า Add Items
+   */
+  const handleSaveDraft = (values: z.infer<typeof formSchema>) => {
     try {
-      const selectedBranch = branches.find((b) => b.branchid.toString() === values.Branch);
-      const branchManager = branchManagers.find((u) => u.BranchID === selectedBranch?.branchid);
- 
-      const payload = {
-        branchId: parseInt(values.Branch),
-        branchName: selectedBranch?.name || "",
-        auditDate: format(values.Date, "yyyy-MM-dd"),
-        address: values.Address || "",
-        pmCode: values.PMCode || "",
-        auditorUserId: parseInt(values.Auditor),
-        districtManagerUserId: parseInt(values.DistrictManager),
-        branchManagerUserId: parseInt(branchManager?.UserID || "0"),
-        additionalNotes: values.AdditionalNotes || "",
-        positionType: values.Type,
-        status: 1,
-        createdBy: session?.user?.UserID,
-      };
- 
-      const result = await client.post("/audit-jobs/create", payload, {
-        headers: dataConfig().headers,
+      // บันทึก Header ลง SessionStorage
+      updateDraftHeader({
+        Branch: values.Branch,
+        Firstname: values.Firstname || "",
+        Lastname: values.Lastname || "",
+        Date: values.Date.toISOString(),
+        PMCode: values.PMCode,
+        Address: values.Address || "",
+        Auditor: values.Auditor,
+        DistrictManager: values.DistrictManager,
+        BranchManager: values.BranchManager,
+        AdditionalNotes: values.AdditionalNotes,
+        Type: values.Type,
       });
- 
-      const createdJobNo = result.data.jobNo ?? result.data.data?.jobNo ?? "";
-      const createdJobId = result.data.jobId ?? result.data.data?.jobId ?? "";
- 
-      if (jobHeaderFiles.length > 0) {
-        const formData = new FormData();
-        jobHeaderFiles.forEach((file) => {
-          formData.append("files", file);
-        });
-        formData.append("uploadedBy", String(session?.user?.UserID ?? ""));
- 
-        try {
-          await client.post(
-            `/audit-jobs/${createdJobId}/header-attachments`,
-            formData,
-            {
-              headers: {
-                ...dataConfig().headers,
-                "Content-Type": "multipart/form-data",
-              },
-            }
-          );
-          // console.log(`Uploaded ${jobHeaderFiles.length} files for job ${createdJobNo}`);
-        } catch (uploadError) {
-          console.error("Error uploading job header files:", uploadError);
-          toast.warning("สร้างงานสำเร็จ แต่ไม่สามารถอัพโหลดไฟล์ได้", {
-            description: "กรุณาอัพโหลดไฟล์ใหม่ในหน้ารายละเอียดงาน",
-          });
-        }
-      }
- 
-      toast.success("สร้างงานสำเร็จ", {
-        description: `งาน ${createdJobNo} ถูกสร้างเรียบร้อยแล้ว`,
+
+      toast.success("บันทึก Draft แล้ว", {
+        description: "กำลังไปหน้าเพิ่มรายการตรวจสอบ...",
       });
- 
-      router.push(
-        `/audit/create/add_items?jobNo=${encodeURIComponent(createdJobNo)}&jobId=${createdJobId}`
-      );
-    } catch (error: unknown) {
-      console.error("Error creating audit job:", error);
-      
-      const errorMessage =
-        error instanceof Error && "response" in error
-          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-      
-      toast.error("เกิดข้อผิดพลาด", {
-        description: errorMessage || "ไม่สามารถสร้างงานได้",
+
+      // Redirect ไปหน้า Add Items (Draft Mode)
+      router.push("/audit/create/add_items?mode=draft");
+    } catch (error) {
+      console.error("Error saving draft:", error);
+      toast.error("ไม่สามารถบันทึก Draft ได้", {
+        description: "กรุณาลองใหม่อีกครั้ง",
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setExcelFile(e.target.files[0]);
-    }
-  };
+  const handleFormError = (
+    errors: FieldErrors<z.infer<typeof formSchema>>
+  ) => {
+    console.error("Form validation errors:", errors);
 
-  const handleFormError = (errors: FieldErrors<z.infer<typeof formSchema>>) => {
-    console.error('Form validation errors:', errors);
-    
     const firstError = Object.values(errors)[0];
     if (firstError?.message) {
       toast.error("กรุณากรอกข้อมูลให้ครบถ้วน", {
@@ -379,12 +368,27 @@ export default function CreateAuditJobPage() {
       });
     }
   };
+
+  const handleCancel = () => {
+    // ถ้ามี Draft ให้ถามก่อน
+    const draft = loadDraft();
+    if (draft) {
+      if (confirm("ต้องการยกเลิกและลบ Draft หรือไม่?")) {
+        clearDraft();
+        toast.info("ลบ Draft แล้ว");
+        router.back();
+      }
+    } else {
+      router.back();
+    }
+  };
+
   return (
     <div className="">
       <div className="max-w-[1400px] mx-auto px-4">
         {/* Header */}
         <div className="mb-6">
-          <Button variant="ghost" onClick={() => router.back()} className="mb-4">
+          <Button variant="ghost" onClick={handleCancel} className="mb-4">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
@@ -396,11 +400,11 @@ export default function CreateAuditJobPage() {
               </p>
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" onClick={() => router.back()}>
+              <Button variant="outline" onClick={handleCancel}>
                 ยกเลิก
               </Button>
               <Button
-                onClick={form.handleSubmit(onSubmit)}
+                onClick={form.handleSubmit(handleSaveDraft, handleFormError)}
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
@@ -409,64 +413,91 @@ export default function CreateAuditJobPage() {
                     กำลังบันทึก...
                   </>
                 ) : (
-                  "บันทึก"
+                  "เพิ่มรายการตรวจสอบ"
                 )}
               </Button>
             </div>
           </div>
         </div>
 
-        <form onSubmit={form.handleSubmit(onSubmit, handleFormError)} className="space-y-6">
+        {/* Warning: ไฟล์จะหายถ้า Refresh */}
+        {jobHeaderFiles.length > 0 && (
+          <Alert className="mb-6">
+            <FileWarning className="h-4 w-4" />
+            <AlertDescription>
+              <strong>หมายเหตุ:</strong> ไฟล์แนบจะถูกบันทึกเมื่อกด{" "}
+              <strong>&quot;เสร็จสิ้น&quot;</strong> เท่านั้น
+              หาก Refresh หน้าเว็บหรือปิดแท็บ กรุณาเลือกไฟล์ใหม่
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <form
+          onSubmit={form.handleSubmit(handleSaveDraft, handleFormError)}
+          className="space-y-6"
+        >
           {/* Main Card with all fields */}
           <Card>
             <CardContent className="pt-6">
               <FieldSet>
                 <div className="flex items-center justify-between">
-                    <div>
-                        <FieldLegend>สร้าง Audit Report</FieldLegend>
-                        <FieldDescription>
-                          กรุณากรอกข้อมูลให้ครบถ้วนเพื่อสร้างงานตรวจสอบ
-                        </FieldDescription>
-                    </div>
-                    <Controller
-                      name="Type"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <Field className="mx-2 w-auto">
-                          <FieldLabel className="justify-center">
-                            ประเภทการตรวจ <span className="text-red-500">*</span>
-                          </FieldLabel>
-                          <RadioGroup
-                            value={field.value}
-                            onValueChange={field.onChange}
-                            className="flex gap-6"
-                          >
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="visit" id="create-type-visit" />
-                              <Label htmlFor="create-type-visit" className="cursor-pointer font-normal">
-                                Visit
-                              </Label>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="online" id="create-type-online" />
-                              <Label htmlFor="create-type-online" className="cursor-pointer font-normal">
-                                Online
-                              </Label>
-                            </div>
-                          </RadioGroup>
-                          {fieldState.error && (
-                            <p className="text-sm text-red-500 mt-1">
-                              {fieldState.error.message}
-                            </p>
-                          )}
-                        </Field>
-                      )}
-                    />
+                  <div>
+                    <FieldLegend>สร้าง Audit Report</FieldLegend>
+                    <FieldDescription>
+                      กรุณากรอกข้อมูลให้ครบถ้วนเพื่อสร้างงานตรวจสอบ
+                    </FieldDescription>
+                  </div>
+                  <Controller
+                    name="Type"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field className="mx-2 w-auto">
+                        <FieldLabel className="justify-center">
+                          ประเภทการตรวจ{" "}
+                          <span className="text-red-500">*</span>
+                        </FieldLabel>
+                        <RadioGroup
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          className="flex gap-6"
+                        >
+                          <div className="flex items-center gap-2">
+                            <RadioGroupItem
+                              value="visit"
+                              id="create-type-visit"
+                            />
+                            <Label
+                              htmlFor="create-type-visit"
+                              className="cursor-pointer font-normal"
+                            >
+                              Visit
+                            </Label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <RadioGroupItem
+                              value="online"
+                              id="create-type-online"
+                            />
+                            <Label
+                              htmlFor="create-type-online"
+                              className="cursor-pointer font-normal"
+                            >
+                              Online
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                        {fieldState.error && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {fieldState.error.message}
+                          </p>
+                        )}
+                      </Field>
+                    )}
+                  />
                 </div>
 
                 <div className="space-y-6 mt-6">
-                  {/* Row 1: Branch, Date, PM Code */}
-                  
+                  {/* Row 1: PM Code, Branch, Date */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* PM Code */}
                     <Controller
@@ -482,7 +513,10 @@ export default function CreateAuditJobPage() {
                               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                             </div>
                           ) : (
-                            <Popover open={openPMCode} onOpenChange={setOpenPMCode}>
+                            <Popover
+                              open={openPMCode}
+                              onOpenChange={setOpenPMCode}
+                            >
                               <PopoverTrigger asChild>
                                 <Button
                                   variant="outline"
@@ -492,14 +526,21 @@ export default function CreateAuditJobPage() {
                                 >
                                   {field.value
                                     ? (() => {
-                                        const u = userPersonalCodes.find((u) => u.PersonalCode === field.value);
-                                        return u ? `${u.PersonalCode} - ${u.fristName} ${u.lastName}` : field.value;
+                                        const u = userPersonalCodes.find(
+                                          (u) => u.PersonalCode === field.value
+                                        );
+                                        return u
+                                          ? `${u.PersonalCode} - ${u.fristName} ${u.lastName}`
+                                          : field.value;
                                       })()
                                     : "เลือก PM Code"}
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent className="w-full p-0" align="start">
+                              <PopoverContent
+                                className="w-full p-0"
+                                align="start"
+                              >
                                 <Command shouldFilter={false}>
                                   <CommandInput
                                     placeholder="ค้นหา PM Code..."
@@ -515,10 +556,18 @@ export default function CreateAuditJobPage() {
                                           if (!pmSearch) return true;
                                           const s = pmSearch.toLowerCase();
                                           return (
-                                            u.PersonalCode?.toLowerCase().includes(s) ||
-                                            u.fristName?.toLowerCase().includes(s) ||
-                                            u.lastName?.toLowerCase().includes(s) ||
-                                            u.BranchName?.toLowerCase().includes(s)
+                                            u.PersonalCode?.toLowerCase().includes(
+                                              s
+                                            ) ||
+                                            u.fristName
+                                              ?.toLowerCase()
+                                              .includes(s) ||
+                                            u.lastName
+                                              ?.toLowerCase()
+                                              .includes(s) ||
+                                            u.BranchName?.toLowerCase().includes(
+                                              s
+                                            )
                                           );
                                         })
                                         .map((u) => (
@@ -527,15 +576,15 @@ export default function CreateAuditJobPage() {
                                             value={`${u.PersonalCode} ${u.fristName} ${u.lastName} ${u.BranchName}`}
                                             onSelect={() => {
                                               field.onChange(u.PersonalCode);
-                                              // Auto-fill Branch and Address from user's BranchID
-                                              const matchedBranch = branches.find((b) => b.branchid === u.BranchID);
-                                              if (matchedBranch) {
-                                                // form.setValue("Branch", matchedBranch.branchid.toString());
-                                                // form.setValue("Address", matchedBranch.FullAddress || "");
-                                              }
                                               // Auto-fill Firstname and Lastname
-                                              form.setValue("Firstname", u.fristName || "");
-                                              form.setValue("Lastname", u.lastName || "");
+                                              form.setValue(
+                                                "Firstname",
+                                                u.fristName || ""
+                                              );
+                                              form.setValue(
+                                                "Lastname",
+                                                u.lastName || ""
+                                              );
                                               setPmSearch("");
                                               setOpenPMCode(false);
                                             }}
@@ -548,7 +597,8 @@ export default function CreateAuditJobPage() {
                                                   : "opacity-0"
                                               )}
                                             />
-                                            {u.PersonalCode} - {u.fristName} {u.lastName}
+                                            {u.PersonalCode} - {u.fristName}{" "}
+                                            {u.lastName}
                                           </CommandItem>
                                         ))}
                                     </CommandGroup>
@@ -565,7 +615,7 @@ export default function CreateAuditJobPage() {
                         </Field>
                       )}
                     />
-                    
+
                     {/* Branch */}
                     <Controller
                       name="Branch"
@@ -599,7 +649,6 @@ export default function CreateAuditJobPage() {
                       )}
                     />
 
-
                     {/* Date */}
                     <Controller
                       name="Date"
@@ -629,7 +678,10 @@ export default function CreateAuditJobPage() {
                                 )}
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
+                            <PopoverContent
+                              className="w-auto p-0"
+                              align="start"
+                            >
                               <Calendar
                                 mode="single"
                                 selected={field.value}
@@ -647,6 +699,7 @@ export default function CreateAuditJobPage() {
                       )}
                     />
 
+                    {/* Firstname */}
                     <Controller
                       name="Firstname"
                       control={form.control}
@@ -670,6 +723,7 @@ export default function CreateAuditJobPage() {
                       )}
                     />
 
+                    {/* Lastname */}
                     <Controller
                       name="Lastname"
                       control={form.control}
@@ -692,7 +746,6 @@ export default function CreateAuditJobPage() {
                         </Field>
                       )}
                     />
-
                   </div>
 
                   {/* Row 2: Address (Full Width) */}
@@ -714,7 +767,7 @@ export default function CreateAuditJobPage() {
                     />
                   </div>
 
-                  {/* Row 3: Auditor, District Manager, Branch Manager */}
+                  {/* Row 3: Auditor, District Manager */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Auditor */}
                     <Controller
@@ -723,14 +776,18 @@ export default function CreateAuditJobPage() {
                       render={({ field, fieldState }) => (
                         <Field>
                           <FieldLabel>
-                            ผู้ตรวจสอบ <span className="text-red-500">*</span>
+                            ผู้ตรวจสอบ{" "}
+                            <span className="text-red-500">*</span>
                           </FieldLabel>
                           {isLoadingUsers ? (
                             <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
                               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                             </div>
                           ) : (
-                            <Popover open={openAuditor} onOpenChange={setOpenAuditor}>
+                            <Popover
+                              open={openAuditor}
+                              onOpenChange={setOpenAuditor}
+                            >
                               <PopoverTrigger asChild>
                                 <Button
                                   variant="outline"
@@ -749,7 +806,10 @@ export default function CreateAuditJobPage() {
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent className="w-full p-0" align="start">
+                              <PopoverContent
+                                className="w-full p-0"
+                                align="start"
+                              >
                                 <Command>
                                   <CommandInput placeholder="ค้นหาผู้ตรวจสอบ..." />
                                   <CommandList>
@@ -757,8 +817,7 @@ export default function CreateAuditJobPage() {
                                       ไม่พบข้อมูลผู้ตรวจสอบ
                                     </CommandEmpty>
                                     <CommandGroup>
-                                      {auditors
-                                      .map((user) => (
+                                      {auditors.map((user) => (
                                         <CommandItem
                                           key={user.UserID}
                                           value={`${user.Fullname} ${user.Position}`}
@@ -800,7 +859,8 @@ export default function CreateAuditJobPage() {
                       render={({ field, fieldState }) => (
                         <Field>
                           <FieldLabel>
-                            ผู้จัดการเขต <span className="text-red-500">*</span>
+                            ผู้จัดการเขต{" "}
+                            <span className="text-red-500">*</span>
                           </FieldLabel>
                           {isLoadingUsers ? (
                             <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
@@ -829,7 +889,10 @@ export default function CreateAuditJobPage() {
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent className="w-full p-0" align="start">
+                              <PopoverContent
+                                className="w-full p-0"
+                                align="start"
+                              >
                                 <Command>
                                   <CommandInput placeholder="ค้นหาผู้จัดการเขต..." />
                                   <CommandList>
@@ -899,7 +962,7 @@ export default function CreateAuditJobPage() {
                       <FieldDescription>
                         รองรับไฟล์รูปภาพ, PDF, Excel (สูงสุด 10 ไฟล์, แต่ละไฟล์ไม่เกิน 10MB)
                       </FieldDescription>
-                      
+
                       {/* Hidden file input */}
                       <input
                         ref={jobHeaderFileInputRef}
@@ -909,17 +972,19 @@ export default function CreateAuditJobPage() {
                         onChange={handleJobHeaderFilesChange}
                         className="hidden"
                       />
- 
+
                       {/* Upload button */}
                       <button
                         type="button"
-                        onClick={() => jobHeaderFileInputRef.current?.click()}
+                        onClick={() =>
+                          jobHeaderFileInputRef.current?.click()
+                        }
                         className="flex items-center gap-2 w-full border border-dashed border-muted-foreground/40 rounded-md px-4 py-3 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors"
                       >
                         <Upload className="h-4 w-4" />
                         คลิกเพื่อเลือกไฟล์
                       </button>
- 
+
                       {/* File list */}
                       {jobHeaderFiles.length > 0 && (
                         <div className="mt-3 space-y-2">
@@ -943,7 +1008,7 @@ export default function CreateAuditJobPage() {
                                     </span>
                                   </div>
                                 </div>
-                                
+
                                 <button
                                   type="button"
                                   onClick={() => removeJobHeaderFile(idx)}
@@ -970,18 +1035,22 @@ export default function CreateAuditJobPage() {
               type="button"
               variant="outline"
               className="flex-1"
-              onClick={() => router.back()}
+              onClick={handleCancel}
             >
               ยกเลิก
             </Button>
-            <Button type="submit" className="flex-1" disabled={isSubmitting} onClick={form.handleSubmit(onSubmit, handleFormError)}>
+            <Button
+              type="submit"
+              className="flex-1"
+              disabled={isSubmitting}
+            >
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   กำลังบันทึก...
                 </>
               ) : (
-                "บันทึก"
+                "เพิ่มรายการตรวจสอบ"
               )}
             </Button>
           </div>
