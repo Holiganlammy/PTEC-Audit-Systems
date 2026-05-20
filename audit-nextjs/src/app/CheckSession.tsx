@@ -5,7 +5,7 @@ import PageLoading from "@/components/PageLoading";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
-const PUBLIC_ROUTES = ['/login', '/forget_password', '/reset-password'];
+const PUBLIC_ROUTES = ['/login', '/forget-password', '/reset-password'];
 
 interface CheckSessionProps {
   children: React.ReactNode;

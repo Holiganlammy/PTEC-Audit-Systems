@@ -32,6 +32,7 @@ export interface PortalLoginResponse {
   request_Mfa?: boolean;
   userCode?: string;
   expiresAt?: number;
+  passwordExpired?: boolean;
 }
 
 interface PortalUser {

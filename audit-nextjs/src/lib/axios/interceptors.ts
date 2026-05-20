@@ -80,6 +80,10 @@ client.interceptors.response.use(
         }
         return Promise.reject(error);
       }
+      // Password expired → let the caller handle it (don't sign out)
+      if (data?.passwordExpired === true) {
+        return Promise.reject(error);
+      }
       // Normal session expired → sign out
       console.warn("Unauthorized - Logging out...");
       await signOut({

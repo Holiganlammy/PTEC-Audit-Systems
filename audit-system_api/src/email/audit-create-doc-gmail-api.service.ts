@@ -161,7 +161,7 @@ export class AuditCreateDocGmailApiService {
     // Logo path
     const logoPath = path.resolve(process.cwd(), 'src/images/Header_Mail.png');
 
-    const subject = `[PTEC Audit] เอกสารตรวจสอบใหม่: ${jobNo}`;
+    const subject = `เอกสารตรวจสอบถูกสร้างใหม่: ${jobNo}`;
 
     // รวม recipients ทั้งหมด
     const allRecipients = [

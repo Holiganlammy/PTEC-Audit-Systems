@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller ,useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import * as z from "zod";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { useState, useEffect, type FormEvent } from "react";
@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { MFADialog } from "./components/MFAConfirm";
+import { ChangePasswordDialog } from "./components/ChangePasswordDialog";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
 import PageLoading from "@/components/PageLoading";
@@ -32,6 +33,8 @@ interface AxiosErrorResponse {
   response?: {
     data?: {
       message?: string;
+      passwordExpired?: boolean;
+      userCode?: string;
     };
   };
 }
@@ -60,8 +63,8 @@ export default function LoginPage() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectParam = searchParams.get('redirect');
-  const redirectPath = redirectParam?.startsWith('/') ? redirectParam : '/home';
+  const redirectParam = searchParams.get("redirect");
+  const redirectPath = redirectParam?.startsWith("/") ? redirectParam : "/home";
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -70,14 +73,17 @@ export default function LoginPage() {
   const [showMFADialog, setShowMFADialog] = useState(false);
   const [mfaUserCode, setMfaUserCode] = useState("");
 
-  // OTP Login State (OTP Tab - ไม่ใช่ MFA)
+  // Password Expired Dialog State
+  const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
+  const [expiredUserCode, setExpiredUserCode] = useState("");
+
+  // OTP Login State
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
 
-  // Check for errors from URL
   useEffect(() => {
     const error = searchParams.get("error");
     if (error === "SessionExpired") {
@@ -87,14 +93,12 @@ export default function LoginPage() {
     }
   }, [searchParams]);
 
-  // Redirect if already authenticated (SSO)
   useEffect(() => {
     if (status === "authenticated" && session) {
       window.location.href = redirectPath;
     }
   }, [status, session, redirectPath]);
 
-  // Countdown timer for OTP tab
   useEffect(() => {
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
@@ -107,24 +111,35 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await client.post('/login', {
-        loginname: data.username,
-        password: data.password,
-      },{ 
-        headers: dataConfig().headers,
-        withCredentials: true,
-      });
+      const response = await client.post(
+        "/login",
+        {
+          loginname: data.username,
+          password: data.password,
+        },
+        {
+          headers: dataConfig().headers,
+          withCredentials: true,
+        }
+      );
 
       const result = response.data;
-      // console.log("Login response:", result);
 
-      // เช็ค error ก่อน
       if (!result.success) {
         throw new Error(result.message || "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
       }
+      console.log("Login response:", result);
+      if (result.passwordExpire === true) {
+        setExpiredUserCode(result.userCode || data.username);
+        setShowChangePasswordDialog(true);
+        setError("");
+        toast.warning("รหัสผ่านหมดอายุ", {
+          description: "กรุณาเปลี่ยนรหัสผ่านใหม่เพื่อความปลอดภัย",
+        });
+        return;
+      }
 
       if (result.request_Mfa === true) {
-        // Show MFA Dialog
         setMfaUserCode(result.userCode);
         setShowMFADialog(true);
         setError("");
@@ -132,14 +147,29 @@ export default function LoginPage() {
           description: result.message,
         });
       } else if (result.success && result.access_token) {
-        // Trusted Device - Login directly
         await handleLoginSuccess(result);
       } else {
         throw new Error(result.message || "เข้าสู่ระบบไม่สำเร็จ");
       }
     } catch (err) {
       console.error("Login error:", err);
-      const errorMessage = err instanceof Error ? (err as AxiosErrorResponse).response?.data?.message || err.message : "เกิดข้อผิดพลาด";
+      const errData = (err as AxiosErrorResponse).response?.data;
+
+      // Handle password expired (server returns 401 + passwordExpired: true)
+      if (errData?.passwordExpired === true) {
+        setExpiredUserCode(errData.userCode || data.username);
+        setShowChangePasswordDialog(true);
+        setError("");
+        toast.warning("รหัสผ่านหมดอายุ", {
+          description: "กรุณาเปลี่ยนรหัสผ่านใหม่เพื่อความปลอดภัย",
+        });
+        return;
+      }
+
+      const errorMessage =
+        err instanceof Error
+          ? errData?.message || err.message
+          : "เกิดข้อผิดพลาด";
       setError(errorMessage);
       toast.error("เข้าสู่ระบบไม่สำเร็จ", {
         description: errorMessage,
@@ -156,7 +186,7 @@ export default function LoginPage() {
     try {
       const signInResult = await signIn("credentials", {
         redirect: false,
-        responseCondition: 'pass',
+        responseCondition: "pass",
         responseLogin: JSON.stringify(data),
       });
 
@@ -172,22 +202,31 @@ export default function LoginPage() {
     }
   };
 
-
   const handleMFACancel = () => {
     setShowMFADialog(false);
     setMfaUserCode("");
     form.reset();
   };
 
-  // Handle Send OTP (for OTP tab)
+  const handlePasswordChangeSuccess = () => {
+    setShowChangePasswordDialog(false);
+    setExpiredUserCode("");
+    form.reset();
+    toast.info("กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่");
+  };
+
   const handleSendOTP = async () => {
     setError("");
     setOtpLoading(true);
 
     try {
-      const response = await client.post('/send-otp',{ email },{
-        headers: dataConfig().headers
-      });
+      const response = await client.post(
+        "/send-otp",
+        { email },
+        {
+          headers: dataConfig().headers,
+        }
+      );
 
       if (!response.data.ok) {
         const errorData = response.data;
@@ -205,14 +244,15 @@ export default function LoginPage() {
     }
   };
 
-  // Handle OTP Login (for OTP tab)
   const handleOTPLogin = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
 
     try {
-      const response = await client.post(`/verify-otp`,{ email, otp },
+      const response = await client.post(
+        `/verify-otp`,
+        { email, otp },
         {
           headers: dataConfig().headers,
           withCredentials: true,
@@ -241,13 +281,13 @@ export default function LoginPage() {
     }
   };
 
-  // Show loading while checking session or redirecting
   if (status === "loading" || status === "authenticated") {
     return <PageLoading />;
   }
 
   return (
     <>
+      {/* MFA Dialog */}
       <MFADialog
         open={showMFADialog}
         onOpenChange={setShowMFADialog}
@@ -257,12 +297,18 @@ export default function LoginPage() {
         redirectPath={redirectPath}
       />
 
+      {/* ✅ Password Expired Dialog */}
+      <ChangePasswordDialog
+        open={showChangePasswordDialog}
+        onOpenChange={setShowChangePasswordDialog}
+        userCode={expiredUserCode}
+        onSuccess={handlePasswordChangeSuccess}
+      />
+
       {/* Main Login UI */}
       <div className="min-h-screen w-full flex items-center justify-center bg-white dark:bg-black p-4">
         <Card className="w-full max-w-md border dark:border-white/10 shadow-sm dark:bg-zinc-950">
           <CardHeader className="space-y-4 pb-8">
-
-            {/* Title */}
             <div className="text-center space-y-1">
               <h1 className="text-2xl font-bold text-black dark:text-white">
                 PTEC Audit System
@@ -275,12 +321,6 @@ export default function LoginPage() {
 
           <CardContent className="space-y-6">
             <Tabs defaultValue="password" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="password">รหัสผ่าน</TabsTrigger>
-                <TabsTrigger value="otp">OTP</TabsTrigger>
-              </TabsList>
-
-              {/* Error Alert */}
               {error && (
                 <Alert variant="destructive" className="mb-4">
                   <AlertCircle className="h-4 w-4" />
@@ -298,7 +338,7 @@ export default function LoginPage() {
                     <Controller
                       name="username"
                       control={form.control}
-                      render={({ field , fieldState }) => (
+                      render={({ field, fieldState }) => (
                         <Field>
                           <FieldLabel htmlFor="username">ชื่อผู้ใช้</FieldLabel>
                           <div className="relative">
@@ -319,14 +359,13 @@ export default function LoginPage() {
                             </p>
                           )}
                         </Field>
-                      )
-                    }
+                      )}
                     />
 
                     <Controller
                       name="password"
                       control={form.control}
-                      render={({ field , fieldState }) => (
+                      render={({ field, fieldState }) => (
                         <Field>
                           <FieldLabel htmlFor="password">รหัสผ่าน</FieldLabel>
                           <div className="relative">
@@ -359,20 +398,12 @@ export default function LoginPage() {
                             </p>
                           )}
                         </Field>
-                        )
-                      }
+                      )}
                     />
 
-                    <div className="flex items-center justify-between text-sm">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" className="w-4 h-4 rounded" />
-                        <span className="text-zinc-600 dark:text-zinc-400">
-                          จดจำฉันไว้
-                        </span>
-                      </label>
-
+                    <div className="flex items-center justify-end text-sm">
                       <a
-                        href="/forgot-password"
+                        href="/forget-password"
                         className="text-black dark:text-white hover:underline"
                       >
                         ลืมรหัสผ่าน?
@@ -394,6 +425,7 @@ export default function LoginPage() {
                       )}
                     </Button>
                   </FieldGroup>
+
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
                       <span className="w-full border-t dark:border-zinc-800" />
@@ -404,23 +436,24 @@ export default function LoginPage() {
                       </span>
                     </div>
                   </div>
-                  
+
                   {/* Microsoft SSO Button */}
                   <Button
                     type="button"
                     variant="outline"
                     className="w-full h-11 border-zinc-300 dark:border-zinc-700"
-                    onClick={() => signIn('azure-ad', { 
-                      callbackUrl: redirectPath 
-                    })}
+                    onClick={() =>
+                      signIn("azure-ad", {
+                        callbackUrl: redirectPath,
+                      })
+                    }
                     disabled={isLoading}
                   >
-                    {/* Microsoft Logo */}
                     <svg className="mr-2 h-5 w-5" viewBox="0 0 21 21">
-                      <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-                      <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-                      <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-                      <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                      <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                      <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                      <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                      <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
                     </svg>
                     เข้าสู่ระบบด้วย Microsoft
                   </Button>

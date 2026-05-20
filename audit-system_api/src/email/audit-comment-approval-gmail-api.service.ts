@@ -157,7 +157,7 @@ export class AuditCommentApprovalGmailApiService {
     // Logo path
     const logoPath = path.resolve(process.cwd(), 'src/images/Header_Mail.png');
 
-    const subject = `[PTEC Audit] รออนุมัติ Comment: ${jobNo}`;
+    const subject = `รออนุมัติ Comment: ${jobNo}`;
 
     const html = `
 <!DOCTYPE html>

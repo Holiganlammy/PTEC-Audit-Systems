@@ -38,6 +38,7 @@ import * as crypto from 'crypto';
 import { Department } from '../domain/model/ptec_useright.entity';
 import { Section } from '../domain/model/ptec_useright.entity';
 import { Position } from '../domain/model/ptec_useright.entity';
+import { sendResetPasswordWithGmailAPI } from '../../email/reset-password-gmail-api.service';
 
 @Controller('')
 export class AppController {
@@ -119,7 +120,7 @@ export class AppController {
         userCode,
         expiresAt,
       } = data;
-      // console.log('Response Data:', data);
+      console.log('Response Data:', data);
 
       if (request_Mfa === true) {
         return res.status(HttpStatus.OK).json({
@@ -199,7 +200,7 @@ export class AppController {
         message: message ?? 'Login failed',
       });
     } catch (error: unknown) {
-      console.error('Login error:', error);
+      // console.error('Login error:', error);
 
       if (error && typeof error === 'object' && 'isAxiosError' in error) {
         const axiosError = error as AxiosError<PortalLoginResponse>;
@@ -208,6 +209,13 @@ export class AppController {
           const status: number = axiosError.response.status;
           const errorMessage: string =
             axiosError.response.data?.message ?? 'Login failed';
+          if (axiosError.response.data?.passwordExpired === true) {
+            return res.status(status).json({
+              success: true,
+              passwordExpired: true,
+              message: 'Password expired. Please change your password.',
+            });
+          }
 
           return res.status(status).json({
             success: false,
@@ -420,7 +428,7 @@ export class AppController {
         message: data.message ?? 'Invalid or expired OTP',
       });
     } catch (error: unknown) {
-      console.error('❌ Verify OTP error:', error);
+      // console.error('❌ Verify OTP error:', error);
 
       if (error && typeof error === 'object' && 'code' in error) {
         const err = error as { code?: string };
@@ -487,63 +495,69 @@ export class AppController {
     }
   }
 
-  // @Public()
-  // @Post('/forget-password')
-  // async forgetPassword(
-  //   @Body('Email') Email: string,
-  //   @Req() req: express.Request,
-  //   @Res() res: express.Response,
-  // ) {
-  //   try {
-  //     const token = crypto.randomBytes(32).toString('hex');
-  //     const tokenHash = crypto.createHash('sha256').update(token).digest();
-  //     const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+  @Post('/forget-password')
+  async forgetPassword(
+    @Body('Email') Email: string,
+    @Req() req: express.Request,
+    @Res() res: express.Response,
+  ) {
+    try {
+      const token = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(token).digest();
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
-  //     const ip = this.getClientIp(req);
-  //     const userAgent = req.headers['user-agent'] || 'unknown';
-  //     const baseUrl = process.env.APP_URL;
-  //     const resetLink = `${baseUrl}/reset-password?token=${token}`;
-  //     const result = await this.appService.forgetPassword({
-  //       email: Email,
-  //       token_hash: tokenHash,
-  //       expires_at: expiresAt,
-  //       ip_address: ip,
-  //       user_agent: userAgent,
-  //     });
+      const ip = this.getClientIp(req);
+      const userAgent = req.headers['user-agent'] || 'unknown';
+      const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const resetLink = `${baseUrl}/reset-password?token=${token}`;
+      const result = await this.appService.forgetPassword({
+        email: Email,
+        token_hash: tokenHash,
+        expires_at: expiresAt,
+        ip_address: ip,
+        user_agent: userAgent,
+      });
 
-  //     if (result) {
-  //       const { result: spResult, message, user_id, fullname } = result;
+      if (result) {
+        const {
+          result: spResult,
+          message,
+          user_id,
+          fullname: _fullname,
+        } = result;
 
-  //       if (spResult === 1 && user_id) {
-  //         try {
-  //           await sendResetPasswordWithGmailAPI(Email, fullname, resetLink);
-  //         } catch (mailError) {
-  //           console.error('❌ Failed to send email:', mailError);
-  //         }
-  //         res.status(200).send({
-  //           success: true,
-  //           message: 'Password reset email sent successfully',
-  //         });
-  //       } else {
-  //         res.status(400).send({
-  //           success: false,
-  //           message: message || 'User not found',
-  //         });
-  //       }
-  //     } else {
-  //       res.status(500).send({
-  //         success: false,
-  //         message: 'Database error',
-  //       });
-  //     }
-  //   } catch (error) {
-  //     console.error('Error sending forgot password email:', error);
-  //     res.status(500).send({
-  //       success: false,
-  //       message: 'Error sending forgot password email',
-  //     });
-  //   }
-  // }
+        if (spResult === 1 && user_id) {
+          try {
+            // TODO: inject reset-password email service
+            await sendResetPasswordWithGmailAPI(Email, _fullname, resetLink);
+            console.log('Reset link:', resetLink);
+          } catch (mailError) {
+            console.error('❌ Failed to send email:', mailError);
+          }
+          res.status(200).send({
+            success: true,
+            message: 'Password reset email sent successfully',
+          });
+        } else {
+          res.status(400).send({
+            success: false,
+            message: message || 'User not found',
+          });
+        }
+      } else {
+        res.status(500).send({
+          success: false,
+          message: 'Database error',
+        });
+      }
+    } catch (error) {
+      console.error('Error sending forgot password email:', error);
+      res.status(500).send({
+        success: false,
+        message: 'Error sending forgot password email',
+      });
+    }
+  }
 
   // @Public()
   @Post('/validate-reset-token')
@@ -750,5 +764,21 @@ export class AppController {
         message: 'Error fetching positions',
       });
     }
+  }
+  private getClientIp(req: express.Request): string {
+    const xForwardedFor = req.headers['x-forwarded-for'] as string;
+    if (xForwardedFor) {
+      const ip = xForwardedFor.split(',')[0].trim();
+      if (ip === '::1') return '127.0.0.1';
+      if (ip.startsWith('::ffff:')) return ip.replace('::ffff:', '');
+      return ip;
+    }
+
+    const ip = (req.socket?.remoteAddress ?? '') || req.ip || '';
+
+    // แปลง IPv6 localhost เป็น IPv4
+    if (ip === '::1') return '127.0.0.1';
+    if (ip.startsWith('::ffff:')) return ip.replace('::ffff:', '');
+    return ip;
   }
 }

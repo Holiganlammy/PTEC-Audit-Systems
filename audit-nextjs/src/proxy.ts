@@ -204,7 +204,7 @@ export async function proxy(req: NextRequest) {
   // Public paths
   const publicPaths = [
     "/login", 
-    "/forget_password", 
+    "/forget-password", 
     "/reset-password", 
     "/unauthorized",
     "/api/auth",

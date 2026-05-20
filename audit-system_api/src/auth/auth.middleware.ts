@@ -19,7 +19,9 @@ const PUBLIC_ROUTES: { path: string; method: string }[] = [
   { path: '/api/resend-otp', method: 'POST' },
   { path: '/api/send-otp', method: 'POST' },
   { path: '/api/reset-password', method: 'POST' },
+  { path: '/api/forget-password', method: 'POST' },
   { path: '/api/validate-reset-token', method: 'POST' },
+  { path: '/api/user/change-password', method: 'POST' },
 ];
 
 @Injectable()

@@ -222,7 +222,7 @@ export class MentionEmailService {
     // Logo path
     const logoPath = path.resolve(process.cwd(), 'src/images/Header_Mail.png');
 
-    const subject = `[PTEC Audit] ${senderName} mentioned you in ${jobNo}`;
+    const subject = `${senderName} mentioned you in ${jobNo}`;
 
     const html = `
 <!DOCTYPE html>
