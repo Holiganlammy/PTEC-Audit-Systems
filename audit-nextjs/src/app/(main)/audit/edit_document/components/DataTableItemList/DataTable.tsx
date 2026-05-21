@@ -76,6 +76,7 @@ import { dataConfig } from "@/config/config";
 import { toast } from "sonner";
 import type { TaggedUser } from "./TagCell/TagCell";
 import AMChecklistModal from "./Amchecklist/modal";
+import ItemAttachmentModal from "./ItemAttachmentModal";
 
 interface ListTaggedUser {
   taggedUserId: number;
@@ -273,6 +274,8 @@ export default function DataTableItemList({
   const [deleteItem, setDeleteItem] = useState<AuditItem | null>(null);
   const [openAMChecklistModal, setOpenAMChecklistModal] = useState(false);
   const [selectedAMChecklistItem, setSelectedAMChecklistItem] = useState<AuditItem | null>(null);
+  const [openAttachmentModal, setOpenAttachmentModal] = useState(false);
+  const [selectedAttachmentItem, setSelectedAttachmentItem] = useState<AuditItem | null>(null);
 
   useEffect(() => { setOrderedItems(items); }, [items]);
 
@@ -331,6 +334,7 @@ export default function DataTableItemList({
     onCommentsChange?.(itemId, threadType, comments);
   }, [onCommentsChange]);
   const handleAMChecklistClick = useCallback((item: AuditItem) => { setSelectedAMChecklistItem(item); setOpenAMChecklistModal(true); }, []);
+  const handleAttachmentClick = useCallback((item: AuditItem) => { setSelectedAttachmentItem(item); setOpenAttachmentModal(true); }, []);
 
   const isAMChecklistAllowed = (() => {
     const roleId = session?.user?.role_id;
@@ -404,8 +408,8 @@ export default function DataTableItemList({
   }, [orderedItems, onItemsChange, session]);
 
   const columns = useMemo(
-    () => createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session?.user?.role_id === 1 || session?.user?.role_id === 2, isDraftMode),
-    [handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session, isDraftMode]
+    () => createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session?.user?.role_id === 1 || session?.user?.role_id === 2, isDraftMode),
+    [handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session, isDraftMode]
   );
 
   const table = useReactTable({
@@ -544,6 +548,7 @@ export default function DataTableItemList({
       <AddItemModal open={openAddModal} onOpenChange={setOpenAddModal} jobNo={jobNo} jobId={jobId} jobData={jobData || undefined} isDraftMode={isDraftMode} inspectionDate={inspectionDate} onDraftItemAdd={isDraftMode ? handleDraftItemAdd : undefined} onItemAdded={() => { setOpenAddModal(false); onItemsChange(); }} />
       <EditItemModal open={openEditModal} onOpenChange={setOpenEditModal} item={selectedItem} jobData={jobData} onItemUpdated={() => { setOpenEditModal(false); onItemsChange(); }} />
       <AMChecklistModal open={openAMChecklistModal} onOpenChange={setOpenAMChecklistModal} item={selectedAMChecklistItem} onUpdated={() => { setOpenAMChecklistModal(false); onItemsChange(); }} />
+      <ItemAttachmentModal open={openAttachmentModal} onOpenChange={setOpenAttachmentModal} item={selectedAttachmentItem} onUpdated={onItemsChange} />
 
       <AlertDialog open={!!deleteItem} onOpenChange={(open) => { if (!open) setDeleteItem(null); }}>
         <AlertDialogContent>

@@ -23,23 +23,26 @@ import { existsSync, mkdirSync, createReadStream } from 'fs';
 import express from 'express';
 import { AuditFilesService } from '../service/audit-files.service';
 import { AuditFileType } from '../domain/enum/audit-file-type.enum';
+import { AuditFiles } from '../domain/model/audit-file.entity';
 
 const BASE_UPLOAD_PATH = 'D:\\files\\Audit_file';
 const AM_CHECKLIST_PATH = join(BASE_UPLOAD_PATH, 'am-checklist');
+const ITEM_ATTACHMENT_PATH = join(BASE_UPLOAD_PATH, 'item-attachments');
 
 @Controller('audit-items')
 export class AuditFilesController implements OnModuleInit {
   constructor(private readonly auditFilesService: AuditFilesService) {}
 
   // สร้าง Folder อัตโนมัติเมื่อ Start Server
-  onModuleInit() {
+  onModuleInit(): void {
     this.ensureUploadDirectories();
   }
 
-  private ensureUploadDirectories() {
+  private ensureUploadDirectories(): void {
     const directories = [
       BASE_UPLOAD_PATH,
       AM_CHECKLIST_PATH,
+      ITEM_ATTACHMENT_PATH,
       join(BASE_UPLOAD_PATH, 'job-header'),
     ];
 
@@ -54,13 +57,203 @@ export class AuditFilesController implements OnModuleInit {
   }
 
   // Helper function - Extract file info
-  private extractFileInfo(file: Express.Multer.File) {
+  private extractFileInfo(file: Express.Multer.File): {
+    fileName: string;
+    filePath: string;
+    fileSize: number;
+    mimeType: string;
+  } {
     return {
       fileName: Buffer.from(file.originalname, 'latin1').toString('utf8'),
       filePath: file.path,
       fileSize: file.size,
       mimeType: file.mimetype,
     };
+  }
+
+  //  POST /audit-items/:id/attachments - Upload item files
+  @Post(':id/attachments')
+  @UseInterceptors(
+    FilesInterceptor('files', 10, {
+      storage: diskStorage({
+        destination: ITEM_ATTACHMENT_PATH,
+        filename: (req, file, cb) => {
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+      limits: { fileSize: 30 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        const allowedMimes = [
+          'image/jpeg',
+          'image/png',
+          'image/gif',
+          'image/webp',
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/vnd.ms-excel',
+        ];
+        if (allowedMimes.includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException('File type not allowed'), false);
+        }
+      },
+    }),
+  )
+  async uploadItemAttachments(
+    @Param('id', ParseIntPipe) itemId: number,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body('uploadedBy') uploadedBy: string,
+  ): Promise<{ success: boolean; data: AuditFiles[]; message: string }> {
+    try {
+      if (!files || files.length === 0) {
+        throw new BadRequestException('No files uploaded');
+      }
+
+      const uploadedFiles = await Promise.all(
+        files.map((file) =>
+          this.auditFilesService.uploadItemAttachment({
+            itemId,
+            ...this.extractFileInfo(file),
+            uploadedBy: uploadedBy ? parseInt(uploadedBy, 10) : undefined,
+          }),
+        ),
+      );
+
+      return {
+        success: true,
+        data: uploadedFiles,
+        message: `${uploadedFiles.length} files uploaded successfully`,
+      };
+    } catch (error) {
+      console.error('Error uploading item attachments:', error);
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error uploading files');
+    }
+  }
+
+  // GET /audit-items/:id/attachments - Get item files
+  @Get(':id/attachments')
+  async getItemAttachments(@Param('id', ParseIntPipe) itemId: number): Promise<{
+    success: boolean;
+    data: Array<AuditFiles & { fileUrl: string }>;
+  }> {
+    try {
+      const files = await this.auditFilesService.getItemAttachments(itemId);
+
+      return {
+        success: true,
+        data: files,
+      };
+    } catch (error) {
+      console.error('Error fetching item attachments:', error);
+      throw new InternalServerErrorException('Error fetching files');
+    }
+  }
+
+  // GET /audit-items/:id/attachments/:fileId/download - Download item file
+  @Get(':id/attachments/:fileId/download')
+  async downloadItemAttachment(
+    @Param('id', ParseIntPipe) itemId: number,
+    @Param('fileId', ParseIntPipe) fileId: number,
+    @Res({ passthrough: true }) res: express.Response,
+  ): Promise<StreamableFile> {
+    try {
+      const file = await this.auditFilesService.getItemAttachmentFile(
+        itemId,
+        fileId,
+      );
+
+      if (!file || !existsSync(file.physicalPath)) {
+        throw new NotFoundException('File not found');
+      }
+
+      const fileStream = createReadStream(file.physicalPath);
+
+      res.set({
+        'Content-Type': file.mimeType || 'application/octet-stream',
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(
+          file.fileName,
+        )}"`,
+      });
+
+      return new StreamableFile(fileStream);
+    } catch (error) {
+      console.error('Error downloading item attachment:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new NotFoundException('File not found');
+    }
+  }
+
+  // GET /audit-items/:id/attachments/:fileId/view - Preview item file
+  @Get(':id/attachments/:fileId/view')
+  async viewItemAttachment(
+    @Param('id', ParseIntPipe) itemId: number,
+    @Param('fileId', ParseIntPipe) fileId: number,
+    @Res({ passthrough: true }) res: express.Response,
+  ): Promise<StreamableFile> {
+    try {
+      const file = await this.auditFilesService.getItemAttachmentFile(
+        itemId,
+        fileId,
+      );
+
+      if (!file || !existsSync(file.physicalPath)) {
+        throw new NotFoundException('File not found');
+      }
+
+      const fileStream = createReadStream(file.physicalPath);
+
+      res.set({
+        'Content-Type': file.mimeType || 'application/octet-stream',
+        'Content-Disposition': `inline; filename="${encodeURIComponent(
+          file.fileName,
+        )}"`,
+      });
+
+      return new StreamableFile(fileStream);
+    } catch (error) {
+      console.error('Error viewing item attachment:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new NotFoundException('File not found');
+    }
+  }
+
+  // DELETE /audit-items/:id/attachments/:fileId - Delete item file
+  @Delete(':id/attachments/:fileId')
+  async deleteItemAttachment(
+    @Param('id', ParseIntPipe) itemId: number,
+    @Body('deletedBy', ParseIntPipe) deletedBy: number,
+    @Param('fileId', ParseIntPipe) fileId: number,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      await this.auditFilesService.deleteItemAttachment(
+        itemId,
+        fileId,
+        deletedBy,
+      );
+
+      return {
+        success: true,
+        message: 'File deleted successfully',
+      };
+    } catch (error) {
+      console.error('Error deleting item attachment:', error);
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error deleting file');
+    }
   }
 
   //  POST /audit-items/:id/am-checklist/attachments - Upload Files
@@ -99,7 +292,7 @@ export class AuditFilesController implements OnModuleInit {
     @Param('id', ParseIntPipe) itemId: number,
     @UploadedFiles() files: Express.Multer.File[],
     @Body('uploadedBy') uploadedBy: string,
-  ) {
+  ): Promise<{ success: boolean; data: AuditFiles[]; message: string }> {
     try {
       if (!files || files.length === 0) {
         throw new BadRequestException('No files uploaded');
@@ -133,7 +326,12 @@ export class AuditFilesController implements OnModuleInit {
 
   // GET /audit-items/:id/am-checklist/attachments - Get Files
   @Get(':id/am-checklist/attachments')
-  async getAMChecklistAttachments(@Param('id', ParseIntPipe) itemId: number) {
+  async getAMChecklistAttachments(
+    @Param('id', ParseIntPipe) itemId: number,
+  ): Promise<{
+    success: boolean;
+    data: Array<AuditFiles & { fileUrl: string }>;
+  }> {
     try {
       const files = await this.auditFilesService.getFiles(
         AuditFileType.AM_CHECKLIST,
@@ -156,7 +354,7 @@ export class AuditFilesController implements OnModuleInit {
     @Param('id', ParseIntPipe) itemId: number,
     @Param('fileId', ParseIntPipe) fileId: number,
     @Res({ passthrough: true }) res: express.Response,
-  ) {
+  ): Promise<StreamableFile> {
     try {
       const file = await this.auditFilesService.getFile(fileId);
 
@@ -190,7 +388,7 @@ export class AuditFilesController implements OnModuleInit {
     @Param('id', ParseIntPipe) itemId: number,
     @Param('fileId', ParseIntPipe) fileId: number,
     @Res({ passthrough: true }) res: express.Response,
-  ) {
+  ): Promise<StreamableFile> {
     try {
       const file = await this.auditFilesService.getFile(fileId);
 
@@ -224,7 +422,7 @@ export class AuditFilesController implements OnModuleInit {
     @Param('id', ParseIntPipe) itemId: number,
     @Param('fileId', ParseIntPipe) fileId: number,
     @Req() req: express.Request,
-  ) {
+  ): Promise<{ success: boolean; message: string }> {
     try {
       // Get user from JWT
       const token = req.headers.authorization?.replace('Bearer ', '');

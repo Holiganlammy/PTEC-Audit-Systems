@@ -85,6 +85,25 @@ export class AuditFilesService {
     return await this.auditFilesRepository.save(file);
   }
 
+  async uploadItemAttachment(params: {
+    itemId: number;
+    fileName: string;
+    filePath: string;
+    fileSize: number;
+    mimeType: string;
+    uploadedBy?: number;
+  }): Promise<AuditFiles> {
+    return this.uploadFile({
+      fileType: AuditFileType.ITEM_ATTACHMENT,
+      referenceId: params.itemId,
+      fileName: params.fileName,
+      filePath: params.filePath,
+      fileSize: params.fileSize,
+      mimeType: params.mimeType,
+      uploadedBy: params.uploadedBy,
+    });
+  }
+
   // ==================== Get Files ====================
   async getFiles(
     fileType: AuditFileType,
@@ -105,6 +124,12 @@ export class AuditFilesService {
       fileUrl: this.getFileUrl(file.filePath),
       // fileUrl: http://10.224.145.121/job-header/123.pdf
     }));
+  }
+
+  async getItemAttachments(
+    itemId: number,
+  ): Promise<Array<AuditFiles & { fileUrl: string }>> {
+    return this.getFiles(AuditFileType.ITEM_ATTACHMENT, itemId);
   }
 
   // ==================== Get Single File ====================
@@ -131,6 +156,22 @@ export class AuditFilesService {
     };
   }
 
+  async getItemAttachmentFile(
+    itemId: number,
+    fileId: number,
+  ): Promise<AuditFiles & { fileUrl: string; physicalPath: string }> {
+    const file = await this.getFile(fileId);
+
+    if (
+      (file.fileType as AuditFileType) !== AuditFileType.ITEM_ATTACHMENT ||
+      file.referenceId !== itemId
+    ) {
+      throw new NotFoundException(`File with ID ${fileId} not found`);
+    }
+
+    return file;
+  }
+
   // ==================== Delete File (Soft Delete) ====================
   async deleteFile(fileId: number, deletedBy: number): Promise<void> {
     const file = await this.auditFilesRepository.findOne({
@@ -146,5 +187,14 @@ export class AuditFilesService {
     file.deletedAt = new Date();
 
     await this.auditFilesRepository.save(file);
+  }
+
+  async deleteItemAttachment(
+    itemId: number,
+    fileId: number,
+    deletedBy: number,
+  ): Promise<void> {
+    await this.getItemAttachmentFile(itemId, fileId);
+    await this.deleteFile(fileId, deletedBy);
   }
 }

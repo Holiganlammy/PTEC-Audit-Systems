@@ -5,7 +5,7 @@
 
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { MoreHorizontal, Paperclip, Pencil, Trash2 } from "lucide-react";
 import { IconGripVertical } from "@tabler/icons-react";
 import { createContext, useContext } from "react";
 import type { DraggableAttributes } from "@dnd-kit/core";
@@ -187,11 +187,13 @@ function ActionsCell({
   item,
   onEdit,
   onDelete,
+  onAttachment,
   isDraftMode,
 }: {
   item: AuditItem;
   onEdit: (item: AuditItem) => void;
   onDelete: (item: AuditItem) => void;
+  onAttachment: (item: AuditItem) => void;
   isDraftMode?: boolean;
 }) {
   const session = useSession();
@@ -212,6 +214,12 @@ function ActionsCell({
               แก้ไข
             </DropdownMenuItem>
           : null}
+          {!isDraftMode && (
+            <DropdownMenuItem onClick={() => onAttachment(item)}>
+              <Paperclip className="mr-2 h-4 w-4" />
+              เก็บไฟล์
+            </DropdownMenuItem>
+          )}
           {(isDraftMode || session.data?.user.role_id === 1 || session.data?.user.role_id === 2) ?
           <DropdownMenuItem
             onClick={() => onDelete(item)}
@@ -431,6 +439,7 @@ export const createAuditItemsColumns = (
   jobData?: AuditJobData,
   isLocked?: boolean,
   onAMChecklistClick?: (item: AuditItem) => void,
+  onAttachmentClick?: (item: AuditItem) => void,
   isAMChecklistAllowed?: boolean,
   branchScoresMap: Record<number, BranchScoreEntry> = {},
   onBranchScoreSubmit?: (itemId: number, score: BranchScoreValue, note?: string) => void,
@@ -578,7 +587,13 @@ export const createAuditItemsColumns = (
       id: "actions",
       cell: ({ row }) =>
         effectiveLocked && !isDraftMode ? null : (
-          <ActionsCell item={row.original} onEdit={isDraftMode ? () => {} : onEdit} onDelete={onDelete} isDraftMode={isDraftMode} />
+          <ActionsCell
+            item={row.original}
+            onEdit={isDraftMode ? () => {} : onEdit}
+            onDelete={onDelete}
+            onAttachment={onAttachmentClick ?? (() => {})}
+            isDraftMode={isDraftMode}
+          />
         ),
     },
   ];
