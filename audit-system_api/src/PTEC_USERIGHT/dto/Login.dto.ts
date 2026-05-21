@@ -8,153 +8,153 @@ import {
 export class LoginDto {
   @IsString()
   @IsNotEmpty()
-  loginname: string;
+  loginname!: string;
 
   @IsString()
   @IsNotEmpty()
-  password: string;
+  password!: string;
 }
 
 export class VerifyOtpDto {
   @IsString()
   @IsNotEmpty()
-  usercode: string;
+  usercode!: string;
 
   @IsString()
   @IsNotEmpty()
-  otpCode: string;
+  otpCode!: string;
 
   @IsBooleanString()
   @IsNotEmpty()
-  trustDevice: boolean | string;
+  trustDevice!: boolean | string;
 }
 
 export class TrustDeviceDto {
   @IsString()
   @IsNotEmpty()
-  userCode: string;
+  userCode!: string;
 
   @IsString()
   @IsNotEmpty()
-  deviceId: string;
+  deviceId!: string;
 
   @IsString()
   @IsNotEmpty()
-  userAgent: string;
+  userAgent!: string;
 
   @IsString()
   @IsNotEmpty()
-  ipAddress: string;
+  ipAddress!: string;
 
   @IsString()
   @IsNotEmpty()
-  os: string;
+  os!: string;
 
   @IsString()
   @IsNotEmpty()
-  browser: string;
+  browser!: string;
 
   @IsString()
   @IsNotEmpty()
-  deviceType: string;
+  deviceType!: string;
 }
 
 export class GetTrustedDeviceDto {
   @IsString()
   @IsNotEmpty()
-  userCode: string;
+  userCode!: string;
 
   @IsString()
   @IsNotEmpty()
-  deviceId: string;
+  deviceId!: string;
 
   @IsString()
   @IsNotEmpty()
-  userAgent: string;
+  userAgent!: string;
 
   @IsString()
   @IsNotEmpty()
-  ipAddress: string;
+  ipAddress!: string;
 }
 
 export class ChangPasswordDto {
   @IsString()
   @IsNotEmpty()
-  userCode: string;
+  userCode!: string;
 
   @IsString()
   @IsNotEmpty()
-  currentPassword: string;
+  currentPassword!: string;
 
   @IsString()
   @IsNotEmpty()
-  newPassword: string;
+  newPassword!: string;
 
   @IsString()
   @IsNotEmpty()
-  confirmPassword: string;
+  confirmPassword!: string;
 }
 
 export class ForgetPasswordDto {
   @IsString()
   @IsNotEmpty()
-  email: string;
+  email!: string;
 
   @IsString()
   @IsNotEmpty()
-  token_hash: Buffer;
+  token_hash!: Buffer;
 
   @IsString()
   @IsNotEmpty()
-  expires_at: Date;
+  expires_at!: Date;
 
   @IsString()
   @IsNotEmpty()
-  ip_address: string;
+  ip_address!: string;
 
   @IsString()
   @IsNotEmpty()
-  user_agent: string;
+  user_agent!: string;
 }
 
 export class resetPasswordDTO {
   @IsNumber()
   @IsNotEmpty()
-  UserID: number;
+  UserID!: number;
 
   @IsString()
   @IsNotEmpty()
-  userCode: string;
+  userCode!: string;
 
   @IsString()
   @IsNotEmpty()
-  token: string;
+  token!: string;
 
   @IsString()
   @IsNotEmpty()
-  tokenHash: Buffer;
+  tokenHash!: Buffer;
 
   @IsString()
   @IsNotEmpty()
-  newPassword: string;
+  newPassword!: string;
 
   @IsString()
   @IsNotEmpty()
-  confirmPassword: string;
+  confirmPassword!: string;
 }
 
 export class CheckUserPermissionDto {
   @IsString()
   @IsNotEmpty()
-  UserCode: string;
+  UserCode!: string;
 
   @IsString()
   @IsNotEmpty()
-  SystemCode: string;
+  SystemCode!: string;
 }
 
 export class GetUserWithRolesDto {
   @IsString()
   @IsNotEmpty()
-  UserCode: string;
+  UserCode!: string;
 }

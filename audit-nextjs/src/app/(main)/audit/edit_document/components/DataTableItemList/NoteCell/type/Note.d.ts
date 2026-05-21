@@ -34,6 +34,7 @@ interface auditCommentsComment {
   OwnerCommentUser?: {
     fullname: string;
     position?: string;
+    userCode?: string
   };
   approverByUser?: {
     fullname: string;

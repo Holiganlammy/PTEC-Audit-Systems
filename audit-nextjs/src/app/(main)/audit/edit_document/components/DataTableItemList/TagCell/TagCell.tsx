@@ -24,6 +24,7 @@ export interface TaggedUser {
   userId: string;
   userCode: string;
   fullname: string;
+  itemId?: number; // for compatibility with older API responses
 }
 
 // Shape the /users API returns

@@ -163,7 +163,7 @@ export class AppController {
 
         // console.log('✓ Forwarded cookies:', modifiedCookies.length);
       } else {
-        console.log('ℹ️  No cookies (normal for first login)');
+        console.log('Dont have set-cookie header in portal response');
       }
 
       // Handle success login

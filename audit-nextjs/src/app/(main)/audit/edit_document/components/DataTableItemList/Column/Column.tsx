@@ -1,3 +1,6 @@
+// app/audit/edit_document/components/DataTableItemList/Column/Column.tsx
+// Version: 2.0.0 | Date: 2025-05-20 | Updated: Added sticky column support for category_name
+
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
@@ -30,17 +33,46 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import NoteCell from "../NoteCell/NoteCell";
 import TagCell, { TaggedUser } from "../TagCell/TagCell";
-export type { TaggedUser };import { useSession } from "next-auth/react";
+export type { TaggedUser };
+import { useSession } from "next-auth/react";
 import { CheckCircle2, XCircle, Clock, AlertCircle, FileEdit, Calendar, CircleFadingPlus, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
 import { useState } from "react";
 import BranchAddScore from "../../BranchAddScore";
- 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// STICKY COLUMN META
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Column meta สำหรับ sticky columns
+ * - sticky: "left" | "right"  → ด้านที่ stick
+ * - stickyOffset: number      → left/right offset (px)
+ * - stickyWidth: number       → ความกว้างคอลัมน์ (px) สำหรับคำนวณ offset ของคอลัมน์ถัดไป
+ * - isLastSticky: boolean     → คอลัมน์สุดท้ายที่ sticky (ใส่ shadow)
+ */
+declare module "@tanstack/react-table" {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData, TValue> {
+    sticky?: "left" | "right";
+    stickyOffset?: number;
+    stickyWidth?: number;
+    isLastSticky?: boolean;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TYPES
+// ══════════════════════════════════════════════════════════════════════════════
 
 type BranchScoreValue = -1 | 0 | 1;
 type BranchScoreEntry = { score: BranchScoreValue; note?: string };
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BRANCH SCORE CELL
+// ══════════════════════════════════════════════════════════════════════════════
 
 function BranchScoreCell({
   item,
@@ -122,12 +154,35 @@ function BranchScoreCell({
   );
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// DRAG HANDLE
+// ══════════════════════════════════════════════════════════════════════════════
+
 export const DragHandleContext = createContext<{
   listeners?: SyntheticListenerMap;
   attributes?: DraggableAttributes;
 }>({});
 
-// ── Actions Cell Component ──
+function DragHandle() {
+  const { attributes, listeners } = useContext(DragHandleContext);
+  return (
+    <Button
+      {...attributes}
+      {...listeners}
+      variant="ghost"
+      size="icon"
+      className="size-7 text-muted-foreground hover:bg-transparent cursor-grab active:cursor-grabbing"
+    >
+      <IconGripVertical className="size-3 text-muted-foreground" />
+      <span className="sr-only">Drag to reorder</span>
+    </Button>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ACTIONS CELL
+// ══════════════════════════════════════════════════════════════════════════════
+
 function ActionsCell({
   item,
   onEdit,
@@ -182,191 +237,136 @@ function ActionsCell({
   );
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// SEND EMAIL CELL
+// ══════════════════════════════════════════════════════════════════════════════
 
-// ── Send Email Cell Component ──
 function SendEmailCell({ item, isLocked }: { item: AuditItem; isLocked?: boolean }) {
-    const [isSending, setIsSending] = useState(false);
-    const [confirmOpen, setConfirmOpen] = useState(false);
-    const { data: session } = useSession();
+  const [isSending, setIsSending] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const { data: session } = useSession();
 
-    const canSendEmail = session?.user?.role_id === 1 || session?.user?.role_id === 2;
-    if (!canSendEmail) return null;
- 
-    const handleSendSummary = async () => {
-      try {
-        setIsSending(true);
- 
-        // 1. Fetch ALL audit comments (note_1)
-        const auditResponse = await client.get(
-          `/audit-items/${item.item_id}/audit-comments`,
-          { headers: dataConfig().headers }
-        );
- 
-        const auditComments = auditResponse.data.data || [];
- 
-        // 2. Fetch ALL other comments (note_3)
-        const otherResponse = await client.get(
-          `/audit-items/${item.item_id}/other-comments`,
-          { headers: dataConfig().headers }
-        );
- 
-        const otherComments = otherResponse.data.data || [];
- 
-        // 3. Check if there's anything to send
-        if (auditComments.length === 0 && otherComments.length === 0) {
-          toast.error('ไม่มีข้อความที่จะส่ง');
-          return;
-        }
- 
-        // 4. Get job data (สำหรับดึง branchEmails)
-        const jobResponse = await client.get(
-          `/audit-jobs/${item.job_id}`,
-          { headers: dataConfig().headers }
-        );
- 
-        const job = jobResponse.data.data;
-        // const branchEmails = job?.branchManager.email || [];
-        const branchEmails = ['npc@rpcthai.com'];
- 
-        if (branchEmails.length === 0) {
-          toast.error('ไม่พบอีเมลของสาขา');
-          return;
-        }
- 
-        // 5. Prepare payload (ส่งทุก comment)
-        const payload = {
-          itemId: item.item_id,
-          jobNo: job?.jobNo || '-',
-          branchName: job?.branchName || '-',
-          branchEmails,
-          categoryName: item.category_name || '-',
-          itemStatus: item.item_status ?? null,
-          amChecklistStatus: item.amChecklistStatus ?? null,
-          auditItemStatus: item.item_status_edit,
-          auditDate: item.inspection_date || '-',
-          
-          // ALL audit comments
-          auditComments: auditComments.map((c: {
-            OwnerCommentUser?: { fullname?: string; userCode?: string };
-            note: string;
-            createdAt: string;
-          }) => ({
-            author: c.OwnerCommentUser?.fullname || 'Unknown',
-            authorUserCode: c.OwnerCommentUser?.userCode || '-',
-            text: c.note,
-            createdAt: c.createdAt,
-          })),
-          
-          // ALL other comments
-          otherComments: otherComments.map((c: {
-            OwnerCommentUser?: { fullname?: string; userCode?: string };
-            note: string;
-            createdAt: string;
-          }) => ({
-            author: c.OwnerCommentUser?.fullname || 'Unknown',
-            authorUserCode: c.OwnerCommentUser?.userCode || '-',
-            text: c.note,
-            createdAt: c.createdAt,
-          })),
-        };
- 
-        // 6. Send email
-        const response = await client.post(
-          '/audit-email/send-summary',
-          payload,
-          { headers: dataConfig().headers }
-        );
- 
-        // const { auditCommentsCount, otherCommentsCount, recipientCount } = 
-        //   response.data;
- 
-        toast.success(
-          `ส่งเมลสำเร็จ`
-        );
-      } catch (error) {
-        console.error('❌ Failed to send summary email:', error);
-        toast.error('ส่งเมลไม่สำเร็จ');
-      } finally {
-        setIsSending(false);
+  const canSendEmail = session?.user?.role_id === 1 || session?.user?.role_id === 2;
+  if (!canSendEmail) return null;
+
+  const handleSendSummary = async () => {
+    try {
+      setIsSending(true);
+      const auditResponse = await client.get(
+        `/audit-items/${item.item_id}/audit-comments`,
+        { headers: dataConfig().headers }
+      );
+      const auditComments = auditResponse.data.data || [];
+
+      const otherResponse = await client.get(
+        `/audit-items/${item.item_id}/other-comments`,
+        { headers: dataConfig().headers }
+      );
+      const otherComments = otherResponse.data.data || [];
+
+      if (auditComments.length === 0 && otherComments.length === 0) {
+        toast.error('ไม่มีข้อความที่จะส่ง');
+        return;
       }
-    };
- 
-    return (
-      <div className="flex justify-center">
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-7 px-2 gap-1.5"
-          onClick={() => setConfirmOpen(true)}
-          disabled={isSending || isLocked}
-          title={isLocked ? "รายการถูกล็อก" : "ส่งเมลสรุปไปยังสาขา"}
-        >
-          {isSending ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Mail className="h-3.5 w-3.5" />
-          )}
-          <span className="text-xs">ส่งเมล</span>
-        </Button>
 
-        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>ยืนยันการส่งเมล</AlertDialogTitle>
-              <AlertDialogDescription>
-                คุณต้องการส่งเมลสรุปรายการ{" "}
-                <span className="font-medium text-foreground">{item.category_name}</span>{" "}
-                ไปยังสาขาใช่หรือไม่?
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={isSending}>ยกเลิก</AlertDialogCancel>
-              <AlertDialogAction
-                disabled={isSending}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setConfirmOpen(false);
-                  handleSendSummary();
-                }}
-              >
-                {isSending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                ส่งเมล
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
-    );
+      const jobResponse = await client.get(
+        `/audit-jobs/${item.job_id}`,
+        { headers: dataConfig().headers }
+      );
+      const job = jobResponse.data.data;
+      const branchEmails = ['npc@rpcthai.com'];
+
+      if (branchEmails.length === 0) {
+        toast.error('ไม่พบอีเมลของสาขา');
+        return;
+      }
+
+      const payload = {
+        itemId: item.item_id,
+        jobNo: job?.jobNo || '-',
+        branchName: job?.branchName || '-',
+        branchEmails,
+        categoryName: item.category_name || '-',
+        itemStatus: item.item_status ?? null,
+        amChecklistStatus: item.amChecklistStatus ?? null,
+        auditItemStatus: item.item_status_edit,
+        auditDate: item.inspection_date || '-',
+        auditComments: auditComments.map((c: auditCommentsComment) => ({
+          author: c.OwnerCommentUser?.fullname || 'Unknown',
+          authorUserCode: c.OwnerCommentUser?.userCode || '-',
+          text: c.note,
+          createdAt: c.createdAt,
+        })),
+        otherComments: otherComments.map((c: auditCommentsComment) => ({
+          author: c.OwnerCommentUser?.fullname || 'Unknown',
+          authorUserCode: c.OwnerCommentUser?.userCode || '-',
+          text: c.note,
+          createdAt: c.createdAt,
+        })),
+      };
+
+      await client.post('/audit-email/send-summary', payload, { headers: dataConfig().headers });
+      toast.success(`ส่งเมลสำเร็จ`);
+    } catch (error) {
+      console.error('❌ Failed to send summary email:', error);
+      toast.error('ส่งเมลไม่สำเร็จ');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return (
+    <div className="flex justify-center">
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-7 px-2 gap-1.5"
+        onClick={() => setConfirmOpen(true)}
+        disabled={isSending || isLocked}
+        title={isLocked ? "รายการถูกล็อก" : "ส่งเมลสรุปไปยังสาขา"}
+      >
+        {isSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+        <span className="text-xs">ส่งเมล</span>
+      </Button>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ยืนยันการส่งเมล</AlertDialogTitle>
+            <AlertDialogDescription>
+              คุณต้องการส่งเมลสรุปรายการ{" "}
+              <span className="font-medium text-foreground">{item.category_name}</span>{" "}
+              ไปยังสาขาใช่หรือไม่?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSending}>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isSending}
+              onClick={(e) => {
+                e.preventDefault();
+                setConfirmOpen(false);
+                handleSendSummary();
+              }}
+            >
+              {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              ส่งเมล
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
 }
 
-// export interface AuditItem {
-//   item_id: number;
-//   job_id: number;
-//   category_item_id: number;
-//   category_name: string;
-//   inspection_date: string;
-//   item_status: number;
-//   remarks: string;
-//   note_1?: AuditComment[];
-//   note_2?: AuditComment[];
-//   note_3?: AuditComment[];
-//   tagged_users?: TaggedUser[];
-//   created_at: string;
-//   updated_at: string;
-//   active: boolean;
-// }
+// ══════════════════════════════════════════════════════════════════════════════
+// STATUS BADGES
+// ══════════════════════════════════════════════════════════════════════════════
 
-// Status badge 
 const getStatusBadge = (status: number) => {
   switch (status) {
     case 1:
-      return (
-        <Badge variant="default" className="bg-green-500">
-          ปกติ
-        </Badge>
-      );
+      return <Badge variant="default" className="bg-green-500">ปกติ</Badge>;
     case 2:
       return <Badge className="bg-yellow-500">อยู่ระหว่างดำเนินการ</Badge>;
     case 3:
@@ -386,12 +386,7 @@ const getAMChecklistBadge = (status: number | null, interactive: boolean, onClic
 
   if (status === null) {
     return (
-      <Badge
-        variant="outline"
-        className={`${baseClass} border-muted-foreground/40 text-muted-foreground${interactive ? " hover:border-muted-foreground hover:bg-muted" : ""}`}
-        onClick={handleClick}
-        title={interactive ? "คลิกเพื่อบันทึก AM Check" : undefined}
-      >
+      <Badge variant="outline" className={`${baseClass} border-muted-foreground/40 text-muted-foreground${interactive ? " hover:border-muted-foreground hover:bg-muted" : ""}`} onClick={handleClick} title={interactive ? "คลิกเพื่อบันทึก AM Check" : undefined}>
         <FileEdit className="mr-1 h-3 w-3" />
         ยังไม่เช็ค
       </Badge>
@@ -400,80 +395,31 @@ const getAMChecklistBadge = (status: number | null, interactive: boolean, onClic
 
   switch (status) {
     case 1:
-      return (
-        <Badge
-          className={`${baseClass} bg-yellow-100 text-yellow-800${interactive ? " hover:bg-yellow-200" : ""} dark:bg-yellow-900/40 dark:text-yellow-300${interactive ? " dark:hover:bg-yellow-900/70" : ""} border-transparent`}
-          onClick={handleClick}
-          title={interactive ? "คลิกเพื่อแก้ไข AM Check" : undefined}
-        >
-          <Clock className="mr-1 h-3 w-3" />
-          รอตรวจสอบ
-        </Badge>
-      );
+      return <Badge className={`${baseClass} bg-yellow-100 text-yellow-800${interactive ? " hover:bg-yellow-200" : ""} dark:bg-yellow-900/40 dark:text-yellow-300 border-transparent`} onClick={handleClick} title={interactive ? "คลิกเพื่อแก้ไข AM Check" : undefined}><Clock className="mr-1 h-3 w-3" />รอตรวจสอบ</Badge>;
     case 2:
-      return (
-        <Badge
-          className={`${baseClass} bg-green-100 text-green-800${interactive ? " hover:bg-green-200" : ""} dark:bg-green-900/40 dark:text-green-300${interactive ? " dark:hover:bg-green-900/70" : ""} border-transparent`}
-          onClick={handleClick}
-          title={interactive ? "คลิกเพื่อแก้ไข AM Check" : undefined}
-        >
-          <CheckCircle2 className="mr-1 h-3 w-3" />
-          ผ่าน
-        </Badge>
-      );
+      return <Badge className={`${baseClass} bg-green-100 text-green-800${interactive ? " hover:bg-green-200" : ""} dark:bg-green-900/40 dark:text-green-300 border-transparent`} onClick={handleClick} title={interactive ? "คลิกเพื่อแก้ไข AM Check" : undefined}><CheckCircle2 className="mr-1 h-3 w-3" />ผ่าน</Badge>;
     case 3:
-      return (
-        <Badge
-          className={`${baseClass} bg-red-100 text-red-800${interactive ? " hover:bg-red-200" : ""} dark:bg-red-900/40 dark:text-red-300${interactive ? " dark:hover:bg-red-900/70" : ""} border-transparent`}
-          onClick={handleClick}
-          title={interactive ? "คลิกเพื่อแก้ไข AM Check" : undefined}
-        >
-          <XCircle className="mr-1 h-3 w-3" />
-          ไม่ผ่าน
-        </Badge>
-      );
+      return <Badge className={`${baseClass} bg-red-100 text-red-800${interactive ? " hover:bg-red-200" : ""} dark:bg-red-900/40 dark:text-red-300 border-transparent`} onClick={handleClick} title={interactive ? "คลิกเพื่อแก้ไข AM Check" : undefined}><XCircle className="mr-1 h-3 w-3" />ไม่ผ่าน</Badge>;
     case 4:
-      return (
-        <Badge
-          className={`${baseClass} bg-orange-100 text-orange-800${interactive ? " hover:bg-orange-200" : ""} dark:bg-orange-900/40 dark:text-orange-300${interactive ? " dark:hover:bg-orange-900/70" : ""} border-transparent`}
-          onClick={handleClick}
-          title={interactive ? "คลิกเพื่อแก้ไข AM Check" : undefined}
-        >
-          <AlertCircle className="mr-1 h-3 w-3" />
-          ต้องแก้ไข
-        </Badge>
-      );
+      return <Badge className={`${baseClass} bg-orange-100 text-orange-800${interactive ? " hover:bg-orange-200" : ""} dark:bg-orange-900/40 dark:text-orange-300 border-transparent`} onClick={handleClick} title={interactive ? "คลิกเพื่อแก้ไข AM Check" : undefined}><AlertCircle className="mr-1 h-3 w-3" />ต้องแก้ไข</Badge>;
     default:
-      return (
-        <Badge
-          variant="outline"
-          className={`${baseClass} border-muted-foreground/40 text-muted-foreground${interactive ? " hover:bg-muted" : ""}`}
-          onClick={handleClick}
-        >
-          ไม่ทราบ
-        </Badge>
-      );
+      return <Badge variant="outline" className={`${baseClass} border-muted-foreground/40 text-muted-foreground${interactive ? " hover:bg-muted" : ""}`} onClick={handleClick}>ไม่ทราบ</Badge>;
   }
 };
 
-// Drag Handle 
-function DragHandle() {
-  const { attributes, listeners } = useContext(DragHandleContext);
-  return (
-    <Button
-      {...attributes}
-      {...listeners}
-      variant="ghost"
-      size="icon"
-      className="size-7 text-muted-foreground hover:bg-transparent cursor-grab active:cursor-grabbing"
-    >
-      <IconGripVertical className="size-3 text-muted-foreground" />
-      <span className="sr-only">Drag to reorder</span>
-    </Button>
-  );
-}
+// ══════════════════════════════════════════════════════════════════════════════
+// COLUMN DEFINITIONS (with sticky meta)
+// ══════════════════════════════════════════════════════════════════════════════
 
-// ── Column definitions 
+/**
+ * Sticky Layout:
+ * | drag (40px) | select (40px) | category_name (sticky, 220px) | ... scrollable ... |
+ *
+ * - drag:          sticky left: 0,    width: 40px
+ * - select:        sticky left: 40px, width: 40px
+ * - category_name: sticky left: 80px, width: 220px, isLastSticky: true (มี shadow)
+ */
+
 export const createAuditItemsColumns = (
   onEdit: (item: AuditItem) => void,
   onDelete: (item: AuditItem) => void,
@@ -491,217 +437,149 @@ export const createAuditItemsColumns = (
   canSendEmail?: boolean,
   isDraftMode?: boolean
 ): ColumnDef<AuditItem>[] => {
-  // ถ้า draft mode ให้ treat ทุกอย่างเหมือน isLocked แต่ยังแสดงปุ่มลบ
   const effectiveLocked = isLocked || !!isDraftMode;
 
   return [
-  {
-    id: "drag",
-    header: () => null,
-    cell: () => effectiveLocked ? null : <DragHandle />,
-  },
-  {
-    id: "select",
-    header: ({ table }) => (
-      <div className="flex justify-center items-center w-8">
-        <Checkbox
-          checked={
-            table.getIsAllPageRowsSelected() ||
-            (table.getIsSomePageRowsSelected() && "indeterminate")
-          }
-          onCheckedChange={(value: boolean) =>
-            table.toggleAllPageRowsSelected(!!value)
-          }
-          aria-label="Select all"
-          disabled={isDraftMode}
-        />
-      </div>
-    ),
-    cell: ({ row }) => (
-      <div className="flex justify-center items-center w-8">
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value: boolean) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-          disabled={isDraftMode}
-        />
-      </div>
-    ),
-    enableSorting: false,
-    enableHiding: false,
-  },
-  {
-    accessorKey: "category_name",
-    header: "รายการ",
-    cell: ({ row }) => (
-      <div className="font-medium">{row.getValue("category_name")}</div>
-    ),
-  },
+    // ── Sticky: drag (left: 0, width: 40px) ───────────────────────────────
     {
-    accessorKey: "item_status",
-    header: () => (
-      <div className="text-center">
-        สถานะที่ตรวจพบ
-      </div>
-    ),
-    cell: ({ row }) => {
-      return(
-        <div className="text-center">
-          {getStatusBadge(row.getValue("item_status") as number)}
-        </div>
-      )
+      id: "drag",
+      header: () => null,
+      cell: () => effectiveLocked ? null : <DragHandle />,
+      meta: {
+        sticky: "left" as const,
+        stickyOffset: 0,
+        stickyWidth: 40,
+      },
     },
-  },
-  {
-    id: "branch_score",
-    header: () => <div className="text-center">คะแนนสาขา</div>,
-    cell: ({ row }) => {
-      const entry = branchScoresMap[row.original.item_id];
-      return (
-        <BranchScoreCell
-          item={row.original}
-          entry={entry}
-          disabled={effectiveLocked}
-          onSubmit={onBranchScoreSubmit}
-        />
-      );
-    },
-  },
-  // thread columns 
-  {
-    id: "note_1",
-    header: "หน่วยงานตรวจสอบ Audit",
-    cell: ({ row }) => (
-      <NoteCell
-        itemId={row.original.item_id}
-        threadType={1}
-        label="Audit Unit"
-        initialComments={row.original.note_1}
-        onRefresh={onRefresh}
-        onTagChange={onTagChange}
-        onCommentsChange={onCommentsChange}
-        users={users}
-        isLocked={effectiveLocked}
-      />
-    ),
-  },
-  {
-    id: "note_2",
-    header: "หน่วยงาน AM",
-    cell: ({ row }) => (
-      <NoteCell
-        itemId={row.original.item_id}
-        threadType={2}
-        label="AM Unit"
-        initialComments={row.original.note_2}
-        onRefresh={onRefresh}
-        onTagChange={onTagChange}
-        onCommentsChange={onCommentsChange}
-        users={users}
-        isLocked={effectiveLocked}
-      />
-    ),
-  },
-  {
-    id: "note_3",
-    header: "หน่วยงานอื่นๆ",
-    cell: ({ row }) => (
-      <NoteCell
-        itemId={row.original.item_id}
-        threadType={3}
-        label="Other Agencies"
-        initialComments={row.original.note_3}
-        jobData={jobData}
-        users={users}
-        onRefresh={onRefresh}
-        onTagChange={onTagChange}
-        onCommentsChange={onCommentsChange}
-        taggedUsers={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []}
-        isLocked={effectiveLocked}
-      />
-    ),
-  },
-  {
-    id: "tagged_users",
-    header: "แท็กผู้ใช้",
-    cell: ({ row }) => {
-      return (
-        <TagCell
-          itemId={row.original.item_id}
-          users={users}
-          initialTags={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []}
-          onTagChange={(tags) => onTagChange?.(row.original.item_id, tags)}
-          isLocked={effectiveLocked}
-        />
-      );
-    },
-  },
-  {
-    accessorKey: "item_status_edit",
-    header: () => (
-      <div className="text-center">
-        สถานะอัพเดทและแก้ไข (ล่าสุด)
-      </div>
-    ),
-    cell: ({ row }) => {
-      return(
-        <div className="text-center">
-          {getStatusBadge(row.getValue("item_status_edit") as number)}
-        </div>
-      )
-    },
-  },
+    // ── Sticky: select (left: 40px, width: 40px) ─────────────────────────
     {
-    id: "am_checklist",
-    header: () => (
-      <div className="text-center">
-        Check
-      </div>
-    ),
-    cell: ({ row }) => {
-      const item = row.original;
-      const interactive = !!isAMChecklistAllowed && !isDraftMode;
-      return (
-        <div className="flex justify-center">
-          {interactive ? (
-            <div
-              className="group relative inline-flex items-center gap-1 cursor-pointer"
-              onClick={() => onAMChecklistClick?.(item)}
-            >
-              {getAMChecklistBadge(item.amChecklistStatus ?? null, true)}
-              <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-            </div>
-          ) : (
-            getAMChecklistBadge(item.amChecklistStatus ?? null, false)
-          )}
+      id: "select",
+      header: ({ table }) => (
+        <div className="flex justify-center items-center w-8">
+          <Checkbox
+            checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
+            onCheckedChange={(value: boolean) => table.toggleAllPageRowsSelected(!!value)}
+            aria-label="Select all"
+            disabled={isDraftMode}
+          />
         </div>
-      );
-    },
-  },
-  // ── Send Email ────────────────────────────────────────────────────────────
-  ...(canSendEmail ? [{
-    id: "send_email",
-    header: () => (
-      <div className="text-center">
-        ส่งเมลสรุป
-      </div>
-    ),
-    cell: ({ row }: { row: import('@tanstack/react-table').Row<AuditItem> }) => (
-      <SendEmailCell item={row.original} isLocked={effectiveLocked} />
-    ),
-  } satisfies ColumnDef<AuditItem>] : []),
-  // ── Actions ───────────────────────────────────────────────────────────────
-  {
-    id: "actions",
-    cell: ({ row }) =>
-      effectiveLocked && !isDraftMode ? null : (
-        <ActionsCell
-          item={row.original}
-          onEdit={isDraftMode ? () => {} : onEdit}
-          onDelete={onDelete}
-          isDraftMode={isDraftMode}
-        />
       ),
-  },
-];
+      cell: ({ row }) => (
+        <div className="flex justify-center items-center w-8">
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value: boolean) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+            disabled={isDraftMode}
+          />
+        </div>
+      ),
+      enableSorting: false,
+      enableHiding: false,
+      meta: {
+        sticky: "left" as const,
+        stickyOffset: 40,
+        stickyWidth: 40,
+      },
+    },
+    // ── Sticky: category_name (left: 80px, isLastSticky → shadow) ────────
+    {
+      accessorKey: "category_name",
+      header: "รายการ",
+      cell: ({ row }) => (
+        <div className="font-medium min-w-[180px] max-w-[220px]">{row.getValue("category_name")}</div>
+      ),
+      meta: {
+        sticky: "left" as const,
+        stickyOffset: 80,
+        stickyWidth: 220,
+        isLastSticky: true,
+      },
+    },
+    // ── Normal columns ───────────────────────────────────────────────────
+    {
+      accessorKey: "item_status",
+      header: () => <div className="text-center">สถานะที่ตรวจพบ</div>,
+      cell: ({ row }) => (
+        <div className="text-center">{getStatusBadge(row.getValue("item_status") as number)}</div>
+      ),
+    },
+    {
+      id: "branch_score",
+      header: () => <div className="text-center">คะแนนสาขา</div>,
+      cell: ({ row }) => {
+        const entry = branchScoresMap[row.original.item_id];
+        return <BranchScoreCell item={row.original} entry={entry} disabled={effectiveLocked} onSubmit={onBranchScoreSubmit} />;
+      },
+    },
+    {
+      id: "note_1",
+      header: "หน่วยงานตรวจสอบ Audit",
+      cell: ({ row }) => (
+        <NoteCell itemId={row.original.item_id} threadType={1} label="Audit Unit" initialComments={row.original.note_1} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked} />
+      ),
+    },
+    {
+      id: "note_2",
+      header: "หน่วยงาน AM",
+      cell: ({ row }) => (
+        <NoteCell itemId={row.original.item_id} threadType={2} label="AM Unit" initialComments={row.original.note_2} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked} />
+      ),
+    },
+    {
+      id: "note_3",
+      header: "หน่วยงานอื่นๆ",
+      cell: ({ row }) => (
+        <NoteCell itemId={row.original.item_id} threadType={3} label="Other Agencies" initialComments={row.original.note_3} jobData={jobData} users={users} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} taggedUsers={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []} isLocked={effectiveLocked} />
+      ),
+    },
+    {
+      id: "tagged_users",
+      header: "แท็กผู้ใช้",
+      cell: ({ row }) => (
+        <TagCell itemId={row.original.item_id} users={users} initialTags={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []} onTagChange={(tags) => onTagChange?.(row.original.item_id, tags)} isLocked={effectiveLocked} />
+      ),
+    },
+    {
+      accessorKey: "item_status_edit",
+      header: () => <div className="text-center">สถานะอัพเดทและแก้ไข (ล่าสุด)</div>,
+      cell: ({ row }) => (
+        <div className="text-center">{getStatusBadge(row.getValue("item_status_edit") as number)}</div>
+      ),
+    },
+    {
+      id: "am_checklist",
+      header: () => <div className="text-center">Check</div>,
+      cell: ({ row }) => {
+        const item = row.original;
+        const interactive = !!isAMChecklistAllowed && !isDraftMode;
+        return (
+          <div className="flex justify-center">
+            {interactive ? (
+              <div className="group relative inline-flex items-center gap-1 cursor-pointer" onClick={() => onAMChecklistClick?.(item)}>
+                {getAMChecklistBadge(item.amChecklistStatus ?? null, true)}
+                <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+              </div>
+            ) : (
+              getAMChecklistBadge(item.amChecklistStatus ?? null, false)
+            )}
+          </div>
+        );
+      },
+    },
+    ...(canSendEmail ? [{
+      id: "send_email",
+      header: () => <div className="text-center">ส่งเมลสรุป</div>,
+      cell: ({ row }: { row: import("@tanstack/react-table").Row<AuditItem> }) => (
+        <SendEmailCell item={row.original} isLocked={effectiveLocked} />
+      ),
+    } satisfies ColumnDef<AuditItem>] : []),
+    {
+      id: "actions",
+      cell: ({ row }) =>
+        effectiveLocked && !isDraftMode ? null : (
+          <ActionsCell item={row.original} onEdit={isDraftMode ? () => {} : onEdit} onDelete={onDelete} isDraftMode={isDraftMode} />
+        ),
+    },
+  ];
 };

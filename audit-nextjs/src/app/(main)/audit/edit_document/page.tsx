@@ -227,7 +227,7 @@ export default function EditAuditJobPage() {
   const searchParams = useSearchParams();
   const jobNo = searchParams.get("jobNo") ?? "";
   const { data: session } = useSession();
-
+  const fileAccessParam = searchParams.get("fileAccess");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
@@ -235,9 +235,7 @@ export default function EditAuditJobPage() {
   const [isLoadingBranches, setIsLoadingBranches] = useState(true);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [isLoadingPMCodes, setIsLoadingPMCodes] = useState(true);
-
-  const [loadError, setLoadError] = useState<string | null>(null);
-
+  const [canViewFiles, setCanViewFiles] = useState(false);
   const [existingJobHeaderFiles, setExistingJobHeaderFiles] = useState<
     Array<{
       fileId: number;
@@ -299,7 +297,6 @@ export default function EditAuditJobPage() {
   const fetchJobData = useCallback(async () => {
     try {
       setIsLoadingData(true);
-      setLoadError(null);
  
       const response = await client.get('/audit-jobs/detail', {
         params: { jobNo: jobNo },
@@ -362,7 +359,6 @@ export default function EditAuditJobPage() {
               .response?.data?.message
           : undefined;
           
-      setLoadError(errorMessage || "ไม่สามารถโหลดข้อมูลงานได้");
       
       toast.error("ไม่สามารถโหลดข้อมูลงานได้", {
         description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
@@ -454,6 +450,45 @@ export default function EditAuditJobPage() {
       fetchJobData();
     }
   }, [jobNo, fetchJobData, isLoadingUsers, users.length]);
+
+    useEffect(() => {
+    const roleId = session?.user?.role_id;
+ 
+    // Role 1, 2 → เห็นไฟล์เสมอ
+    if (roleId === 1 || roleId === 2) {
+      setCanViewFiles(true);
+      return;
+    }
+ 
+    // ไม่มี token → ไม่เห็นไฟล์
+    if (!fileAccessParam) {
+      setCanViewFiles(false);
+      return;
+    }
+ 
+    // มี token → verify กับ Backend
+    const verifyAccess = async () => {
+      try {
+        const response = await client.post(
+          "/audit-jobs/verify-file-access",
+          { token: fileAccessParam, jobNo },
+          { headers: dataConfig().headers }
+        );
+ 
+        if (response.data.success && response.data.canViewFiles) {
+          setCanViewFiles(true);
+        } else {
+          setCanViewFiles(false);
+        }
+      } catch (error) {
+        console.error("File access verification failed:", error);
+        setCanViewFiles(false);
+      } finally {
+      }
+    };
+ 
+    verifyAccess();
+  }, [session?.user?.role_id, fileAccessParam, jobNo]);
 
    useEffect(() => {
     const fetchAuditItems = async () => {
@@ -1702,6 +1737,11 @@ export default function EditAuditJobPage() {
                     <Skeleton className="h-4 w-32" />
                     <Skeleton className="h-10 w-full" />
                     <Skeleton className="h-10 w-full" />
+                  </div>
+                ) : !canViewFiles ? (
+                  <div className="flex items-center gap-2 rounded-md border border-dashed border-muted-foreground/40 px-4 py-6 text-sm text-muted-foreground justify-center">
+                    <Lock className="h-4 w-4" />
+                    <span>ไม่มีสิทธิ์ดูและแนบไฟล์</span>
                   </div>
                 ) : (
                 <>

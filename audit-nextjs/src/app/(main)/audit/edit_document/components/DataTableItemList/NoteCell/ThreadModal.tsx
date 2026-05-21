@@ -195,11 +195,10 @@ function MentionTextarea({
         placeholder={placeholder}
         rows={rows}
         disabled={disabled}
-        className="resize-none w-full relative"
+        className="resize-none w-full relative caret-foreground"
         style={{
           background: "transparent",
           color: "transparent",
-          caretColor: "hsl(var(--foreground))",
         }}
       />
     </div>

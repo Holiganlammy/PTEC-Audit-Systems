@@ -9,6 +9,7 @@ import {
   Moon,
   Sparkles,
   Sun,
+  UserCog
 } from "lucide-react"
 
 import {
@@ -34,6 +35,8 @@ import {
 import { logout } from "@/lib/auth/logout"
 import { useSession } from "next-auth/react"
 import { useTheme } from "next-themes"
+import { ChangePasswordDialog } from "./Navigation/Change-Password"
+import { useState } from "react"
 
 export function NavUser({
   user,
@@ -44,6 +47,7 @@ export function NavUser({
     avatar: string
   }
 }) {
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const { isMobile } = useSidebar()
   const { theme, setTheme } = useTheme()
   const { data: session } = useSession()
@@ -56,6 +60,7 @@ export function NavUser({
     }
   }
   return (
+    <>
     <SidebarMenu>
       <SidebarMenuItem>
         <DropdownMenu>
@@ -106,21 +111,21 @@ export function NavUser({
                 {theme === "dark" ? "Light Mode" : "Dark Mode"}
               </DropdownMenuItem>
             </DropdownMenuGroup>
-            {/* <DropdownMenuSeparator />
+            {/* {/* <DropdownMenuSeparator /> */}
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <BadgeCheck />
-                Account
+              <DropdownMenuItem onClick={() => setShowChangePassword(true)}>
+                <UserCog />
+                Change Password
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              {/* <DropdownMenuItem>
                 <CreditCard />
                 Billing
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <Bell />
                 Notifications
-              </DropdownMenuItem>
-            </DropdownMenuGroup> */}
+              </DropdownMenuItem> */}
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={handleLogout}>
               <LogOut />
@@ -130,5 +135,9 @@ export function NavUser({
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
+
+    <ChangePasswordDialog open={showChangePassword} onOpenChange={setShowChangePassword} userCode={session?.user?.UserCode} />
+
+    </>
   )
 }

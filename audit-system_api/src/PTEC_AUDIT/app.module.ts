@@ -35,6 +35,8 @@ import { AuditCreateDocGmailApiService } from '../email/audit-create-doc-gmail-a
 import { AuditCommentApprovalGmailApiService } from '../email/audit-comment-approval-gmail-api.service';
 import { MentionEmailService } from '../email/mention-comment-gmail.api.service';
 import { AuditSummaryEmailService } from '../email/audit-sumary-comment-send-items.api.service';
+import { DashboardService } from './service/dashboard.service';
+import { FileAccessService } from './service/file-access.service';
 
 // Controllers
 import { AuditJobsController } from './controller/audit-job.controller';
@@ -50,7 +52,7 @@ import { AuditFilesController } from './controller/audit-files.controller';
 import { BranchAuditScoreController } from './controller/branch-audit-score.controller';
 import { AuditEmailController } from './controller/audit-email.controller';
 import { DashboardController } from './controller/dashboard.controller';
-import { DashboardService } from './service/dashboard.service';
+import { FileAccessController } from './controller/file-access.controller';
 
 @Module({
   controllers: [
@@ -66,6 +68,7 @@ import { DashboardService } from './service/dashboard.service';
     AuditFilesController,
     BranchAuditScoreController,
     AuditEmailController,
+    FileAccessController,
     DashboardController,
   ],
   imports: [
@@ -107,6 +110,7 @@ import { DashboardService } from './service/dashboard.service';
     MentionEmailService,
     AuditSummaryEmailService,
     DashboardService,
+    FileAccessService,
   ],
   exports: [AppService, DashboardService],
 })

@@ -19,6 +19,7 @@ import { MentionEmailService } from '../../email/mention-comment-gmail.api.servi
 import express from 'express';
 import { AuditJobWithUsers } from '../domain/type/audit-job.interface';
 import { AuditSummaryEmailService } from '../../email/audit-sumary-comment-send-items.api.service';
+import { FileAccessService } from '../service/file-access.service';
 
 @Controller('audit-email')
 export class AuditEmailController {
@@ -28,6 +29,7 @@ export class AuditEmailController {
     private readonly auditItemsService: AuditItemsService,
     private readonly auditJobsService: AuditJobsService,
     private readonly auditSummaryService: AuditSummaryEmailService,
+    private readonly fileAccessService: FileAccessService,
   ) {}
 
   @Post('send-job-created')
@@ -48,6 +50,14 @@ export class AuditEmailController {
       });
     }
 
+    const baseUrl = process.env.FRONTEND_URL || 'https://audit.purethai.co.th';
+    const jobUrlWithFileAccess =
+      this.fileAccessService.buildJobUrlWithFileAccess(
+        baseUrl,
+        body.jobNo,
+        body.jobId,
+      );
+
     await this.auditCreateDocGmailService.sendAuditJobCreatedEmail({
       groupEmails: body.groupEmails,
       additionalRecipients: body.additionalRecipients,
@@ -58,7 +68,7 @@ export class AuditEmailController {
       auditorFullname: body.auditorFullname,
       districtManagerFullname: body.districtManagerFullname,
       branchManagerFullname: body.branchManagerFullname,
-      jobUrl: body.jobUrl,
+      jobUrl: jobUrlWithFileAccess,
     });
 
     return {

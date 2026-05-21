@@ -1,3 +1,6 @@
+// app/audit/edit_document/components/DataTableItemList/DataTable.tsx
+// Version: 2.0.0 | Date: 2025-05-20 | Updated: Added sticky column support
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -26,6 +29,8 @@ import {
   getPaginationRowModel,
   useReactTable,
   type Row,
+  type Header,
+  type Cell,
 } from "@tanstack/react-table";
 import {
   Table,
@@ -72,6 +77,86 @@ import { toast } from "sonner";
 import type { TaggedUser } from "./TagCell/TagCell";
 import AMChecklistModal from "./Amchecklist/modal";
 
+interface ListTaggedUser {
+  taggedUserId: number;
+  itemId: number;
+  userId: number;
+  userCode?: string;
+  fullname?: string;
+  email?: string;
+  position?: string;
+  branchId?: number;
+  createdBy: number;
+  createdAt: Date;
+  active: boolean;
+  item_id?: number; // for compatibility with older API responses
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// STICKY COLUMN HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * สร้าง CSS styles สำหรับ sticky column จาก column meta
+ */
+function getStickyStyle(meta?: {
+  sticky?: "left" | "right";
+  stickyOffset?: number;
+  isLastSticky?: boolean;
+}): React.CSSProperties | undefined {
+  if (!meta?.sticky) return undefined;
+
+  return {
+    position: "sticky",
+    [meta.sticky]: meta.stickyOffset ?? 0,
+    zIndex: meta.isLastSticky ? 2 : 1,
+  };
+}
+
+/**
+ * สร้าง className สำหรับ sticky column
+ * - bg เพื่อไม่ให้โปร่งใสเวลา scroll
+ * - shadow เฉพาะคอลัมน์สุดท้ายที่ sticky
+ */
+function getStickyClassName(meta?: {
+  sticky?: "left" | "right";
+  isLastSticky?: boolean;
+}, isHeader?: boolean): string {
+  if (!meta?.sticky) return "";
+
+  const classes: string[] = [];
+
+  // Background ทึบเพื่อบัง content ด้านหลัง
+  if (isHeader) {
+    // ตรงกับ TableHeader: bg-neutral-800 dark:bg-zinc-900
+    classes.push("bg-neutral-800 dark:bg-zinc-900");
+  } else {
+    classes.push("bg-background");
+  }
+
+  // Shadow เฉพาะคอลัมน์สุดท้ายที่ sticky
+  if (meta.isLastSticky) {
+    if (meta.sticky === "left") {
+      // clip-path ป้องกัน shadow ล้นด้านบน/ล่าง
+      classes.push(
+        "[box-shadow:4px_0_8px_-4px_rgba(0,0,0,0.1)]",
+        "[clip-path:inset(0_-8px_0_0)]"
+      );
+    } else {
+      classes.push(
+        "[box-shadow:-4px_0_8px_-4px_rgba(0,0,0,0.1)]",
+        "[clip-path:inset(0_0_0_-8px)]"
+      );
+    }
+  }
+
+  return classes.join(" ");
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TYPES
+// ══════════════════════════════════════════════════════════════════════════════
+
 interface ApiUser {
   UserID: string;
   UserCode: string;
@@ -94,6 +179,10 @@ type BranchAuditScoreApiRow = {
   active: boolean;
 };
 
+// ══════════════════════════════════════════════════════════════════════════════
+// SORTABLE ROW (ใช้ sticky style ด้วย)
+// ══════════════════════════════════════════════════════════════════════════════
+
 function SortableTableRow({ row }: { row: Row<AuditItem> }) {
   const {
     setNodeRef,
@@ -114,18 +203,29 @@ function SortableTableRow({ row }: { row: Row<AuditItem> }) {
           transition,
           opacity: isDragging ? 0.5 : 1,
           position: isDragging ? "relative" : undefined,
-          zIndex: isDragging ? 1 : undefined,
+          zIndex: isDragging ? 10 : undefined,
         }}
       >
-        {row.getVisibleCells().map((cell) => (
-          <TableCell key={cell.id}>
-            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-          </TableCell>
-        ))}
+        {row.getVisibleCells().map((cell: Cell<AuditItem, unknown>) => {
+          const meta = cell.column.columnDef.meta;
+          return (
+            <TableCell
+              key={cell.id}
+              style={getStickyStyle(meta)}
+              className={getStickyClassName(meta, false)}
+            >
+              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+            </TableCell>
+          );
+        })}
       </TableRow>
     </DragHandleContext.Provider>
   );
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ══════════════════════════════════════════════════════════════════════════════
 
 interface DataTableItemListProps {
   items: AuditItem[];
@@ -167,7 +267,6 @@ export default function DataTableItemList({
   const [taggedUsersMap, setTaggedUsersMap] = useState<Record<number, TaggedUser[]>>({});
   const [branchScoresMap, setBranchScoresMap] = useState<Record<number, BranchScoreEntry>>({});
 
-  // Modal state
   const [openAddModal, setOpenAddModal] = useState(false);
   const [openEditModal, setOpenEditModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<AuditItem | null>(null);
@@ -175,31 +274,21 @@ export default function DataTableItemList({
   const [openAMChecklistModal, setOpenAMChecklistModal] = useState(false);
   const [selectedAMChecklistItem, setSelectedAMChecklistItem] = useState<AuditItem | null>(null);
 
-  // Sync when parent refreshes items
-  useEffect(() => {
-    setOrderedItems(items);
-  }, [items]);
+  useEffect(() => { setOrderedItems(items); }, [items]);
 
-  // Fetch users once for TagCell
   useEffect(() => {
-    client
-      .get("/users", { headers: dataConfig().headers })
-      .then((res) => {
-        if (Array.isArray(res.data)) setUsers(res.data);
-      })
+    client.get("/users", { headers: dataConfig().headers })
+      .then((res) => { if (Array.isArray(res.data)) setUsers(res.data); })
       .catch(() => {});
   }, []);
 
-  // Fetch all tagged users and group by item_id
   useEffect(() => {
-    client
-      .get("/audit-items/all/tagged-users", { headers: dataConfig().headers })
+    client.get("/audit-items/all/tagged-users", { headers: dataConfig().headers })
       .then((res) => {
-        const list: { itemId?: number; item_id?: number; userId: string; userCode: string; fullname: string }[] =
-          Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
+        const list: TaggedUser[] = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
         const map: Record<number, TaggedUser[]> = {};
         list.forEach((entry) => {
-          const id = entry.itemId ?? entry.item_id;
+          const id = entry.itemId;
           if (id == null) return;
           if (!map[id]) map[id] = [];
           map[id].push({ userId: entry.userId, userCode: entry.userCode, fullname: entry.fullname });
@@ -209,79 +298,39 @@ export default function DataTableItemList({
       .catch(() => {});
   }, []);
 
-  // Fetch branch audit scores and group by itemId
   const fetchBranchScores = useCallback(async () => {
     const branchId = Number(jobData?.branchId);
     if (!Number.isFinite(branchId)) return;
-
     const res = await client.get("/branch-audit-scores/list", {
       params: { jobId, branchId },
       headers: dataConfig().headers,
     });
-
-    const list: BranchAuditScoreApiRow[] = Array.isArray(res.data)
-      ? res.data
-      : Array.isArray(res.data?.data)
-      ? res.data.data
-      : [];
-
+    const list: BranchAuditScoreApiRow[] = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
     const latestByItem: Record<number, BranchAuditScoreApiRow> = {};
     for (const row of list) {
       if (!row?.active) continue;
       const prev = latestByItem[row.itemId];
-      if (!prev) {
-        latestByItem[row.itemId] = row;
-        continue;
-      }
-      const prevTime = Date.parse(prev.createdAt);
-      const nextTime = Date.parse(row.createdAt);
-      if (!Number.isNaN(nextTime) && (Number.isNaN(prevTime) || nextTime >= prevTime)) {
+      if (!prev || Date.parse(row.createdAt) >= Date.parse(prev.createdAt)) {
         latestByItem[row.itemId] = row;
       }
     }
-
     const map: Record<number, BranchScoreEntry> = {};
-    for (const [itemIdText, row] of Object.entries(latestByItem)) {
-      const id = Number(itemIdText);
-      map[id] = {
-        scoreId: row.scoreId,
-        score: row.score,
-        note: row.remarks ?? undefined,
-      };
+    for (const [id, row] of Object.entries(latestByItem)) {
+      map[Number(id)] = { scoreId: row.scoreId, score: row.score, note: row.remarks ?? undefined };
     }
-
     setBranchScoresMap(map);
   }, [jobId, jobData?.branchId]);
 
-  useEffect(() => {
-    fetchBranchScores().catch((err) => {
-      console.error("❌ Error fetching branch audit scores:", err);
-    });
-  }, [fetchBranchScores]);
+  useEffect(() => { fetchBranchScores().catch(() => {}); }, [fetchBranchScores]);
 
-  const handleEdit = useCallback((item: AuditItem) => {
-    setSelectedItem(item);
-    setOpenEditModal(true);
-  }, []);
-
-  const handleTagChange = useCallback((itemId: number, tags: TaggedUser[]) => {
-    setTaggedUsersMap((prev) => ({ ...prev, [itemId]: tags }));
-  }, []);
-
+  const handleEdit = useCallback((item: AuditItem) => { setSelectedItem(item); setOpenEditModal(true); }, []);
+  const handleTagChange = useCallback((itemId: number, tags: TaggedUser[]) => { setTaggedUsersMap((prev) => ({ ...prev, [itemId]: tags })); }, []);
   const handleCommentsChange = useCallback((itemId: number, threadType: 1 | 2 | 3, comments: AuditComment[]) => {
     const noteKey = threadType === 1 ? "note_1" : threadType === 2 ? "note_2" : "note_3";
-    setOrderedItems((prev) =>
-      prev.map((item) =>
-        item.item_id === itemId ? { ...item, [noteKey]: comments } : item
-      )
-    );
+    setOrderedItems((prev) => prev.map((item) => item.item_id === itemId ? { ...item, [noteKey]: comments } : item));
     onCommentsChange?.(itemId, threadType, comments);
   }, [onCommentsChange]);
-
-  const handleAMChecklistClick = useCallback((item: AuditItem) => {
-    setSelectedAMChecklistItem(item);
-    setOpenAMChecklistModal(true);
-  }, []);
+  const handleAMChecklistClick = useCallback((item: AuditItem) => { setSelectedAMChecklistItem(item); setOpenAMChecklistModal(true); }, []);
 
   const isAMChecklistAllowed = (() => {
     const roleId = session?.user?.role_id;
@@ -290,217 +339,73 @@ export default function DataTableItemList({
     return userId !== "" && userId === String(jobData?.districtManager?.userId ?? "");
   })();
 
-  // ── Permission filter ──────────────────────────────────────────────────────
   const { visibleItems, accessDenied } = useMemo(() => {
     const roleId = session?.user?.role_id;
     const userId = session?.user?.UserID;
     if (!userId) return { visibleItems: [], accessDenied: false };
-
-    // role 1 หรือ 2: เห็นทุก item
-    if (roleId === 1 || roleId === 2)
-      return { visibleItems: orderedItems, accessDenied: false };
-
-    // role 3: ต้องเป็น districtManager ของ job นี้
+    if (roleId === 1 || roleId === 2) return { visibleItems: orderedItems, accessDenied: false };
     if (roleId === 3) {
       const isJobMember = userId == jobData?.districtManager?.userId;
       if (!isJobMember) return { visibleItems: [], accessDenied: true };
       return { visibleItems: orderedItems, accessDenied: false };
     }
-
-    // อื่นๆ: เห็นเฉพาะ item ที่ถูก tag
     return {
-      visibleItems: orderedItems.filter((item) =>
-        (taggedUsersMap[item.item_id] ?? []).some(
-          (t) => t.userId == String(userId)
-        )
-      ),
+      visibleItems: orderedItems.filter((item) => (taggedUsersMap[item.item_id] ?? []).some((t) => t.userId == String(userId))),
       accessDenied: false,
     };
   }, [orderedItems, taggedUsersMap, session, jobData]);
 
-  const handleDelete = useCallback((item: AuditItem) => {
-    setDeleteItem(item);
-  }, []);
+  const handleDelete = useCallback((item: AuditItem) => { setDeleteItem(item); }, []);
 
-  // onSubmit ของ BranchScoreCell จะส่ง itemId, score, note มาให้ handleBranchScoreSubmit เพื่อบันทึกผ่าน API และอัปเดต state
-  const handleBranchScoreSubmit = useCallback(
-    async (itemId: number, score: BranchScoreValue, note?: string) => {
-      const existing = branchScoresMap[itemId];
-
-      if (existing?.scoreId) {
-        // แก้ไข — PUT /branch-audit-scores/:id
-        await client.put(
-          `/branch-audit-scores/${existing.scoreId}`,
-          {
-            score,
-            remarks: note,
-            updatedBy: session?.user?.UserID,
-          },
-          { headers: dataConfig().headers }
-        );
-
-        setBranchScoresMap((prev) => ({
-          ...prev,
-          [itemId]: { scoreId: existing.scoreId, score, note },
-        }));
-        toast.success("แก้ไขคะแนนสาขาเรียบร้อย");
-      } else {
-        // เพิ่มใหม่ — POST /branch-audit-scores/create
-        await client.post(
-          "/branch-audit-scores/create",
-          {
-            jobId,
-            itemId,
-            branchId: Number(jobData?.branchId),
-            score,
-            remarks: note,
-            createdBy: String(session?.user?.UserID ?? ""),
-            createdDate: new Date().toISOString(),
-          },
-          { headers: dataConfig().headers }
-        );
-
-        // refetch เพื่อให้ได้ scoreId ที่ถูกต้องสำหรับการแก้ไขครั้งถัดไป
-        await fetchBranchScores();
-        toast.success("บันทึกคะแนนสาขาเรียบร้อย");
-      }
-    },
-    [jobId, jobData, session, branchScoresMap, fetchBranchScores]
-  );
+  const handleBranchScoreSubmit = useCallback(async (itemId: number, score: BranchScoreValue, note?: string) => {
+    const existing = branchScoresMap[itemId];
+    if (existing?.scoreId) {
+      await client.put(`/branch-audit-scores/${existing.scoreId}`, { score, remarks: note, updatedBy: session?.user?.UserID }, { headers: dataConfig().headers });
+      setBranchScoresMap((prev) => ({ ...prev, [itemId]: { scoreId: existing.scoreId, score, note } }));
+      toast.success("แก้ไขคะแนนสาขาเรียบร้อย");
+    } else {
+      await client.post("/branch-audit-scores/create", { jobId, itemId, branchId: Number(jobData?.branchId), score, remarks: note, createdBy: String(session?.user?.UserID ?? ""), createdDate: new Date().toISOString() }, { headers: dataConfig().headers });
+      await fetchBranchScores();
+      toast.success("บันทึกคะแนนสาขาเรียบร้อย");
+    }
+  }, [jobId, jobData, session, branchScoresMap, fetchBranchScores]);
 
   const branchScoreSummary = useMemo(() => {
-    let plus = 0;
-    let zero = 0;
-    let minus = 0;
-    let total = 0;
-    let scored = 0;
-
+    let plus = 0, zero = 0, minus = 0, total = 0, scored = 0;
     for (const item of visibleItems) {
       const entry = branchScoresMap[item.item_id];
       if (!entry) continue;
-      scored += 1;
-      total += entry.score;
-      if (entry.score === 1) plus += 1;
-      else if (entry.score === 0) zero += 1;
-      else minus += 1;
+      scored += 1; total += entry.score;
+      if (entry.score === 1) plus += 1; else if (entry.score === 0) zero += 1; else minus += 1;
     }
-
-    return {
-      plus,
-      zero,
-      minus,
-      total,
-      scored,
-      unscored: Math.max(0, visibleItems.length - scored),
-    };
+    return { plus, zero, minus, total, scored, unscored: Math.max(0, visibleItems.length - scored) };
   }, [visibleItems, branchScoresMap]);
 
   const confirmDelete = async () => {
     if (!deleteItem) return;
-    // Draft mode: remove locally without API call
     if (isDraftMode) {
       const newItems = orderedItems.filter((item) => item.item_id !== deleteItem.item_id);
-      setOrderedItems(newItems);
-      onItemsChange(newItems);
-      setDeleteItem(null);
-      toast.success("ลบรายการสำเร็จ");
-      return;
+      setOrderedItems(newItems); onItemsChange(newItems); setDeleteItem(null);
+      toast.success("ลบรายการสำเร็จ"); return;
     }
     try {
-      await client.delete(`/audit-items/${deleteItem.item_id}`, {
-        headers: dataConfig().headers,
-      });
-      toast.success("ลบรายการสำเร็จ");
-      onItemsChange();
-    } catch {
-      toast.error("ไม่สามารถลบรายการได้");
-    } finally {
-      setDeleteItem(null);
-    }
+      await client.delete(`/audit-items/${deleteItem.item_id}`, { headers: dataConfig().headers });
+      toast.success("ลบรายการสำเร็จ"); onItemsChange();
+    } catch { toast.error("ไม่สามารถลบรายการได้"); }
+    finally { setDeleteItem(null); }
   };
 
-  // Draft mode: add item to local state without API call
-  const handleDraftItemAdd = useCallback(
-    (draftItem: DraftAddItem) => {
-      const now = new Date().toISOString();
-      // Build a temp audit comment in note_1 if remarks provided
-      const tempNote1: AuditComment[] = draftItem.remarks
-        ? [
-            {
-              id: -(Date.now()),
-              itemId: 0,
-              userId: Number(session?.user?.UserID ?? 0),
-              author: [
-                session?.user?.fristName ?? "",
-                session?.user?.lastName ?? "",
-              ].filter(Boolean).join(" ") || session?.user?.UserCode || "Draft",
-              text: draftItem.remarks,
-              approverStatus: draftItem.auditCommentStatus === "0" ? 0 : null,
-              createdAt: now,
-              updatedAt: now,
-            },
-          ]
-        : [];
-
-      const newItem: AuditItem = {
-        item_id: -(Date.now()), // negative temp ID to distinguish from real
-        job_id: 0,
-        category_item_id: draftItem.category_item_id,
-        category_name: draftItem.category_name,
-        inspection_date: draftItem.inspection_date,
-        item_status: draftItem.item_status,
-        item_status_edit: null,
-        remarks: draftItem.remarks,
-        note_1: tempNote1,
-        note_2: [],
-        note_3: [],
-        created_at: now,
-        updated_at: now,
-        active: true,
-      };
-      const newItems = [...orderedItems, newItem];
-      setOrderedItems(newItems);
-      onItemsChange(newItems);
-    },
-    [orderedItems, onItemsChange, session]
-  );
+  const handleDraftItemAdd = useCallback((draftItem: DraftAddItem) => {
+    const now = new Date().toISOString();
+    const tempNote1: AuditComment[] = draftItem.remarks ? [{ id: -(Date.now()), itemId: 0, userId: Number(session?.user?.UserID ?? 0), author: [session?.user?.fristName ?? "", session?.user?.lastName ?? ""].filter(Boolean).join(" ") || session?.user?.UserCode || "Draft", text: draftItem.remarks, approverStatus: draftItem.auditCommentStatus === "0" ? 0 : null, createdAt: now, updatedAt: now }] : [];
+    const newItem: AuditItem = { item_id: -(Date.now()), job_id: 0, category_item_id: draftItem.category_item_id, category_name: draftItem.category_name, inspection_date: draftItem.inspection_date, item_status: draftItem.item_status, item_status_edit: null, remarks: draftItem.remarks, note_1: tempNote1, note_2: [], note_3: [], created_at: now, updated_at: now, active: true };
+    const newItems = [...orderedItems, newItem];
+    setOrderedItems(newItems); onItemsChange(newItems);
+  }, [orderedItems, onItemsChange, session]);
 
   const columns = useMemo(
-    () =>
-      createAuditItemsColumns(
-        handleEdit,
-        handleDelete,
-        onItemsChange,
-        users,
-        taggedUsersMap,
-        handleTagChange,
-        handleCommentsChange,
-        jobData,
-        isLocked,
-        handleAMChecklistClick,
-        isAMChecklistAllowed,
-        branchScoresMap,
-        handleBranchScoreSubmit,
-        session?.user?.role_id === 1 || session?.user?.role_id === 2,
-        isDraftMode
-      ),
-    [
-      handleEdit,
-      handleDelete,
-      onItemsChange,
-      users,
-      taggedUsersMap,
-      handleTagChange,
-      handleCommentsChange,
-      jobData,
-      isLocked,
-      handleAMChecklistClick,
-      isAMChecklistAllowed,
-      branchScoresMap,
-      handleBranchScoreSubmit,
-      session,
-      isDraftMode,
-    ]
+    () => createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session?.user?.role_id === 1 || session?.user?.role_id === 2, isDraftMode),
+    [handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session, isDraftMode]
   );
 
   const table = useReactTable({
@@ -510,18 +415,11 @@ export default function DataTableItemList({
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    state: {
-      globalFilter: search,
-      pagination: { pageIndex, pageSize },
-    },
+    state: { globalFilter: search, pagination: { pageIndex, pageSize } },
     onGlobalFilterChange: setSearch,
     onPaginationChange: (updater) => {
-      const next =
-        typeof updater === "function"
-          ? updater({ pageIndex, pageSize })
-          : updater;
-      setPageIndex(next.pageIndex);
-      setPageSize(next.pageSize);
+      const next = typeof updater === "function" ? updater({ pageIndex, pageSize }) : updater;
+      setPageIndex(next.pageIndex); setPageSize(next.pageSize);
     },
     globalFilterFn: (row, _, filterValue) => {
       const name = (row.getValue<string>("category_name") ?? "").toLowerCase();
@@ -551,16 +449,7 @@ export default function DataTableItemList({
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4">
-        <Input
-          placeholder="ค้นหารายการ..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPageIndex(0);
-          }}
-          className="max-w-sm"
-          disabled={isLoading}
-        />
+        <Input placeholder="ค้นหารายการ..." value={search} onChange={(e) => { setSearch(e.target.value); setPageIndex(0); }} className="max-w-sm" disabled={isLoading} />
         {!isLocked && showAddButton && (
           <Button onClick={() => setOpenAddModal(true)}>
             <Plus className="mr-2 h-4 w-4" />
@@ -581,31 +470,28 @@ export default function DataTableItemList({
         </div>
       </div>
 
-      {/* DnD Table */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={visibleItems.map((item) => item.item_id)}
-          strategy={verticalListSortingStrategy}
-        >
+      {/* DnD Table with Sticky Columns */}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={visibleItems.map((item) => item.item_id)} strategy={verticalListSortingStrategy}>
           <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => (
-                      <TableHead key={header.id}>
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                      </TableHead>
-                    ))}
+                    {headerGroup.headers.map((header: Header<AuditItem, unknown>) => {
+                      const meta = header.column.columnDef.meta;
+                      return (
+                        <TableHead
+                          key={header.id}
+                          style={getStickyStyle(meta)}
+                          className={getStickyClassName(meta, true)}
+                        >
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
+                        </TableHead>
+                      );
+                    })}
                   </TableRow>
                 ))}
               </TableHeader>
@@ -614,9 +500,7 @@ export default function DataTableItemList({
                   Array.from({ length: pageSize }).map((_, i) => (
                     <TableRow key={i}>
                       {columns.map((_, j) => (
-                        <TableCell key={j}>
-                          <Skeleton className="h-4 w-full" />
-                        </TableCell>
+                        <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
                       ))}
                     </TableRow>
                   ))
@@ -624,13 +508,8 @@ export default function DataTableItemList({
                   rows.map((row) => <SortableTableRow key={row.id} row={row} />)
                 ) : (
                   <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-24 text-center text-muted-foreground"
-                    >
-                      {noPermission
-                        ? "🔒 คุณไม่มีสิทธิ์ในการดูรายการเหล่านี้"
-                        : "ไม่พบรายการ"}
+                    <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
+                      {noPermission ? "🔒 คุณไม่มีสิทธิ์ในการดูรายการเหล่านี้" : "ไม่พบรายการ"}
                     </TableCell>
                   </TableRow>
                 )}
@@ -642,115 +521,30 @@ export default function DataTableItemList({
 
       {/* Pagination */}
       <div className="flex flex-col gap-3 px-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm text-muted-foreground">
-          {table.getFilteredRowModel().rows.length} รายการทั้งหมด
-        </div>
+        <div className="text-sm text-muted-foreground">{table.getFilteredRowModel().rows.length} รายการทั้งหมด</div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
             <p className="text-sm font-medium whitespace-nowrap">Rows per page</p>
-            <Select
-              value={`${pageSize}`}
-              onValueChange={(v) => {
-                setPageSize(Number(v));
-                setPageIndex(0);
-              }}
-            >
-              <SelectTrigger className="h-8 w-17.5">
-                <SelectValue placeholder={pageSize} />
-              </SelectTrigger>
-              <SelectContent side="top">
-                {[10, 20, 50, 100].map((s) => (
-                  <SelectItem key={s} value={`${s}`}>
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
+            <Select value={`${pageSize}`} onValueChange={(v) => { setPageSize(Number(v)); setPageIndex(0); }}>
+              <SelectTrigger className="h-8 w-17.5"><SelectValue placeholder={pageSize} /></SelectTrigger>
+              <SelectContent side="top">{[10, 20, 50, 100].map((s) => (<SelectItem key={s} value={`${s}`}>{s}</SelectItem>))}</SelectContent>
             </Select>
           </div>
           <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setPageIndex(0)}
-              disabled={!table.getCanPreviousPage()}
-            >
-              <ChevronsLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setPageIndex((p) => p - 1)}
-              disabled={!table.getCanPreviousPage()}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm whitespace-nowrap px-1">
-              หน้า {pageIndex + 1} / {table.getPageCount() || 1}
-            </span>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setPageIndex((p) => p + 1)}
-              disabled={!table.getCanNextPage()}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setPageIndex(table.getPageCount() - 1)}
-              disabled={!table.getCanNextPage()}
-            >
-              <ChevronsRight className="h-4 w-4" />
-            </Button>
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPageIndex(0)} disabled={!table.getCanPreviousPage()}><ChevronsLeft className="h-4 w-4" /></Button>
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPageIndex((p) => p - 1)} disabled={!table.getCanPreviousPage()}><ChevronLeft className="h-4 w-4" /></Button>
+            <span className="text-sm whitespace-nowrap px-1">หน้า {pageIndex + 1} / {table.getPageCount() || 1}</span>
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPageIndex((p) => p + 1)} disabled={!table.getCanNextPage()}><ChevronRight className="h-4 w-4" /></Button>
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPageIndex(table.getPageCount() - 1)} disabled={!table.getCanNextPage()}><ChevronsRight className="h-4 w-4" /></Button>
           </div>
         </div>
       </div>
-     
-      {/* Add Modal */}
-      <AddItemModal
-        open={openAddModal}
-        onOpenChange={setOpenAddModal}
-        jobNo={jobNo}
-        jobId={jobId}
-        jobData={jobData || undefined}
-        isDraftMode={isDraftMode}
-        inspectionDate={inspectionDate}
-        onDraftItemAdd={isDraftMode ? handleDraftItemAdd : undefined}
-        onItemAdded={() => {
-          setOpenAddModal(false);
-          onItemsChange();
-        }}
-      />
 
-      {/* Edit Modal */}
-      <EditItemModal
-        open={openEditModal}
-        onOpenChange={setOpenEditModal}
-        item={selectedItem}
-        jobData={jobData}
-        onItemUpdated={() => {
-          setOpenEditModal(false);
-          onItemsChange();
-        }}
-      />
+      {/* Modals */}
+      <AddItemModal open={openAddModal} onOpenChange={setOpenAddModal} jobNo={jobNo} jobId={jobId} jobData={jobData || undefined} isDraftMode={isDraftMode} inspectionDate={inspectionDate} onDraftItemAdd={isDraftMode ? handleDraftItemAdd : undefined} onItemAdded={() => { setOpenAddModal(false); onItemsChange(); }} />
+      <EditItemModal open={openEditModal} onOpenChange={setOpenEditModal} item={selectedItem} jobData={jobData} onItemUpdated={() => { setOpenEditModal(false); onItemsChange(); }} />
+      <AMChecklistModal open={openAMChecklistModal} onOpenChange={setOpenAMChecklistModal} item={selectedAMChecklistItem} onUpdated={() => { setOpenAMChecklistModal(false); onItemsChange(); }} />
 
-      {/* AM Checklist Modal */}
-      <AMChecklistModal
-        open={openAMChecklistModal}
-        onOpenChange={setOpenAMChecklistModal}
-        item={selectedAMChecklistItem}
-        onUpdated={() => {
-          setOpenAMChecklistModal(false);
-          onItemsChange();
-        }}
-      />
-
-      {/* Delete Confirm Dialog */}
       <AlertDialog open={!!deleteItem} onOpenChange={(open) => { if (!open) setDeleteItem(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -762,12 +556,7 @@ export default function DataTableItemList({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              ลบรายการ
-            </AlertDialogAction>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">ลบรายการ</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
