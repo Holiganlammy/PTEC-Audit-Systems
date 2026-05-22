@@ -111,6 +111,11 @@ export class AuditJobsController implements OnModuleInit {
     @Query('status') status?: string,
     @Query('branchId') branchId?: string,
     @Query('auditorUserId') auditorUserId?: string,
+    @Query('districtManagerUserId') districtManagerUserId?: string,
+    @Query('branchManagerUserId') branchManagerUserId?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('search') search?: string,
     @Query('active') active?: string,
     @Req() req?: express.Request,
   ): Promise<PaginatedResponse> {
@@ -120,6 +125,15 @@ export class AuditJobsController implements OnModuleInit {
       status: status ? parseInt(status, 10) : undefined,
       branchId: branchId ? parseInt(branchId, 10) : undefined,
       auditorUserId: auditorUserId ? parseInt(auditorUserId, 10) : undefined,
+      districtManagerUserId: districtManagerUserId
+        ? parseInt(districtManagerUserId, 10)
+        : undefined,
+      branchManagerUserId: branchManagerUserId
+        ? parseInt(branchManagerUserId, 10)
+        : undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+      search: search || undefined,
       active: active ? active === 'true' : undefined,
     };
 

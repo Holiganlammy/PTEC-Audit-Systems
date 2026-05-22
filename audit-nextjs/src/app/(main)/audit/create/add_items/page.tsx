@@ -211,7 +211,7 @@ export default function AddItemsPage() {
           headers: dataConfig().headers,
         });
         if (response.data.success) {
-          setBranches(response.data.data);
+          setBranches(response.data.data.filter((b: Branch) => b.name?.startsWith("สาขา")));
         }
       } catch (error) {
         console.error("Error fetching branches:", error);

@@ -91,7 +91,7 @@ function BranchScoreCell({
   const canEditByRole = session?.user?.role_id === 1 || session?.user?.role_id === 2;
   const isDisabled = !!disabled || !canEditByRole;
 
-  const variant = entry?.score === -1 ? "destructive" : entry?.score === 0 ? "secondary" : "default";
+  const variant = entry?.score === -1 ? "destructive" : entry?.score === 0 ? "destructive" : "default";
   const label = entry
     ? `คะแนน ${entry.score === 1 ? "+1" : entry.score === 0 ? "0" : "-1"}`
     : "ให้คะแนน";

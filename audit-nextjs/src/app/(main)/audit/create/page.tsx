@@ -165,7 +165,7 @@ export default function CreateAuditJobPage() {
         });
 
         if (response.data.success) {
-          setBranches(response.data.data);
+          setBranches(response.data.data.filter((b: Branch) => b.name?.startsWith("สาขา")));
         }
       } catch (error: unknown) {
         console.error("Error fetching branches:", error);

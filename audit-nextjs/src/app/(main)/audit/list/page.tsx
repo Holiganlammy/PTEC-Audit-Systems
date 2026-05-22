@@ -1,8 +1,7 @@
-// Version: 3.0.0 | Date: 2025-05-18 | Updated: Added Draft Card support
-
+// Version: 4.0.0 | Date: 2025-05-20 | Updated: Added filters - date range, district manager, branch manager, search
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { dataConfig } from "@/config/config";
 import { Button } from "@/components/ui/button";
@@ -13,7 +12,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Loader2, X, Trash2, Edit, FileText } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Plus, Loader2, X, Trash2, Edit, FileText, CalendarIcon, Filter, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { DataTable } from "@/components/DataTable";
@@ -34,6 +39,7 @@ import ExportListDropdown from "@/components/ExportListDropdown";
 import { loadDraft, clearDraft, getDraftInfo } from "@/utils/audit-draft";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -51,6 +57,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 
 // Types
 interface AuditStatusInfo {
@@ -66,29 +80,23 @@ interface AuditList {
   auditDate: string;
   status: number;
   statusInfo?: AuditStatusInfo;
-  auditor?: {
-    userCode: string;
-    fullname: string;
-    email: string;
-  };
-  districtManager?: {
-    userCode: string;
-    fullname: string;
-    email: string;
-  };
-  branchManager?: {
-    userCode: string;
-    fullname: string;
-    email: string;
-  };
-  createdByUser?: {
-    userCode: string;
-    fullname: string;
-    email: string;
-  };
+  auditor?: { userCode: string; fullname: string; email: string };
+  districtManager?: { userCode: string; fullname: string; email: string };
+  branchManager?: { userCode: string; fullname: string; email: string };
+  createdByUser?: { userCode: string; fullname: string; email: string };
   createdAt: string;
   updatedAt: string;
   active: boolean;
+}
+
+interface User {
+  UserID: string;
+  UserCode: string;
+  Fullname: string;
+  Position: string;
+  PositionCode: string;
+  BranchID: number;
+  BranchName: string;
 }
 
 interface FetchJobsParams {
@@ -96,6 +104,11 @@ interface FetchJobsParams {
   limit: number;
   status?: string;
   branchId?: string;
+  districtManagerUserId?: string;
+  branchManagerUserId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
 }
 
 interface PaginationMeta {
@@ -112,18 +125,13 @@ interface ApiResponse {
   data: AuditList[];
   message: string;
   pagination: PaginationMeta;
-  user: {
-    role_id: number;
-    is_admin: boolean;
-  };
+  user: { role_id: number; is_admin: boolean };
 }
 
 export default function AuditJobsListPage() {
   const router = useRouter();
   const [jobs, setJobs] = useState<AuditList[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [branchFilter, setBranchFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
   const [deleteJobId, setDeleteJobId] = useState<number | null>(null);
@@ -133,7 +141,22 @@ export default function AuditJobsListPage() {
   const session = useSession();
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
 
-  // Draft state
+  // ── Filter State ────────────────────────────────────────────────────────
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [branchFilter, setBranchFilter] = useState<string>("all");
+  const [districtManagerFilter, setDistrictManagerFilter] = useState<string>("all");
+  const [branchManagerFilter, setBranchManagerFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [openBranchManager, setOpenBranchManager] = useState(false);
+  const [bmSearch, setBmSearch] = useState("");
+
+  // ── Users for filter dropdowns ──────────────────────────────────────────
+  const [users, setUsers] = useState<User[]>([]);
+
+  // ── Draft State ─────────────────────────────────────────────────────────
   const [hasDraft, setHasDraft] = useState(false);
   const [draftInfo, setDraftInfo] = useState<{
     branchName: string;
@@ -143,29 +166,103 @@ export default function AuditJobsListPage() {
   } | null>(null);
   const [showDeleteDraftDialog, setShowDeleteDraftDialog] = useState(false);
 
-  // Bulk delete state
+  // ── Bulk Delete State ───────────────────────────────────────────────────
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [bulkDeleteNote, setBulkDeleteNote] = useState("");
 
   const canDelete = session.data?.user?.role_id === 1 || session.data?.user?.role_id === 2;
-
-  const selectedJobIds = Object.keys(selectedRows)
-    .filter((key) => selectedRows[key])
-    .map((key) => parseInt(key));
+  const selectedJobIds = Object.keys(selectedRows).filter((key) => selectedRows[key]).map((key) => parseInt(key));
   const selectedCount = selectedJobIds.length;
 
-  // Check for draft on mount
+  // ── URL Params Sync ──────────────────────────────────────────────────────
+  const [isReadyToFetch, setIsReadyToFetch] = useState(false); // gate: รอให้อ่าน URL params ก่อนค่อย fetch
+  const isFirstMount = useRef(true);
+
+  // อ่านค่า filter จาก URL เมื่อ mount ครั้งแรก
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const search = params.get("search");
+    const status = params.get("status");
+    const page = params.get("page");
+    const limit = params.get("limit");
+    const df = params.get("dateFrom");
+    const dt = params.get("dateTo");
+    const dm = params.get("dm");
+    const bm = params.get("bm");
+    if (search) setSearchQuery(search);
+    if (status) setStatusFilter(status);
+    if (page) setCurrentPage(parseInt(page, 10) || 1);
+    if (limit) setItemsPerPage(parseInt(limit, 10) || 20);
+    if (df) setDateFrom(new Date(df));
+    if (dt) setDateTo(new Date(dt));
+    if (dm) setDistrictManagerFilter(dm);
+    if (bm) setBranchManagerFilter(bm);
+    setIsReadyToFetch(true); // อนุญาตให้ fetchJobs ทำงานได้หลังอ่าน URL params แล้ว
+  }, []); 
+
+  // เขียนค่า filter ลง URL เมื่อ state เปลี่ยน (ข้าม render แรก)
+  useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
+    const params = new URLSearchParams();
+    if (searchQuery) params.set("search", searchQuery);
+    if (statusFilter !== "all") params.set("status", statusFilter);
+    if (currentPage > 1) params.set("page", String(currentPage));
+    if (itemsPerPage !== 20) params.set("limit", String(itemsPerPage));
+    if (dateFrom) params.set("dateFrom", format(dateFrom, "yyyy-MM-dd"));
+    if (dateTo) params.set("dateTo", format(dateTo, "yyyy-MM-dd"));
+    if (districtManagerFilter !== "all") params.set("dm", districtManagerFilter);
+    if (branchManagerFilter !== "all") params.set("bm", branchManagerFilter);
+    const qs = params.toString();
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+  }, [searchQuery, statusFilter, currentPage, itemsPerPage, dateFrom, dateTo, districtManagerFilter, branchManagerFilter]);
+
+  // ── Computed: Filter users by role ──────────────────────────────────────
+  const districtManagers = users.filter((u) =>
+    ["TNM", "KTK", "PRH", "STJ", "TKA"].includes(u.UserCode)
+  );
+  const branchManagers = users.filter(
+    (u) => u.UserCode.startsWith("PTEC")
+  );
+
+  // ── Fetch Users ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    client
+      .get("/users", { headers: dataConfig().headers })
+      .then((res) => {
+        if (Array.isArray(res.data)) setUsers(res.data);
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── Draft Check ─────────────────────────────────────────────────────────
   useEffect(() => {
     const draft = loadDraft();
     if (draft) {
       setHasDraft(true);
-      const info = getDraftInfo();
-      setDraftInfo(info);
+      setDraftInfo(getDraftInfo());
     }
   }, []);
 
+  // ── Active Filters Count ────────────────────────────────────────────────
+  const activeFilterCount = [
+    statusFilter !== "all",
+    branchFilter !== "all",
+    districtManagerFilter !== "all",
+    branchManagerFilter !== "all",
+    !!dateFrom,
+    !!dateTo,
+    !!searchQuery.trim(),
+  ].filter(Boolean).length;
+
+  const hasActiveFilters = activeFilterCount > 0;
+
+  // ── Fetch Jobs ──────────────────────────────────────────────────────────
   const fetchJobs = useCallback(async () => {
+    if (!isReadyToFetch) return; // รอให้อ่าน URL params ก่อน
     try {
       setIsLoading(true);
       const params: FetchJobsParams = {
@@ -173,13 +270,13 @@ export default function AuditJobsListPage() {
         limit: itemsPerPage,
       };
 
-      if (statusFilter !== "all") {
-        params.status = statusFilter;
-      }
-
-      if (branchFilter !== "all") {
-        params.branchId = branchFilter;
-      }
+      if (statusFilter !== "all") params.status = statusFilter;
+      if (branchFilter !== "all") params.branchId = branchFilter;
+      if (districtManagerFilter !== "all") params.districtManagerUserId = districtManagerFilter;
+      if (branchManagerFilter !== "all") params.branchManagerUserId = branchManagerFilter;
+      if (dateFrom) params.dateFrom = format(dateFrom, "yyyy-MM-dd");
+      if (dateTo) params.dateTo = format(dateTo, "yyyy-MM-dd");
+      if (searchQuery.trim()) params.search = searchQuery.trim();
 
       const response = await client.get<ApiResponse>("/audit-jobs/list", {
         headers: dataConfig().headers,
@@ -196,249 +293,309 @@ export default function AuditJobsListPage() {
         error instanceof Error && "response" in error
           ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
           : undefined;
-      toast.error("ไม่สามารถโหลดข้อมูลได้", {
-        description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
-      });
+      toast.error("ไม่สามารถโหลดข้อมูลได้", { description: errorMessage || "กรุณาลองใหม่อีกครั้ง" });
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, statusFilter, branchFilter, itemsPerPage]);
+  }, [currentPage, statusFilter, branchFilter, districtManagerFilter, branchManagerFilter, dateFrom, dateTo, searchQuery, itemsPerPage, isReadyToFetch]);
 
   useEffect(() => {
     fetchJobs();
   }, [fetchJobs]);
 
+  // ── Handlers ────────────────────────────────────────────────────────────
+
   const handleDelete = async () => {
     if (!deleteJobId) return;
-
     setIsDeleting(true);
     try {
-      await client.delete(`/audit-jobs/${deleteJobId}`, {
-        headers: dataConfig().headers,
-        data: { delete_reason: deleteNote, deleted_by: session.data?.user.UserID },
-      });
-
-      toast.success("ลบงานสำเร็จ");
-      fetchJobs();
+      await client.delete(`/audit-jobs/${deleteJobId}`, { headers: dataConfig().headers, data: { delete_reason: deleteNote, deleted_by: session.data?.user.UserID } });
+      toast.success("ลบงานสำเร็จ"); fetchJobs();
     } catch (error: unknown) {
-      console.error("Error deleting audit job:", error);
-      const errorMessage =
-        error instanceof Error && "response" in error
-          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-      toast.error("ไม่สามารถลบงานได้", {
-        description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
-      });
-    } finally {
-      setIsDeleting(false);
-      setDeleteJobId(null);
-      setDeleteNote("");
-    }
+      const errorMessage = error instanceof Error && "response" in error ? (error as { response?: { data?: { message?: string } } }).response?.data?.message : undefined;
+      toast.error("ไม่สามารถลบงานได้", { description: errorMessage || "กรุณาลองใหม่อีกครั้ง" });
+    } finally { setIsDeleting(false); setDeleteJobId(null); setDeleteNote(""); }
   };
 
-  const handleExportComplete = () => {
-    setSelectedRows({});
-  };
+  const handleExportComplete = () => { setSelectedRows({}); };
 
   const handleBulkDelete = async () => {
     if (selectedJobIds.length === 0 || !bulkDeleteNote.trim()) return;
-
     setIsBulkDeleting(true);
     try {
-      await Promise.all(
-        selectedJobIds.map((jobId) =>
-          client.delete(`/audit-jobs/${jobId}`, {
-            headers: dataConfig().headers,
-            data: { delete_reason: bulkDeleteNote, deleted_by: session.data?.user.UserID },
-          })
-        )
-      );
-
-      toast.success(`ลบงานสำเร็จ ${selectedJobIds.length} รายการ`);
-      setSelectedRows({});
-      fetchJobs();
+      await Promise.all(selectedJobIds.map((jobId) => client.delete(`/audit-jobs/${jobId}`, { headers: dataConfig().headers, data: { delete_reason: bulkDeleteNote, deleted_by: session.data?.user.UserID } })));
+      toast.success(`ลบงานสำเร็จ ${selectedJobIds.length} รายการ`); setSelectedRows({}); fetchJobs();
     } catch (error: unknown) {
-      console.error("Error bulk deleting audit jobs:", error);
-      const errorMessage =
-        error instanceof Error && "response" in error
-          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-      toast.error("ไม่สามารถลบงานบางรายการได้", {
-        description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
-      });
-    } finally {
-      setIsBulkDeleting(false);
-      setShowBulkDeleteDialog(false);
-      setBulkDeleteNote("");
-    }
+      const errorMessage = error instanceof Error && "response" in error ? (error as { response?: { data?: { message?: string } } }).response?.data?.message : undefined;
+      toast.error("ไม่สามารถลบงานบางรายการได้", { description: errorMessage || "กรุณาลองใหม่อีกครั้ง" });
+    } finally { setIsBulkDeleting(false); setShowBulkDeleteDialog(false); setBulkDeleteNote(""); }
   };
 
-  const handleDeleteDraft = () => {
-    clearDraft();
-    setHasDraft(false);
-    setDraftInfo(null);
-    setShowDeleteDraftDialog(false);
-    toast.success("ลบ Draft สำเร็จ");
-  };
-
-  const handleEditDraft = () => {
-    router.push("/audit/create");
-  };
-
-  const handleContinueDraft = () => {
-    router.push("/audit/create/add_items?mode=draft");
-  };
+  const handleDeleteDraft = () => { clearDraft(); setHasDraft(false); setDraftInfo(null); setShowDeleteDraftDialog(false); toast.success("ลบ Draft สำเร็จ"); };
 
   const clearFilters = () => {
     setStatusFilter("all");
     setBranchFilter("all");
+    setDistrictManagerFilter("all");
+    setBranchManagerFilter("all");
+    setDateFrom(undefined);
+    setDateTo(undefined);
+    setSearchQuery("");
     setCurrentPage(1);
   };
 
-  const hasActiveFilters = statusFilter !== "all" || branchFilter !== "all";
-
-  const getStatusLabel = (value: string) => {
-    const labels: Record<string, string> = {
-      all: "ทั้งหมด",
-      "1": "อยู่ระหว่างดำเนินการ",
-      "2": "ดำเนินการเสร็จสิ้น",
-    };
-    return labels[value] || value;
+  const getFilterLabel = (type: string, value: string): string => {
+    if (type === "status") {
+      const labels: Record<string, string> = { "1": "อยู่ระหว่างดำเนินการ", "2": "ดำเนินการเสร็จสิ้น" };
+      return labels[value] || value;
+    }
+    if (type === "branch") {
+      const labels: Record<string, string> = { "83": "สาขา 83", "85": "สาขา 85", "901": "HO" };
+      return labels[value] || `สาขา ${value}`;
+    }
+    if (type === "dm") {
+      const user = districtManagers.find((u) => u.UserID === value);
+      return user ? user.Fullname : value;
+    }
+    if (type === "bm") {
+      const user = branchManagers.find((u) => u.UserID === value);
+      return user ? user.Fullname : value;
+    }
+    return value;
   };
 
-  const getBranchLabel = (value: string) => {
-    const labels: Record<string, string> = {
-      all: "All Branches",
-      "83": "สาขา 83",
-      "85": "สาขา 85",
-      "901": "HO",
-    };
-    return labels[value] || value;
-  };
+  // ── Render ──────────────────────────────────────────────────────────────
 
   return (
     <div className="py-8">
       <div className="container mx-auto px-4 max-w-[1500px]">
-        {/* Header with Inline Filters */}
+        {/* Header */}
         <div className="mb-6">
           <div className="flex flex-col gap-4">
-            {/* Title and Buttons */}
             <div className="flex items-start justify-between">
               <div>
-                <h1 className="text-3xl font-bold tracking-tight">
-                  Audit Jobs Management
-                </h1>
-                <p className="text-muted-foreground mt-2">
-                  จัดการและติดตามงานตรวจสอบทั้งหมดของระบบ
-                </p>
+                <h1 className="text-3xl font-bold tracking-tight">Audit Jobs Management</h1>
+                <p className="text-muted-foreground mt-2">จัดการและติดตามงานตรวจสอบทั้งหมดของระบบ</p>
               </div>
-              
-              {/* Action Buttons */}
               <div className="flex items-center gap-3">
-                {/*  Export Button Component */}
-                <ExportListDropdown
-                  data={jobs}
-                  selectedRows={selectedRows}
-                  onExportComplete={handleExportComplete}
-                  disabled={isLoading}
-                />
-
-                {/* Bulk Delete Button */}
+                <ExportListDropdown data={jobs} selectedRows={selectedRows} onExportComplete={handleExportComplete} disabled={isLoading} />
                 {canDelete && (
-                  <Button
-                    variant="destructive"
-                    size="lg"
-                    disabled={selectedCount === 0 || isLoading}
-                    onClick={() => setShowBulkDeleteDialog(true)}
-                  >
-                    <Trash2 className="mr-2 h-5 w-5" />
-                    ลบที่เลือก {selectedCount > 0 && `(${selectedCount})`}
+                  <Button variant="destructive" size="lg" disabled={selectedCount === 0 || isLoading} onClick={() => setShowBulkDeleteDialog(true)}>
+                    <Trash2 className="mr-2 h-5 w-5" />ลบที่เลือก {selectedCount > 0 && `(${selectedCount})`}
                   </Button>
                 )}
-
-                {/* Create Button */}
                 {canDelete && (
-                  <Button
-                    onClick={() => router.push("/audit/create")}
-                    size="lg"
-                  >
-                    <Plus className="mr-2 h-5 w-5" />
-                    Create New Job
+                  <Button onClick={() => router.push("/audit/create")} size="lg">
+                    <Plus className="mr-2 h-5 w-5" />Create New Job
                   </Button>
                 )}
               </div>
             </div>
 
-            {/* Inline Filters */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-sm font-medium text-muted-foreground">
-                Filters:
-              </span>
+            {/* ── Filter Bar ────────────────────────────────────────────── */}
+            <div className="space-y-3">
+              {/* Row 1: Quick Filters + Advanced Toggle */}
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* Status */}
+                <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">สถานะ: ทั้งหมด</SelectItem>
+                    <SelectItem value="1">อยู่ระหว่างดำเนินการ</SelectItem>
+                    <SelectItem value="2">ดำเนินการเสร็จสิ้น</SelectItem>
+                  </SelectContent>
+                </Select>
 
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">ทั้งหมด</SelectItem>
-                  <SelectItem value="1">อยู่ระหว่างดำเนินการ</SelectItem>
-                  <SelectItem value="2">ดำเนินการเสร็จสิ้น</SelectItem>
-                </SelectContent>
-              </Select>
 
-              <Select value={branchFilter} onValueChange={setBranchFilter}>
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Branches</SelectItem>
-                  <SelectItem value="83">สาขา 83</SelectItem>
-                  <SelectItem value="85">สาขา 85</SelectItem>
-                  <SelectItem value="901">HO</SelectItem>
-                </SelectContent>
-              </Select>
+                {/* Advanced Filters Toggle */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className={cn("gap-2", showAdvancedFilters && "bg-accent")}
+                >
+                  <Filter className="h-4 w-4" />
+                  ตัวกรองเพิ่มเติม
+                  {activeFilterCount > 2 && (
+                    <Badge variant="secondary" className="h-5 w-5 p-0 flex items-center justify-center text-xs">
+                      {activeFilterCount - [statusFilter !== "all", branchFilter !== "all", !!searchQuery.trim()].filter(Boolean).length}
+                    </Badge>
+                  )}
+                </Button>
 
-              {hasActiveFilters && (
-                <>
-                  <div className="h-6 w-px bg-border" />
-                  <div className="flex items-center gap-2">
-                    {statusFilter !== "all" && (
-                      <Badge variant="secondary" className="gap-1">
-                        {getStatusLabel(statusFilter)}
-                        <X
-                          className="h-3 w-3 cursor-pointer hover:text-foreground"
-                          onClick={() => setStatusFilter("all")}
-                        />
-                      </Badge>
-                    )}
-                    {branchFilter !== "all" && (
-                      <Badge variant="secondary" className="gap-1">
-                        {getBranchLabel(branchFilter)}
-                        <X
-                          className="h-3 w-3 cursor-pointer hover:text-foreground"
-                          onClick={() => setBranchFilter("all")}
-                        />
-                      </Badge>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearFilters}
-                      className="h-7 text-xs"
-                    >
-                      Clear all
-                    </Button>
+                {/* Active Filter Badges + Clear */}
+                {hasActiveFilters && (
+                  <>
+                    <div className="h-6 w-px bg-border" />
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {statusFilter !== "all" && (
+                        <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-destructive/15 hover:text-destructive transition-colors" onClick={() => { setStatusFilter("all"); setCurrentPage(1); }}>
+                          {getFilterLabel("status", statusFilter)}
+                          <X className="h-3 w-3" />
+                        </Badge>
+                      )}
+                      {branchFilter !== "all" && (
+                        <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-destructive/15 hover:text-destructive transition-colors" onClick={() => { setBranchFilter("all"); setCurrentPage(1); }}>
+                          {getFilterLabel("branch", branchFilter)}
+                          <X className="h-3 w-3" />
+                        </Badge>
+                      )}
+                      {districtManagerFilter !== "all" && (
+                        <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-destructive/15 hover:text-destructive transition-colors" onClick={() => { setDistrictManagerFilter("all"); setCurrentPage(1); }}>
+                          ผจก.เขต: {getFilterLabel("dm", districtManagerFilter)}
+                          <X className="h-3 w-3" />
+                        </Badge>
+                      )}
+                      {branchManagerFilter !== "all" && (
+                        <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-destructive/15 hover:text-destructive transition-colors" onClick={() => { setBranchManagerFilter("all"); setCurrentPage(1); }}>
+                          ผจก.สาขา: {getFilterLabel("bm", branchManagerFilter)}
+                          <X className="h-3 w-3" />
+                        </Badge>
+                      )}
+                      {dateFrom && (
+                        <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-destructive/15 hover:text-destructive transition-colors" onClick={() => { setDateFrom(undefined); setCurrentPage(1); }}>
+                          จาก: {format(dateFrom, "dd/MM/yy")}
+                          <X className="h-3 w-3" />
+                        </Badge>
+                      )}
+                      {dateTo && (
+                        <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-destructive/15 hover:text-destructive transition-colors" onClick={() => { setDateTo(undefined); setCurrentPage(1); }}>
+                          ถึง: {format(dateTo, "dd/MM/yy")}
+                          <X className="h-3 w-3" />
+                        </Badge>
+                      )}
+                      {searchQuery.trim() && (
+                        <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-destructive/15 hover:text-destructive transition-colors" onClick={() => { setSearchQuery(""); setCurrentPage(1); }}>
+                          ค้นหา: {searchQuery}
+                          <X className="h-3 w-3" />
+                        </Badge>
+                      )}
+                      <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs">Clear all</Button>
+                    </div>
+                  </>
+                )}
+
+                {pagination && (
+                  <>
+                    <div className="h-6 w-px bg-border ml-auto" />
+                    <span className="text-sm text-muted-foreground">{pagination.total} jobs total</span>
+                  </>
+                )}
+              </div>
+
+              {/* Row 2: Advanced Filters (Collapsible) */}
+              {showAdvancedFilters && (
+                <div className="flex items-end gap-3 flex-wrap p-4 rounded-lg border bg-muted/30">
+                  {/* Date From */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">วันที่เริ่มต้น</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn("w-[160px] justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateFrom ? format(dateFrom, "dd/MM/yyyy", { locale: th }) : "เลือก"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={dateFrom} onSelect={(d) => { setDateFrom(d); setCurrentPage(1); }} initialFocus />
+                      </PopoverContent>
+                    </Popover>
                   </div>
-                </>
-              )}
 
-              {pagination && (
-                <>
-                  <div className="h-6 w-px bg-border ml-auto" />
-                  <span className="text-sm text-muted-foreground">
-                    {pagination.total} jobs total
-                  </span>
-                </>
+                  {/* Date To */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">วันที่สิ้นสุด</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn("w-[160px] justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateTo ? format(dateTo, "dd/MM/yyyy", { locale: th }) : "เลือก"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={dateTo} onSelect={(d) => { setDateTo(d); setCurrentPage(1); }} initialFocus />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* District Manager */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">ผู้จัดการเขต</Label>
+                    <Select value={districtManagerFilter} onValueChange={(v) => { setDistrictManagerFilter(v); setCurrentPage(1); }}>
+                      <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">ทั้งหมด</SelectItem>
+                        {districtManagers.map((u) => (
+                          <SelectItem key={u.UserID} value={u.UserID}>{u.Fullname}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Branch Manager */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">ผู้จัดการสาขา</Label>
+                    <Popover open={openBranchManager} onOpenChange={setOpenBranchManager}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={openBranchManager}
+                          className="w-[220px] justify-between font-normal"
+                        >
+                          <span className="truncate">
+                            {branchManagerFilter === "all"
+                              ? "ทั้งหมด"
+                              : (branchManagers.find((u) => u.UserID === branchManagerFilter)?.Fullname ?? branchManagerFilter)
+                            }
+                          </span>
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[280px] p-0" align="start">
+                        <Command shouldFilter={false}>
+                          <CommandInput
+                            placeholder="ค้นหาผู้จัดการสาขา..."
+                            value={bmSearch}
+                            onValueChange={setBmSearch}
+                          />
+                          <CommandList>
+                            <CommandEmpty>ไม่พบข้อมูล</CommandEmpty>
+                            <CommandGroup>
+                              <CommandItem
+                                value="all"
+                                onSelect={() => { setBranchManagerFilter("all"); setCurrentPage(1); setOpenBranchManager(false); setBmSearch(""); }}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", branchManagerFilter === "all" ? "opacity-100" : "opacity-0")} />
+                                ทั้งหมด
+                              </CommandItem>
+                              {branchManagers
+                                .filter((u) => {
+                                  if (!bmSearch) return true;
+                                  const s = bmSearch.toLowerCase();
+                                  return (
+                                    u.Fullname?.toLowerCase().includes(s) ||
+                                    u.UserCode?.toLowerCase().includes(s)
+                                  );
+                                })
+                                .map((u) => (
+                                  <CommandItem
+                                    key={u.UserID}
+                                    value={u.UserID}
+                                    onSelect={() => { setBranchManagerFilter(u.UserID); setCurrentPage(1); setOpenBranchManager(false); setBmSearch(""); }}
+                                  >
+                                    <Check className={cn("mr-2 h-4 w-4", branchManagerFilter === u.UserID ? "opacity-100" : "opacity-0")} />
+                                    {u.UserCode}
+                                  </CommandItem>
+                                ))
+                              }
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -450,123 +607,68 @@ export default function AuditJobsListPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-                    <FileText className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                  </div>
+                  <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg"><FileText className="h-5 w-5 text-orange-600 dark:text-orange-400" /></div>
                   <div>
                     <CardTitle className="text-lg flex items-center gap-2">
                       Draft - กำลังสร้างงานตรวจสอบ
-                      <Badge variant="outline" className="text-orange-600 border-orange-600">
-                        Draft
-                      </Badge>
+                      <Badge variant="outline" className="text-orange-600 border-orange-600">Draft</Badge>
                     </CardTitle>
-                    <CardDescription>
-                      บันทึกเมื่อ:{" "}
-                      {format(new Date(draftInfo.timestamp), "dd/MM/yyyy HH:mm", {
-                        locale: th,
-                      })}
-                    </CardDescription>
+                    <CardDescription>บันทึกเมื่อ: {format(new Date(draftInfo.timestamp), "dd/MM/yyyy HH:mm", { locale: th })}</CardDescription>
                   </div>
                 </div>
-
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleEditDraft}
-                  >
-                    <Edit className="mr-2 h-4 w-4" />
-                    แก้ไข Header
-                  </Button>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={handleContinueDraft}
-                  >
-                    เพิ่มรายการต่อ
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowDeleteDraftDialog(true)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => router.push("/audit/create")}><Edit className="mr-2 h-4 w-4" />แก้ไข Header</Button>
+                  <Button variant="default" size="sm" onClick={() => router.push("/audit/create/add_items?mode=draft")}>เพิ่มรายการต่อ</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setShowDeleteDraftDialog(true)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-3 gap-4 text-sm">
-                <div>
-                  <p className="text-muted-foreground">สาขา</p>
-                  <p className="font-medium">{draftInfo.branchName}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">วันที่ตรวจ</p>
-                  <p className="font-medium">
-                    {format(new Date(draftInfo.auditDate), "dd/MM/yyyy", {
-                      locale: th,
-                    })}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">รายการตรวจสอบ</p>
-                  <p className="font-medium">{draftInfo.itemCount} รายการ</p>
-                </div>
+                <div><p className="text-muted-foreground">สาขา</p><p className="font-medium">{draftInfo.branchName}</p></div>
+                <div><p className="text-muted-foreground">วันที่ตรวจ</p><p className="font-medium">{format(new Date(draftInfo.auditDate), "dd/MM/yyyy", { locale: th })}</p></div>
+                <div><p className="text-muted-foreground">รายการตรวจสอบ</p><p className="font-medium">{draftInfo.itemCount} รายการ</p></div>
               </div>
             </CardContent>
           </Card>
         )}
 
         {/* DataTable */}
-        {isLoading ? (
+        {pagination === null && isLoading ? (
+          /* First load — ยังไม่มีข้อมูลเลย แสดง full-page spinner */
           <div className="flex items-center justify-center py-16">
-            <div className="text-center">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-4" />
-              <p className="text-sm text-muted-foreground">
-                Loading jobs...
-              </p>
-            </div>
-          </div>
-        ) : jobs.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-muted-foreground mb-4">No jobs found</p>
-            {hasActiveFilters ? (
-              <Button variant="outline" onClick={clearFilters} size="sm">
-                Clear Filters
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                onClick={() => router.push("/audit/create")}
-                size="sm"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Create First Job
-              </Button>
-            )}
+            <div className="text-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-4" /><p className="text-sm text-muted-foreground">Loading jobs...</p></div>
           </div>
         ) : (
-          <DataTable
-            columns={createAuditListColumns(setDeleteJobId)}
-            data={jobs}
-            searchKey="jobNo"
-            searchPlaceholder="Search by Job No, Branch, or Auditor..."
-            Loading={isLoading}
-            pagination={{
-              pageIndex: currentPage - 1,
-              pageSize: itemsPerPage,
-            }}
-            pageCount={pagination?.totalPages || 0}
-            totalRows={pagination?.total || 0}
-            onPageChange={(newPage) => setCurrentPage(newPage + 1)}
-            onPageSizeChange={(newSize) => {
-              setItemsPerPage(newSize);
-              setCurrentPage(1);
-            }}
-            rowSelection={selectedRows}
-            onRowSelectionChange={setSelectedRows}
-          />
+          /* หลัง load ครั้งแรก — DataTable ค้างไว้เสมอ ใช้ skeleton/overlay ใน DataTable แทน */
+          <>
+            <DataTable
+              columns={createAuditListColumns(setDeleteJobId)}
+              data={jobs}
+              searchKey="jobNo"
+              searchPlaceholder="ค้นหา Job No, สาขา..."
+              Loading={isLoading}
+              pagination={{ pageIndex: currentPage - 1, pageSize: itemsPerPage }}
+              pageCount={pagination?.totalPages || 0}
+              totalRows={pagination?.total || 0}
+              onPageChange={(newPage) => setCurrentPage(newPage + 1)}
+              onPageSizeChange={(newSize) => { setItemsPerPage(newSize); setCurrentPage(1); }}
+              rowSelection={selectedRows}
+              onRowSelectionChange={setSelectedRows}
+              onSearchChange={(value) => { setSearchQuery(value); setCurrentPage(1); }}
+              searchValue={searchQuery}
+            />
+            {!isLoading && jobs.length === 0 && (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground mb-4">No jobs found</p>
+                {hasActiveFilters ? (
+                  <Button variant="outline" onClick={clearFilters} size="sm">Clear Filters</Button>
+                ) : (
+                  <Button variant="outline" onClick={() => router.push("/audit/create")} size="sm"><Plus className="mr-2 h-4 w-4" />Create First Job</Button>
+                )}
+              </div>
+            )}
+          </>
         )}
 
         {/* Delete Draft Confirmation */}

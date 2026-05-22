@@ -454,7 +454,8 @@ export default function DataTableItemList({
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4">
         <Input placeholder="ค้นหารายการ..." value={search} onChange={(e) => { setSearch(e.target.value); setPageIndex(0); }} className="max-w-sm" disabled={isLoading} />
-        {!isLocked && showAddButton && (
+        {/* {!isLocked && showAddButton && ( */}
+        {!isLocked && (
           <Button onClick={() => setOpenAddModal(true)}>
             <Plus className="mr-2 h-4 w-4" />
             เพิ่มรายการ
@@ -468,7 +469,7 @@ export default function DataTableItemList({
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">รวม: {branchScoreSummary.total}</Badge>
           <Badge>+1: {branchScoreSummary.plus}</Badge>
-          <Badge variant="secondary">0: {branchScoreSummary.zero}</Badge>
+          <Badge variant="destructive">0: {branchScoreSummary.zero}</Badge>
           <Badge variant="destructive">-1: {branchScoreSummary.minus}</Badge>
           <Badge variant="outline">ยังไม่ให้คะแนน: {branchScoreSummary.unscored}</Badge>
         </div>

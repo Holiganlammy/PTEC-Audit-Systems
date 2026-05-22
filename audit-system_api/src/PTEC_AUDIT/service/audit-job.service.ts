@@ -304,6 +304,9 @@ export class AuditJobsService {
 
     const query = this.auditJobsRepository.createQueryBuilder('job');
 
+    // Join statusInfo ก่อน เพื่อให้ใช้ใน search และ select ได้ทั้งคู่
+    query.leftJoinAndSelect('job.statusInfo', 'statusInfo');
+
     // Filter by status, branchId, auditorUserId, active (เหมือนเดิม)
     if (params.status !== undefined) {
       query.andWhere('job.status = :status', { status: params.status });
@@ -317,6 +320,53 @@ export class AuditJobsService {
       query.andWhere('job.auditorUserId = :auditorUserId', {
         auditorUserId: params.auditorUserId,
       });
+    }
+    if (params.districtManagerUserId !== undefined) {
+      query.andWhere('job.districtManagerUserId = :districtManagerUserId', {
+        districtManagerUserId: params.districtManagerUserId,
+      });
+    }
+
+    if (params.branchManagerUserId !== undefined) {
+      query.andWhere('job.branchManagerUserId = :branchManagerUserId', {
+        branchManagerUserId: params.branchManagerUserId,
+      });
+    }
+
+    if (params.dateFrom) {
+      query.andWhere('job.auditDate >= :dateFrom', {
+        dateFrom: params.dateFrom,
+      });
+    }
+
+    if (params.dateTo) {
+      query.andWhere('job.auditDate <= :dateTo', {
+        dateTo: params.dateTo,
+      });
+    }
+
+    if (params.search) {
+      query.andWhere(
+        `(
+          job.jobNo LIKE :search OR
+          job.branchName LIKE :search OR
+          statusInfo.statusName LIKE :search OR
+          CONVERT(NVARCHAR, job.auditDate, 23) LIKE :search OR
+          job.auditorFirstName LIKE :search OR
+          job.auditorLastName LIKE :search OR
+          job.auditorUserCode LIKE :search OR
+          job.districtManagerFirstName LIKE :search OR
+          job.districtManagerLastName LIKE :search OR
+          job.districtManagerUserCode LIKE :search OR
+          job.branchManagerFirstName LIKE :search OR
+          job.branchManagerLastName LIKE :search OR
+          job.branchManagerUserCode LIKE :search OR
+          CAST(job.createdBy AS NVARCHAR) LIKE :search OR
+          CONVERT(NVARCHAR, job.createdAt, 23) LIKE :search OR
+          CONVERT(NVARCHAR, job.updatedAt, 23) LIKE :search
+        )`,
+        { search: `%${params.search}%` },
+      );
     }
 
     if (params.active !== undefined) {
@@ -366,7 +416,6 @@ export class AuditJobsService {
 
     const total = await query.getCount();
 
-    query.leftJoinAndSelect('job.statusInfo', 'statusInfo');
     query.orderBy('job.createdAt', 'DESC').skip(skip).take(limit);
 
     const data = await query.getMany();

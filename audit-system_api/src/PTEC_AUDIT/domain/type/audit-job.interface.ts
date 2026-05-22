@@ -4,6 +4,11 @@ export interface PaginationParams {
   status?: number;
   branchId?: number;
   auditorUserId?: number;
+  districtManagerUserId?: number;
+  branchManagerUserId?: number;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
   active?: boolean;
 }
 

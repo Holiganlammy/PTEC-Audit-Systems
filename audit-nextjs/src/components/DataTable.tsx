@@ -103,7 +103,10 @@ export function DataTable<TData, TValue>({
       pageIndex: 0,
       pageSize: 20,
    });
-   const [internalSearchValue, setInternalSearchValue] = React.useState("")
+   // ถ้าเป็น server-side search ให้ init จาก controlledSearchValue (restore หลัง remount)
+   const [internalSearchValue, setInternalSearchValue] = React.useState(
+      controlledSearchValue !== undefined ? controlledSearchValue : ""
+   )
    const [debouncedInternalSearch] = useDebounce(internalSearchValue, 1000)
    const globalFilter = isServerSideSearch ? debouncedInternalSearch : localSearchValue
    const currentPagination = pagination ?? internalPagination;
