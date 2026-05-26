@@ -10,6 +10,8 @@ import {
   ParseIntPipe,
   HttpStatus,
   Res,
+  ConflictException,
+  NotFoundException,
 } from '@nestjs/common';
 import express from 'express';
 import { AuditCategoryService } from '../service/audit-category.service';
@@ -87,6 +89,12 @@ export class AuditCategoryController {
       });
     } catch (error) {
       console.error('Error creating category:', error);
+      if (error instanceof ConflictException) {
+        return res.status(HttpStatus.CONFLICT).json({
+          success: false,
+          message: error.message,
+        });
+      }
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: 'Error creating category',
@@ -110,6 +118,18 @@ export class AuditCategoryController {
       });
     } catch (error) {
       console.error('Error updating category:', error);
+      if (error instanceof ConflictException) {
+        return res.status(HttpStatus.CONFLICT).json({
+          success: false,
+          message: error.message,
+        });
+      }
+      if (error instanceof NotFoundException) {
+        return res.status(HttpStatus.NOT_FOUND).json({
+          success: false,
+          message: error.message,
+        });
+      }
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: 'Error updating category',

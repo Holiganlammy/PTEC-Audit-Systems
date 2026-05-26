@@ -268,7 +268,11 @@ export default function EditItemModal({
                 <FieldLabel>
                   สถานะที่ตรวจพบ <span className="text-red-500">*</span>
                 </FieldLabel>
-                <Select value={field.value} onValueChange={field.onChange} disabled>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  disabled={!!jobData?.jobCreatedEmailSentAt}
+                >
                   <SelectTrigger className={cn(fieldState.error && "border-red-500")}>
                     <SelectValue placeholder="เลือกสถานะ" />
                   </SelectTrigger>
@@ -280,6 +284,11 @@ export default function EditItemModal({
                     ))}
                   </SelectContent>
                 </Select>
+                {!!jobData?.jobCreatedEmailSentAt && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    ไม่สามารถแก้ไขได้ เนื่องจากส่งเมลแจ้งเตือนแล้ว
+                  </p>
+                )}
                 {fieldState.error && (
                   <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
                 )}

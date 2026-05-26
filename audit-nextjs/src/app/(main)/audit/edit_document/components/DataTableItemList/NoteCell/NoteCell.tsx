@@ -583,6 +583,7 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
         currentUserId={session?.user?.UserID}
         currentUserCode={session?.user?.UserCode}
         users={users}
+        isAuditUnit={threadType === 1}
       />
     </div>
   );

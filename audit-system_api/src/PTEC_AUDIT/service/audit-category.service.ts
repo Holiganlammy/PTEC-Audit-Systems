@@ -12,6 +12,7 @@ export class CreateCategoryDto {
   categoryCode?: number;
   description?: string;
   createdBy!: number;
+  positionType?: string;
 }
 
 export class UpdateCategoryDto {
@@ -61,7 +62,7 @@ export class AuditCategoryService {
       });
     }
 
-    query.orderBy('cat.categoryName', 'ASC').skip(skip).take(limit);
+    query.orderBy('cat.categoryCode', 'ASC').skip(skip).take(limit);
 
     const [data, total] = await query.getManyAndCount();
     return { data, total, page, limit };
@@ -99,6 +100,7 @@ export class AuditCategoryService {
       categoryName: createDto.categoryName,
       categoryCode: createDto.categoryCode,
       description: createDto.description,
+      positionType: createDto.positionType,
       active: true,
       createdBy: createDto.createdBy,
     });

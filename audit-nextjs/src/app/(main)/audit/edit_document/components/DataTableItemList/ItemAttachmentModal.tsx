@@ -40,6 +40,7 @@ interface ItemAttachmentModalProps {
   onOpenChange: (open: boolean) => void;
   item: AuditItem | null;
   onUpdated?: () => void;
+  readOnly?: boolean;
 }
 
 const getFileIcon = (fileName: string) => {
@@ -178,6 +179,7 @@ export default function ItemAttachmentModal({
   onOpenChange,
   item,
   onUpdated,
+  readOnly = false,
 }: ItemAttachmentModalProps) {
   const { data: session } = useSession();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -381,15 +383,17 @@ export default function ItemAttachmentModal({
                           >
                             <Download className="h-4 w-4" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteExistingFile(file.fileId)}
-                            className="rounded p-1.5 text-muted-foreground transition-colors hover:text-destructive"
-                            disabled={isSubmitting}
-                            title="ลบ"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
+                          {!readOnly && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteExistingFile(file.fileId)}
+                              className="rounded p-1.5 text-muted-foreground transition-colors hover:text-destructive"
+                              disabled={isSubmitting}
+                              title="ลบ"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </li>
                     ))}
@@ -397,6 +401,7 @@ export default function ItemAttachmentModal({
                 </div>
               )}
 
+              {!readOnly && (
               <div className="space-y-2">
                 <Label>เลือกไฟล์ใหม่</Label>
                 <input
@@ -444,6 +449,7 @@ export default function ItemAttachmentModal({
                   </ul>
                 )}
               </div>
+              )}
             </div>
           )}
 
@@ -456,20 +462,22 @@ export default function ItemAttachmentModal({
             >
               ปิด
             </Button>
-            <Button
-              type="button"
-              onClick={handleUpload}
-              disabled={isSubmitting || isLoading || files.length === 0}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  กำลังอัปโหลด...
-                </>
-              ) : (
-                "อัปโหลด"
-              )}
-            </Button>
+            {!readOnly && (
+              <Button
+                type="button"
+                onClick={handleUpload}
+                disabled={isSubmitting || isLoading || files.length === 0}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    กำลังอัปโหลด...
+                  </>
+                ) : (
+                  "อัปโหลด"
+                )}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

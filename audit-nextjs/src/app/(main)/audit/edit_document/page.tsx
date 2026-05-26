@@ -1056,6 +1056,7 @@ export default function EditAuditJobPage() {
                 auditItems={auditItems}
                 disabled={isLoadingData || isLoadingItems}
               />
+              {canEdit && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1114,6 +1115,7 @@ export default function EditAuditJobPage() {
                   )}
                 </Tooltip>
               </TooltipProvider>
+              )}
               <Button variant="outline" onClick={() => router.back()}>
                 Back
               </Button>

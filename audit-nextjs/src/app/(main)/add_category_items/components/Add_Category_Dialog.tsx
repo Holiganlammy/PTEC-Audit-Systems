@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { useSession } from "next-auth/react";
 
 interface AddCategoryItemsPageProps {
   isDialogOpen: boolean;
@@ -67,6 +68,7 @@ export default function AddCategoryItemsPage({
   });
 
   const { isSubmitting } = form.formState;
+  const { data: session } = useSession();
 
   useEffect(() => {
     if (editingCategory) {
@@ -85,9 +87,10 @@ export default function AddCategoryItemsPage({
     try {
       const payload = {
         categoryName: data.categoryName,
-        categoryCode: null,
+        categoryCode: data.categoryCode || undefined,
         description: data.description || undefined,
         positionType: data.positionType || undefined,
+        createBy: session?.user.UserID
       };
       if (isEditing && editingCategory) {
         await auditCategoriesApi.update(editingCategory.categoryItemId, payload);
@@ -150,10 +153,10 @@ export default function AddCategoryItemsPage({
                   </FieldContent>
                   <Input
                     id="categoryCode"
-                    type="text"
+                    type="number"
                     placeholder="เช่น 101"
                     aria-invalid={fieldState.invalid}
-                    disabled
+                    // disabled
                     {...field}
                     value={field.value ?? ""}
                   />

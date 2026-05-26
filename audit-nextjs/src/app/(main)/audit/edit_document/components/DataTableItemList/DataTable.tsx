@@ -237,6 +237,8 @@ interface DataTableItemListProps {
   showAddButton?: boolean;
   isDraftMode?: boolean;
   inspectionDate?: string;
+  /** ใช้ใน Draft mode เพื่อส่งต่อ positionType ให้ AddItemModal กรอง category ได้ถูก */
+  positionType?: string;
   onItemsChange: (updatedItems?: AuditItem[]) => void;
   onCommentsChange?: (
     itemId: number,
@@ -255,6 +257,7 @@ export default function DataTableItemList({
   showAddButton = false,
   isDraftMode = false,
   inspectionDate,
+  positionType,
   onItemsChange,
   onCommentsChange,
 }: DataTableItemListProps) {
@@ -266,6 +269,7 @@ export default function DataTableItemList({
   const [users, setUsers] = useState<ApiUser[]>([]);
   const [taggedUsersMap, setTaggedUsersMap] = useState<Record<number, TaggedUser[]>>({});
   const [branchScoresMap, setBranchScoresMap] = useState<Record<number, BranchScoreEntry>>({});
+  const [attachmentCountsMap, setAttachmentCountsMap] = useState<Record<number, number>>({});
 
   const [openAddModal, setOpenAddModal] = useState(false);
   const [openEditModal, setOpenEditModal] = useState(false);
@@ -324,6 +328,24 @@ export default function DataTableItemList({
   }, [jobId, jobData?.branchId]);
 
   useEffect(() => { fetchBranchScores().catch(() => {}); }, [fetchBranchScores]);
+
+  const fetchAttachmentCounts = useCallback(async () => {
+    if (isDraftMode) return;
+    const realItems = items.filter((item) => item.item_id > 0);
+    if (realItems.length === 0) return;
+    const results = await Promise.allSettled(
+      realItems.map(async (item) => {
+        const res = await client.get(`/audit-items/${item.item_id}/attachments`, { headers: dataConfig().headers });
+        const list = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
+        return { itemId: item.item_id, count: list.length };
+      })
+    );
+    const map: Record<number, number> = {};
+    results.forEach((r) => { if (r.status === 'fulfilled') map[r.value.itemId] = r.value.count; });
+    setAttachmentCountsMap(map);
+  }, [items, isDraftMode]);
+
+  useEffect(() => { fetchAttachmentCounts().catch(() => {}); }, [fetchAttachmentCounts]);
 
   const handleEdit = useCallback((item: AuditItem) => { setSelectedItem(item); setOpenEditModal(true); }, []);
   const handleTagChange = useCallback((itemId: number, tags: TaggedUser[]) => { setTaggedUsersMap((prev) => ({ ...prev, [itemId]: tags })); }, []);
@@ -407,8 +429,8 @@ export default function DataTableItemList({
   }, [orderedItems, onItemsChange, session]);
 
   const columns = useMemo(
-    () => createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session?.user?.role_id === 1 || session?.user?.role_id === 2, isDraftMode),
-    [handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session, isDraftMode]
+    () => createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session?.user?.role_id === 1 || session?.user?.role_id === 2, isDraftMode, attachmentCountsMap),
+    [handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session, isDraftMode, attachmentCountsMap]
   );
 
   const table = useReactTable({
@@ -467,9 +489,9 @@ export default function DataTableItemList({
         <div className="text-sm text-muted-foreground">สรุปคะแนนสาขา</div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">รวม: {branchScoreSummary.total}</Badge>
-          <Badge>+1: {branchScoreSummary.plus}</Badge>
-          <Badge variant="destructive">0: {branchScoreSummary.zero}</Badge>
-          <Badge variant="destructive">-1: {branchScoreSummary.minus}</Badge>
+          <Badge className="bg-green-500 dark:bg-green-700 text-white border-transparent">+1: {branchScoreSummary.plus}</Badge>
+          <Badge className="bg-yellow-500 dark:bg-yellow-700 text-white border-transparent">0: {branchScoreSummary.zero}</Badge>
+          <Badge className="bg-destructive dark:bg-red-700 text-white border-transparent">-1: {branchScoreSummary.minus}</Badge>
           <Badge variant="outline">ยังไม่ให้คะแนน: {branchScoreSummary.unscored}</Badge>
         </div>
       </div>
@@ -548,10 +570,10 @@ export default function DataTableItemList({
       </div>
 
       {/* Modals */}
-      <AddItemModal open={openAddModal} onOpenChange={setOpenAddModal} jobNo={jobNo} jobId={jobId} jobData={jobData || undefined} isDraftMode={isDraftMode} inspectionDate={inspectionDate} onDraftItemAdd={isDraftMode ? handleDraftItemAdd : undefined} onItemAdded={() => { setOpenAddModal(false); onItemsChange(); }} />
+      <AddItemModal open={openAddModal} onOpenChange={setOpenAddModal} jobNo={jobNo} jobId={jobId} jobData={jobData || undefined} isDraftMode={isDraftMode} inspectionDate={inspectionDate} positionType={positionType} onDraftItemAdd={isDraftMode ? handleDraftItemAdd : undefined} onItemAdded={() => { setOpenAddModal(false); onItemsChange(); }} />
       <EditItemModal open={openEditModal} onOpenChange={setOpenEditModal} item={selectedItem} jobData={jobData} onItemUpdated={() => { setOpenEditModal(false); onItemsChange(); }} />
       <AMChecklistModal open={openAMChecklistModal} onOpenChange={setOpenAMChecklistModal} item={selectedAMChecklistItem} onUpdated={() => { setOpenAMChecklistModal(false); onItemsChange(); }} />
-      <ItemAttachmentModal open={openAttachmentModal} onOpenChange={setOpenAttachmentModal} item={selectedAttachmentItem} onUpdated={onItemsChange} />
+      <ItemAttachmentModal open={openAttachmentModal} onOpenChange={setOpenAttachmentModal} item={selectedAttachmentItem} readOnly={selectedAttachmentItem?.item_status_edit === 4} onUpdated={() => { onItemsChange(); fetchAttachmentCounts().catch(() => {}); }} />
 
       <AlertDialog open={!!deleteItem} onOpenChange={(open) => { if (!open) setDeleteItem(null); }}>
         <AlertDialogContent>

@@ -75,6 +75,7 @@ interface ThreadModalProps {
   currentUserId?: string | number;
   currentUserCode?: string;
   users?: ApiUser[];
+  isAuditUnit?: boolean;
 }
 
 // ── Avatar ────────────────────────────────────────────────────────────────
@@ -214,7 +215,8 @@ function CommentItem({
   canDelete,
   onEdit,
   canEdit,
-  users
+  users,
+  isAuditUnit = false,
 }: {
   comment: AuditComment;
   onApprove: (commentId: number, status: 1 | 2) => Promise<void>;
@@ -224,6 +226,7 @@ function CommentItem({
   onEdit: (commentId: number, note: string) => Promise<void>;
   canEdit: boolean;
   users: ApiUser[];
+  isAuditUnit?: boolean;
 }) {
   const [isApproving, setIsApproving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -245,7 +248,7 @@ function CommentItem({
     try {
       setIsApproving(true);
       await onApprove(comment.id, status);
-      toast.success(status === 1 ? "อนุมัติสำเร็จ" : "ไม่อนุมัติสำเร็จ");
+      toast.success(status === 1 ? (isAuditUnit ? "รับทราบสำเร็จ" : "อนุมัติสำเร็จ") : (isAuditUnit ? "ตรวจสอบอีกครั้งสำเร็จ" : "ไม่อนุมัติสำเร็จ"));
     } catch {
       toast.error("เกิดข้อผิดพลาด");
     } finally {
@@ -310,7 +313,7 @@ function CommentItem({
 
           {(canEdit || canDelete) && (
             <div className="flex items-center gap-1">
-              {canEdit && (
+              {/* {canEdit && (
                 <Button
                   size="icon"
                   variant="ghost"
@@ -321,7 +324,7 @@ function CommentItem({
                 >
                   <Pencil className="h-4 w-4" />
                 </Button>
-              )}
+              )} */}
 
               {canDelete && (
                 <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
@@ -432,19 +435,19 @@ function CommentItem({
               {comment.approverStatus === 0 && (
                 <>
                   <Clock className="h-3.5 w-3.5 text-yellow-600 dark:text-yellow-400" />
-                  <span className="font-medium text-yellow-600 dark:text-yellow-400">รออนุมัติ</span>
+                  <span className="font-medium text-yellow-600 dark:text-yellow-400">{isAuditUnit ? "รอรับทราบ" : "รออนุมัติ"}</span>
                 </>
               )}
               {comment.approverStatus === 1 && (
                 <>
                   <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-                  <span className="font-medium text-green-600 dark:text-green-400">อนุมัติแล้ว</span>
+                  <span className="font-medium text-green-600 dark:text-green-400">{isAuditUnit ? "รับทราบแล้ว" : "อนุมัติแล้ว"}</span>
                 </>
               )}
               {comment.approverStatus === 2 && (
                 <>
                   <XCircle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
-                  <span className="font-medium text-red-600 dark:text-red-400">ไม่อนุมัติ</span>
+                  <span className="font-medium text-red-600 dark:text-red-400">{isAuditUnit ? "ตรวจสอบอีกครั้ง" : "ไม่อนุมัติ"}</span>
                 </>
               )}
 
@@ -497,7 +500,7 @@ function CommentItem({
                   ) : (
                     <>
                       <CheckCircle2 className="h-3 w-3 mr-1" />
-                      อนุมัติ
+                      {isAuditUnit ? "รับทราบ" : "อนุมัติ"}
                     </>
                   )}
                 </Button>
@@ -513,7 +516,7 @@ function CommentItem({
                   ) : (
                     <>
                       <XCircle className="h-3 w-3 mr-1" />
-                      ไม่อนุมัติ
+                      {isAuditUnit ? "ตรวจสอบอีกครั้ง" : "ไม่อนุมัติ"}
                     </>
                   )}
                 </Button>
@@ -544,6 +547,7 @@ export default function ThreadModal({
   currentUserId,
   currentUserCode,
   users = [],
+  isAuditUnit = false,
 }: ThreadModalProps) {
   const [draft, setDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -618,7 +622,7 @@ export default function ThreadModal({
       await onSubmit(draft.trim(), sendForApproval ? 0 : null);
       setDraft("");
       setSendForApproval(false);
-      toast.success(sendForApproval ? "ส่งเพื่ออนุมัติสำเร็จ" : "เพิ่มความเห็นสำเร็จ");
+      toast.success(sendForApproval ? (isAuditUnit ? "ส่งเพื่อรับทราบสำเร็จ" : "ส่งเพื่ออนุมัติสำเร็จ") : "เพิ่มความเห็นสำเร็จ");
     } catch {
       toast.error("ไม่สามารถส่งความเห็นได้");
     } finally {
@@ -654,6 +658,7 @@ export default function ThreadModal({
                   onDelete={onDelete}
                   canDelete={canDelete}
                   onEdit={onEdit}
+                  isAuditUnit={isAuditUnit}
                   canEdit={
                     canEdit &&
                     String(currentUserId ?? "") !== "" &&
@@ -761,7 +766,7 @@ export default function ThreadModal({
                 onCheckedChange={setSendForApproval}
               />
               <Label htmlFor="approval" className="text-xs text-muted-foreground cursor-pointer">
-                ส่งเพื่ออนุมัติ
+                {isAuditUnit ? "ส่งเพื่อรับทราบ" : "ส่งเพื่ออนุมัติ"}
               </Label>
             </div>
           </div>

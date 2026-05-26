@@ -544,6 +544,7 @@ export default function AddItemsPage() {
             showAddButton
             isDraftMode={isDraftMode}
             inspectionDate={draftHeader?.Date}
+            positionType={isDraftMode ? draftHeader?.Type : undefined}
             onItemsChange={handleItemsChange}
           />
         )}

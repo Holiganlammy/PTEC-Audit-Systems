@@ -91,19 +91,34 @@ function BranchScoreCell({
   const canEditByRole = session?.user?.role_id === 1 || session?.user?.role_id === 2;
   const isDisabled = !!disabled || !canEditByRole;
 
-  const variant = entry?.score === -1 ? "destructive" : entry?.score === 0 ? "destructive" : "default";
+  const scoreClassName =
+    entry?.score === 1
+      ? "bg-green-500 dark:bg-green-700 text-white border-transparent"
+      : entry?.score === 0
+      ? "bg-yellow-500 dark:bg-yellow-700 text-white border-transparent"
+      : "bg-destructive dark:bg-red-700 text-white border-transparent";
+  const scoreVariant = "outline" as const;
   const label = entry
     ? `คะแนน ${entry.score === 1 ? "+1" : entry.score === 0 ? "0" : "-1"}`
     : "ให้คะแนน";
+
+  // เมื่อ disabled และมีคะแนนแล้ว → render badge โดยตรง ไม่ใช้ disabled button (ป้องกัน opacity fade)
+  if (isDisabled && entry) {
+    return (
+      <div className="flex justify-center">
+        <span title={disabled ? "รายการถูกล็อก ไม่สามารถแก้ไขคะแนนได้" : "เฉพาะสิทธิ์ผู้ดูแลและ Audit เท่านั้นที่แก้ไขคะแนนได้"}>
+          <Badge variant={scoreVariant} className={scoreClassName}>{label}</Badge>
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex justify-center">
       <span
         title={
           isDisabled
-            ? disabled
-              ? "รายการถูกล็อก ไม่สามารถแก้ไขคะแนนได้"
-              : "เฉพาะสิทธิ์ผู้ดูแลและ Audit เท่านั้นที่แก้ไขคะแนนได้"
+            ? "เฉพาะสิทธิ์ผู้ดูแลและ Audit เท่านั้นที่แก้ไขคะแนนได้"
             : entry
             ? "คลิกเพื่อแก้ไขคะแนน"
             : "คลิกเพื่อให้คะแนน"
@@ -125,7 +140,7 @@ function BranchScoreCell({
         >
           {entry ? (
             <span className="inline-flex items-center gap-1.5">
-              <Badge variant={variant}>{label}</Badge>
+              <Badge variant={scoreVariant} className={scoreClassName}>{label}</Badge>
               {!isDisabled && (
                 <Pencil className="h-3.5 w-3.5 text-muted-foreground transition-colors group-hover:text-foreground" />
               )}
@@ -189,12 +204,14 @@ function ActionsCell({
   onDelete,
   onAttachment,
   isDraftMode,
+  isRowClosed,
 }: {
   item: AuditItem;
   onEdit: (item: AuditItem) => void;
   onDelete: (item: AuditItem) => void;
   onAttachment: (item: AuditItem) => void;
   isDraftMode?: boolean;
+  isRowClosed?: boolean;
 }) {
   const session = useSession();
   return (
@@ -217,10 +234,10 @@ function ActionsCell({
           {!isDraftMode && (
             <DropdownMenuItem onClick={() => onAttachment(item)}>
               <Paperclip className="mr-2 h-4 w-4" />
-              เก็บไฟล์
+              {isRowClosed ? "ดูไฟล์แนบ" : "เก็บไฟล์"}
             </DropdownMenuItem>
           )}
-          {(isDraftMode || session.data?.user.role_id === 1 || session.data?.user.role_id === 2) ?
+          {!isRowClosed && (isDraftMode || session.data?.user.role_id === 1 || session.data?.user.role_id === 2) ?
           <DropdownMenuItem
             onClick={() => onDelete(item)}
             className="text-red-600 focus:text-red-600"
@@ -374,11 +391,11 @@ function SendEmailCell({ item, isLocked }: { item: AuditItem; isLocked?: boolean
 const getStatusBadge = (status: number) => {
   switch (status) {
     case 1:
-      return <Badge variant="default" className="bg-green-500">ปกติ</Badge>;
+      return <Badge className="bg-green-500 dark:bg-green-700 text-white border-transparent">ปกติ</Badge>;
     case 2:
-      return <Badge className="bg-yellow-500">อยู่ระหว่างดำเนินการ</Badge>;
+      return <Badge className="bg-yellow-500 dark:bg-yellow-700 text-white border-transparent">อยู่ระหว่างดำเนินการ</Badge>;
     case 3:
-      return <Badge variant="destructive">ผิดปกติ</Badge>;
+      return <Badge className="bg-destructive dark:bg-red-700 text-white border-transparent">ผิดปกติ</Badge>;
     case 4:
       return <Badge variant="secondary">ปิดเคส</Badge>;
     default:
@@ -444,7 +461,8 @@ export const createAuditItemsColumns = (
   branchScoresMap: Record<number, BranchScoreEntry> = {},
   onBranchScoreSubmit?: (itemId: number, score: BranchScoreValue, note?: string) => void,
   canSendEmail?: boolean,
-  isDraftMode?: boolean
+  isDraftMode?: boolean,
+  attachmentCountsMap: Record<number, number> = {}
 ): ColumnDef<AuditItem>[] => {
   const effectiveLocked = isLocked || !!isDraftMode;
 
@@ -495,9 +513,20 @@ export const createAuditItemsColumns = (
     {
       accessorKey: "category_name",
       header: "รายการ",
-      cell: ({ row }) => (
-        <div className="font-medium min-w-[180px] max-w-[220px]">{row.getValue("category_name")}</div>
-      ),
+      cell: ({ row }) => {
+        const count = attachmentCountsMap[row.original.item_id] ?? 0;
+        return (
+          <div className="font-medium min-w-[180px] max-w-[220px]">
+            <div>{row.getValue("category_name")}</div>
+            {count > 0 && (
+              <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
+                <Paperclip className="h-3 w-3" />
+                <span>{count} ไฟล์</span>
+              </div>
+            )}
+          </div>
+        );
+      },
       meta: {
         sticky: "left" as const,
         stickyOffset: 80,
@@ -518,35 +547,36 @@ export const createAuditItemsColumns = (
       header: () => <div className="text-center">คะแนนสาขา</div>,
       cell: ({ row }) => {
         const entry = branchScoresMap[row.original.item_id];
-        return <BranchScoreCell item={row.original} entry={entry} disabled={effectiveLocked} onSubmit={onBranchScoreSubmit} />;
+        const isRowClosed = row.original.item_status_edit === 4;
+        return <BranchScoreCell item={row.original} entry={entry} disabled={effectiveLocked || isRowClosed} onSubmit={onBranchScoreSubmit} />;
       },
     },
     {
       id: "note_1",
       header: "หน่วยงานตรวจสอบ Audit",
       cell: ({ row }) => (
-        <NoteCell itemId={row.original.item_id} threadType={1} label="Audit Unit" initialComments={row.original.note_1} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked} />
+        <NoteCell itemId={row.original.item_id} threadType={1} label="Audit Unit" initialComments={row.original.note_1} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} />
       ),
     },
     {
       id: "note_2",
       header: "หน่วยงาน AM",
       cell: ({ row }) => (
-        <NoteCell itemId={row.original.item_id} threadType={2} label="AM Unit" initialComments={row.original.note_2} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked} />
+        <NoteCell itemId={row.original.item_id} threadType={2} label="AM Unit" initialComments={row.original.note_2} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} />
       ),
     },
     {
       id: "note_3",
       header: "หน่วยงานอื่นๆ",
       cell: ({ row }) => (
-        <NoteCell itemId={row.original.item_id} threadType={3} label="Other Agencies" initialComments={row.original.note_3} jobData={jobData} users={users} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} taggedUsers={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []} isLocked={effectiveLocked} />
+        <NoteCell itemId={row.original.item_id} threadType={3} label="Other Agencies" initialComments={row.original.note_3} jobData={jobData} users={users} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} taggedUsers={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []} isLocked={effectiveLocked || row.original.item_status_edit === 4} />
       ),
     },
     {
       id: "tagged_users",
       header: "แท็กผู้ใช้",
       cell: ({ row }) => (
-        <TagCell itemId={row.original.item_id} users={users} initialTags={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []} onTagChange={(tags) => onTagChange?.(row.original.item_id, tags)} isLocked={effectiveLocked} />
+        <TagCell itemId={row.original.item_id} users={users} initialTags={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []} onTagChange={(tags) => onTagChange?.(row.original.item_id, tags)} isLocked={effectiveLocked || row.original.item_status_edit === 4} />
       ),
     },
     {
@@ -580,7 +610,7 @@ export const createAuditItemsColumns = (
       id: "send_email",
       header: () => <div className="text-center">ส่งเมลสรุป</div>,
       cell: ({ row }: { row: import("@tanstack/react-table").Row<AuditItem> }) => (
-        <SendEmailCell item={row.original} isLocked={effectiveLocked} />
+        <SendEmailCell item={row.original} isLocked={effectiveLocked || row.original.item_status_edit === 4} />
       ),
     } satisfies ColumnDef<AuditItem>] : []),
     {
@@ -593,6 +623,7 @@ export const createAuditItemsColumns = (
             onDelete={onDelete}
             onAttachment={onAttachmentClick ?? (() => {})}
             isDraftMode={isDraftMode}
+            isRowClosed={row.original.item_status_edit === 4}
           />
         ),
     },

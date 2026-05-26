@@ -60,6 +60,8 @@ interface AddItemModalProps {
   isDraftMode?: boolean;
   inspectionDate?: string;
   onDraftItemAdd?: (item: DraftAddItem) => void;
+  /** ใช้ใน Draft mode แทน jobData?.positionType เพื่อกรอง category items ให้ถูกประเภท */
+  positionType?: string;
 }
 
 export default function AddItemModal({
@@ -72,6 +74,7 @@ export default function AddItemModal({
   isDraftMode = false,
   inspectionDate,
   onDraftItemAdd,
+  positionType,
 }: AddItemModalProps) {
   const { data: session } = useSession();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -94,7 +97,9 @@ export default function AddItemModal({
     const fetchCategories = async () => {
       try {
         setIsLoadingCategories(true);
-        const filtered = await auditCategoriesApi.getForSelect(jobData?.positionType);
+        // ใช้ positionType prop ก่อน (Draft mode), ถ้าไม่มีค่อยใช้ jobData?.positionType
+        const resolvedPositionType = positionType ?? jobData?.positionType;
+        const filtered = await auditCategoriesApi.getForSelect(resolvedPositionType);
         setCategories(filtered);
       } catch (error) {
         console.error("Error fetching categories:", error);
@@ -113,7 +118,7 @@ export default function AddItemModal({
         auditCommentStatus: "null",
       });
     }
-  }, [open, form, jobData]); 
+  }, [open, form, jobData, positionType]); 
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     // Draft mode: add item locally without API call
