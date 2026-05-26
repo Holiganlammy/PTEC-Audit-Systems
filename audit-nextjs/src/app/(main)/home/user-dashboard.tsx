@@ -151,7 +151,7 @@ export function UserDashboard() {
       </div>
 
       {/* Recent Activities */}
-      <div className="grid grid-cols-1 gap-6">
+      {/* <div className="grid grid-cols-1 gap-6">
         <RecentActivity
           activities={(dashboardData?.recentActivities || []).map((activity) => ({
             ...activity,
@@ -159,7 +159,7 @@ export function UserDashboard() {
           }))}
           maxItems={10}
         />
-      </div>
+      </div> */}
     </div>
   );
 }

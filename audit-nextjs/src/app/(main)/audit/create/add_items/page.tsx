@@ -120,6 +120,7 @@ export default function AddItemsPage() {
       const draft = loadDraft();
       if (!draft) {
         toast.error("ไม่พบข้อมูล Draft", {
+          id: "draft-not-found",
           description: "กรุณาสร้าง Header ก่อน",
         });
         router.push("/audit/create");

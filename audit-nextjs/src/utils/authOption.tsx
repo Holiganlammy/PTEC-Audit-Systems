@@ -4,9 +4,11 @@ import type { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import AzureADProvider from "next-auth/providers/azure-ad";
 import type { User } from "next-auth";
+import { randomUUID } from "crypto";
 
 let isTokenExpired = false;
 
+const SESSION_MAX_AGE = 240; // 4 ชั่วโมง = 240 นาที
 export const authOptions: AuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   providers: [
@@ -128,49 +130,60 @@ export const authOptions: AuthOptions = {
 
   callbacks: {
     async signIn({ user, account, profile }) {
-      if (account?.provider === "azure-ad") {
+      if (account?.provider === 'azure-ad') {
         try {
           const email = user.email;
-          
-          if (!email) {
-            console.error("No email from Azure AD");
-            return false;
-          }
+          const name = user.name;
+          const microsoftToken = account.access_token;
 
-          // Validate with Audit backend
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/validate-microsoft`, {
+          console.log('[Microsoft]  Login successful');
+          console.log('[Microsoft] Email:', email);
+
+          const sessionId = randomUUID();
+          
+          // เรียก backend เพื่อเก็บ Microsoft token และดึงข้อมูล user
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/microsoft-session/save`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+              sessionId,
+              microsoftToken,
               email,
-              azureId: user.id,
-              name: user.name,
+              name,
+              source: 'Audit System',
             }),
           });
 
           if (!response.ok) {
-            console.error("User validation failed");
+            console.error('[Microsoft] ❌ Failed to save session:', await response.text()); 
             return false;
           }
 
           const data = await response.json();
-          
-          // เก็บข้อมูล user จาก backend
-          user.UserID = data.user.UserID;
-          user.UserCode = data.user.UserCode;
-          user.fristName = data.user.fristName;
-          user.lastName = data.user.lastName;
-          user.access_token = data.access_token;
-          user.role_id = data.user.role_id;
-          user.branchid = data.user.branchid;
-          user.depid = data.user.depid;
-          user.role_name = data.user.role_name;
-          user.img_profile = data.user.img_profile;
-          user.loginMethod = 'sso';
+          console.log('[Microsoft]  Session saved:', data);
 
+          // Parse userData จาก response
+          const userData = data.userData;
+
+          // เก็บข้อมูลจาก userData ลง user object
+          user.UserID = userData.userId;
+          user.UserCode = userData.userCode;
+          user.fristName = userData.fristName;
+          user.lastName = userData.lastName;
+          user.Email = userData.email;
+          user.img_profile = userData.img_profile;
+          user.role_id = userData.role;
+          user.branchid = userData.branchid;
+          user.depid = userData.depid;
+          user.access_token = microsoftToken || '';
+          user.loginMethod = 'microsoft';
+          user.accessTokenExpires = Date.now() + (SESSION_MAX_AGE * 60 * 1000);
+
+          isTokenExpired = false;
           return true;
+
         } catch (error) {
-          console.error("Azure AD sign in error:", error);
+          console.error('[Microsoft] ❌ SignIn error:', error);
           return false;
         }
       }
@@ -179,7 +192,6 @@ export const authOptions: AuthOptions = {
     },
 
     async jwt({ token, user, account, trigger }) {
-      // ✅ Azure AD Login
       if (account?.provider === "azure-ad" && user) {
         token.UserID = user.UserID;
         token.UserCode = user.UserCode;

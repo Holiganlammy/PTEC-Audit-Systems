@@ -16,19 +16,40 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditUserRoles } from '../PTEC_USERIGHT/domain/model/audit-user-roles.entity';
 import { RoleSystemAudit } from '../PTEC_USERIGHT/domain/model/role-system-audit.entity';
 import { AuditUserRolesController } from './controller/audit-user-roles.controller';
+import { AuthSessionService } from './service/auth-session.service';
+import { MicrosoftSessionService } from './service/Microsoft-session.service';
+import { AuthSession } from './domain/model/auth-session.entity';
+import { MicrosoftSessionController } from './controller/microsoft-session.controller';
 import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   imports: [
     DatabaseManagerModule,
     TypeOrmModule.forFeature([AuditUserRoles, RoleSystemAudit]),
+    TypeOrmModule.forFeature([AuthSession], 'auth'),
     JwtModule.register({
       secret: process.env.JWT_SECRET,
     }),
   ],
-  controllers: [AppController, AuditUserRolesController],
-  providers: [AppService, AuditUserRolesService, redisProvider],
-  exports: [AppService, AuditUserRolesService],
+  controllers: [
+    AppController,
+    AuditUserRolesController,
+    MicrosoftSessionController,
+  ],
+  providers: [
+    AppService,
+    AuditUserRolesService,
+    AuthSessionService,
+    MicrosoftSessionService,
+    redisProvider,
+  ],
+  exports: [
+    TypeOrmModule,
+    AppService,
+    AuditUserRolesService,
+    AuthSessionService,
+    MicrosoftSessionService,
+  ],
 })
 export class PTEC_USERRIGHT_Module implements NestModule {
   configure(consumer: MiddlewareConsumer) {

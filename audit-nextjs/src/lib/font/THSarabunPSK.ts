@@ -21,7 +21,6 @@ export async function loadSarabunFont(doc: PdfFontDoc): Promise<boolean> {
     doc.addFileToVFS('Sarabun-Regular.ttf', regularBase64);
     doc.addFont('Sarabun-Regular.ttf', 'Sarabun', 'normal');
     
-    console.log('✅ Sarabun Regular loaded');
     
     // พยายามโหลดฟอนต์ Bold (ถ้ามี)
     try {
@@ -31,7 +30,6 @@ export async function loadSarabunFont(doc: PdfFontDoc): Promise<boolean> {
         const boldBase64 = arrayBufferToBase64(boldArrayBuffer);
         doc.addFileToVFS('Sarabun-Bold.ttf', boldBase64);
         doc.addFont('Sarabun-Bold.ttf', 'Sarabun', 'bold');
-        console.log('✅ Sarabun Bold loaded');
       }
     } catch (boldError) {
       console.warn('⚠️ Bold font not found, using regular font for bold text');
@@ -42,7 +40,6 @@ export async function loadSarabunFont(doc: PdfFontDoc): Promise<boolean> {
     // ตั้งค่าให้ใช้ฟอนต์นี้เป็น default
     doc.setFont('Sarabun');
     
-    console.log('✅ Sarabun font loaded successfully');
     return true;
     
   } catch (error) {

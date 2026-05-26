@@ -12,6 +12,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -96,6 +106,7 @@ export default function CreateAuditJobPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [isLoadingBranches, setIsLoadingBranches] = useState(true);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [isLoadingPMCodes, setIsLoadingPMCodes] = useState(true);
@@ -370,14 +381,9 @@ export default function CreateAuditJobPage() {
   };
 
   const handleCancel = () => {
-    // ถ้ามี Draft ให้ถามก่อน
     const draft = loadDraft();
     if (draft) {
-      if (confirm("ต้องการยกเลิกและลบ Draft หรือไม่?")) {
-        clearDraft();
-        toast.info("ลบ Draft แล้ว");
-        router.back();
-      }
+      setShowCancelDialog(true);
     } else {
       router.back();
     }
@@ -1056,6 +1062,29 @@ export default function CreateAuditJobPage() {
           </div>
         </form>
       </div>
+
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ยืนยันการยกเลิก</AlertDialogTitle>
+            <AlertDialogDescription>
+              ต้องการยกเลิกและลบ Draft หรือไม่? ข้อมูลที่กรอกไว้จะถูกลบทั้งหมด
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ไม่ใช่</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                clearDraft();
+                toast.info("ลบ Draft แล้ว");
+                router.push("/audit/list");
+              }}
+            >
+              ตกลง
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

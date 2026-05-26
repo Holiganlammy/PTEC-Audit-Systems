@@ -126,11 +126,19 @@ export function DataTable<TData, TValue>({
       ? externalRowSelection 
       : internalRowSelection
 
+   // Use a ref so the effect does NOT re-fire just because the parent
+   // re-rendered and created a new inline function reference for onSearchChange.
+   // The effect should only run when the debounced search value actually changes.
+   const onSearchChangeRef = React.useRef(onSearchChange)
    useEffect(() => {
-      if (isServerSideSearch && onSearchChange) {
-         onSearchChange(debouncedInternalSearch)
+      onSearchChangeRef.current = onSearchChange
+   })
+
+   useEffect(() => {
+      if (isServerSideSearch && onSearchChangeRef.current) {
+         onSearchChangeRef.current(debouncedInternalSearch)
       }
-   }, [debouncedInternalSearch, isServerSideSearch, onSearchChange])
+   }, [debouncedInternalSearch, isServerSideSearch])
 
    useEffect(() => {
       if (isServerSideSearch && controlledSearchValue === "" && internalSearchValue !== "") {

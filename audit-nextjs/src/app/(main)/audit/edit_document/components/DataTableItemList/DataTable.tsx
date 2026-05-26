@@ -33,7 +33,6 @@ import {
   type Cell,
 } from "@tanstack/react-table";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -478,8 +477,11 @@ export default function DataTableItemList({
       {/* DnD Table with Sticky Columns */}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={visibleItems.map((item) => item.item_id)} strategy={verticalListSortingStrategy}>
-          <div className="rounded-md border overflow-x-auto">
-            <Table>
+          <div
+            className="rounded-md border overflow-auto"
+            style={{ maxHeight: 'calc(100vh - 200px)' }}
+          >
+            <table className="w-full caption-bottom text-sm">
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>
@@ -519,7 +521,7 @@ export default function DataTableItemList({
                   </TableRow>
                 )}
               </TableBody>
-            </Table>
+            </table>
           </div>
         </SortableContext>
       </DndContext>

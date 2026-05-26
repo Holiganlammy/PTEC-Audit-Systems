@@ -383,52 +383,51 @@ export class AuditUserRolesController {
       );
     }
 
-    const token = authHeader.substring(7);
-
-    try {
-      const decoded = this.jwtService.verify<{
-        userId: string;
-        username: string;
-        role: string;
-      }>(token, {
-        secret: process.env.NEXTAUTH_SECRET,
-      });
-
-      if (!decoded.username) {
-        throw new Error('Username is missing from JWT');
-      }
-
-      const auditRole = await this.auditUserRolesService.getRoleByUserCode(
-        decoded.username,
-      );
-
-      if (!auditRole) {
-        throw new HttpException(
-          {
-            success: false,
-            message: `User ${decoded.username} is not registered in Audit System`,
-            unauthorized: true,
-          },
-          HttpStatus.UNAUTHORIZED,
-        );
-      }
-
-      return {
-        user_id: parseInt(decoded.userId, 10),
-        role_id: auditRole.roleId,
-        username: decoded.username,
-        is_admin: auditRole.roleId === 1,
-      };
-    } catch (error) {
-      console.error('❌ Authorization failed:', error);
+    // req.user is set by AuthMiddleware for both local login and Microsoft SSO
+    const userCode = req.user;
+    if (!userCode) {
       throw new HttpException(
         {
           success: false,
-          message: `Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          message: 'No user in request context',
           unauthorized: true,
         },
         HttpStatus.UNAUTHORIZED,
       );
     }
+
+    // Decode (no verify) to extract userId — works for local login JWT,
+    // silently ignored for Microsoft SSO tokens
+    let userId: number | undefined;
+    const token = authHeader.substring(7);
+    try {
+      const decoded = this.jwtService.decode<{ userId?: string }>(token);
+      if (decoded?.userId) {
+        userId = parseInt(decoded.userId, 10);
+      }
+    } catch {
+      // userId is optional — ignore decode errors
+    }
+
+    const auditRole =
+      await this.auditUserRolesService.getRoleByUserCode(userCode);
+
+    if (!auditRole) {
+      throw new HttpException(
+        {
+          success: false,
+          message: `User ${userCode} is not registered in Audit System`,
+          unauthorized: true,
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    return {
+      user_id: userId,
+      role_id: auditRole.roleId,
+      username: userCode,
+      is_admin: auditRole.roleId === 1,
+    };
   }
 }

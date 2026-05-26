@@ -20,7 +20,6 @@ import { CreateAuditItemDto } from '../dto/create-audit-item.dto';
 import { UpdateAuditItemDto } from '../dto/update-audit-item.dto';
 import { AuditUserRolesService } from '../../PTEC_USERIGHT/service/audit-user-roles.service';
 import { JwtService } from '@nestjs/jwt';
-import { UnauthorizedException } from '@nestjs/common';
 import { UserInfo } from '../domain/type/audit-job.interface';
 import { NotFoundException } from '@nestjs/common';
 
@@ -330,63 +329,52 @@ export class AuditItemsController {
       );
     }
 
-    const token = authHeader.substring(7);
-
-    try {
-      // 1. Decode JWT
-      const decoded = this.jwtService.verify<{
-        userId: string;
-        username: string;
-        role: string;
-      }>(token, {
-        secret: process.env.NEXTAUTH_SECRET,
-      });
-      // console.log(' Verifying user role for:', decoded);
-
-      if (!decoded.username) {
-        throw new Error('Username is missing from JWT');
-      }
-
-      // 2. Get Audit role
-      // console.log('Fetching Audit role for:', decoded.username);
-
-      const auditRole = await this.auditUserRolesService.getRoleByUserCode(
-        decoded.username,
-      );
-
-      if (!auditRole) {
-        throw new HttpException(
-          {
-            success: false,
-            message: `User ${decoded.username} is not registered in Audit System`,
-            unauthorized: true,
-          },
-          HttpStatus.UNAUTHORIZED,
-        );
-      }
-
-      // console.log('User authorized:', {
-      //   username: decoded.username,
-      //   Audit_role: auditRole.roleId,
-      //   role_name: auditRole.roleName,
-      // });
-      return {
-        user_id: parseInt(decoded.userId, 10),
-        role_id: auditRole.roleId,
-        username: decoded.username,
-        is_admin: auditRole.roleId === 1,
-      };
-    } catch (error) {
-      console.error('❌ Authorization failed:', error);
-      console.error('Error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-
-      throw new UnauthorizedException(
-        `Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    // req.user is set by AuthMiddleware for both local login and Microsoft SSO
+    const userCode = req.user;
+    if (!userCode) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'No user in request context',
+          unauthorized: true,
+        },
+        HttpStatus.UNAUTHORIZED,
       );
     }
+
+    // Decode (no verify) to extract userId — works for local login JWT,
+    // silently ignored for Microsoft SSO tokens
+    let userId: number | undefined;
+    const token = authHeader.substring(7);
+    try {
+      const decoded = this.jwtService.decode<{ userId?: string }>(token);
+      if (decoded?.userId) {
+        userId = parseInt(decoded.userId, 10);
+      }
+    } catch {
+      // userId is optional — ignore decode errors
+    }
+
+    const auditRole =
+      await this.auditUserRolesService.getRoleByUserCode(userCode);
+
+    if (!auditRole) {
+      throw new HttpException(
+        {
+          success: false,
+          message: `User ${userCode} is not registered in Audit System`,
+          unauthorized: true,
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    return {
+      user_id: userId,
+      role_id: auditRole.roleId,
+      username: userCode,
+      is_admin: auditRole.roleId === 1,
+    };
   }
   @Patch(':id/am-checklist')
   async updateAMChecklist(

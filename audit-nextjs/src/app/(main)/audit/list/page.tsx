@@ -333,6 +333,11 @@ export default function AuditJobsListPage() {
 
   const handleDeleteDraft = () => { clearDraft(); setHasDraft(false); setDraftInfo(null); setShowDeleteDraftDialog(false); toast.success("ลบ Draft สำเร็จ"); };
 
+  // ── Stable DataTable callbacks (useCallback prevents new references on every render) ─
+  const handlePageChange = useCallback((newPage: number) => { setCurrentPage(newPage + 1); }, []);
+  const handlePageSizeChange = useCallback((newSize: number) => { setItemsPerPage(newSize); setCurrentPage(1); }, []);
+  const handleSearchChange = useCallback((value: string) => { setSearchQuery(value); setCurrentPage(1); }, []);
+
   const clearFilters = () => {
     setStatusFilter("all");
     setBranchFilter("all");
@@ -651,11 +656,11 @@ export default function AuditJobsListPage() {
               pagination={{ pageIndex: currentPage - 1, pageSize: itemsPerPage }}
               pageCount={pagination?.totalPages || 0}
               totalRows={pagination?.total || 0}
-              onPageChange={(newPage) => setCurrentPage(newPage + 1)}
-              onPageSizeChange={(newSize) => { setItemsPerPage(newSize); setCurrentPage(1); }}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
               rowSelection={selectedRows}
               onRowSelectionChange={setSelectedRows}
-              onSearchChange={(value) => { setSearchQuery(value); setCurrentPage(1); }}
+              onSearchChange={handleSearchChange}
               searchValue={searchQuery}
             />
             {!isLoading && jobs.length === 0 && (

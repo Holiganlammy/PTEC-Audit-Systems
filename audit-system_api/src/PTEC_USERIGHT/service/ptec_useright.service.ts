@@ -61,12 +61,14 @@ export class AppService {
   async getUsersFromProcedure(
     usercode?: string | null,
     UserID?: number | null,
+    email?: string,
   ): Promise<User[]> {
     return this.dbManager.executeStoredProcedure(
       `${databaseConfig.database}.dbo.User_Infomation`,
       [
         { name: 'usercode', type: sql.NVarChar(20), value: usercode },
         { name: 'UserID', type: sql.Int(), value: UserID },
+        { name: 'email', type: sql.NVarChar(100), value: email },
       ],
     );
   }

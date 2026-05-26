@@ -31,6 +31,21 @@ import { APP_GUARD } from '@nestjs/core';
       },
       // logging: true,
     }),
+    TypeOrmModule.forRoot({
+      name: 'auth',
+      type: 'mssql',
+      host: process.env.DB_SERVER,
+      port: Number(process.env.DB_PORT) || 1433,
+      username: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME_OF_AUTH || 'PTEC_AUTH',
+      entities: [__dirname + '/**/*.entity{.ts,.js}'],
+      synchronize: false,
+      options: {
+        encrypt: false,
+        trustServerCertificate: true,
+      },
+    }),
     PTEC_USERRIGHT_Module,
   ],
   providers: [

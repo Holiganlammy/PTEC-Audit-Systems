@@ -229,7 +229,7 @@ function ActionsCell({
             ลบ
           </DropdownMenuItem>
           : null}
-          {!isDraftMode && <DropdownMenuItem
+          {/* {!isDraftMode && <DropdownMenuItem
             onClick={() =>
               navigator.clipboard.writeText(
                 format(new Date(item.inspection_date), "dd/MM/yyyy", { locale: th })
@@ -238,7 +238,7 @@ function ActionsCell({
           >
             <Calendar className="mr-2 h-4 w-4" />
             คัดลอกวันที่ตรวจสอบ
-          </DropdownMenuItem>}
+          </DropdownMenuItem>} */}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

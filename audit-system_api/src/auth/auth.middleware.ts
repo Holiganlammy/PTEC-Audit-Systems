@@ -1,10 +1,14 @@
 // src/auth/auth.middleware.ts
-import { Body, Injectable, NestMiddleware } from '@nestjs/common';
+// Version: 2.0.0 | Date: 2025-05-20 | Updated: Added auth_sessions DB check for Microsoft SSO + Portal fallback
+
+import { Injectable, NestMiddleware } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, MoreThan } from 'typeorm';
 import { Request, Response, NextFunction } from 'express';
 import axios from 'axios';
+import { AuthSession } from '../PTEC_USERIGHT/domain/model/auth-session.entity';
 import { authValidationResponse } from '../auth/domain/auth-middleware.interface';
 
-// Extend Express Request type
 declare module 'express-serve-static-core' {
   interface Request {
     user?: string;
@@ -12,7 +16,6 @@ declare module 'express-serve-static-core' {
   }
 }
 
-// Routes ที่ ไม่ต้องมี token
 const PUBLIC_ROUTES: { path: string; method: string }[] = [
   { path: '/api/login', method: 'POST' },
   { path: '/api/verify-otp', method: 'POST' },
@@ -22,21 +25,29 @@ const PUBLIC_ROUTES: { path: string; method: string }[] = [
   { path: '/api/forget-password', method: 'POST' },
   { path: '/api/validate-reset-token', method: 'POST' },
   { path: '/api/user/change-password', method: 'POST' },
+  { path: '/api/microsoft-session/save', method: 'POST' },
+  { path: '/api/microsoft-session/token', method: 'GET' },
+  { path: '/api/microsoft-session/validate', method: 'POST' },
+  { path: '/api/microsoft-session/check', method: 'GET' },
 ];
 
 @Injectable()
 export class AuthMiddleware implements NestMiddleware {
+  constructor(
+    @InjectRepository(AuthSession, 'auth')
+    private readonly sessionRepo: Repository<AuthSession>,
+  ) {}
+
   async use(req: Request, res: Response, next: NextFunction) {
     const method = req.method;
-    const path = req.originalUrl.split('?')[0]; // ใช้ originalUrl และตัด query string
+    const path = req.originalUrl.split('?')[0];
 
-    // PUBLIC route → ผ่านเลย ไม่ต้อง token
+    // PUBLIC route → ผ่านเลย
     const isPublic = PUBLIC_ROUTES.some(
       (route) => route.path === path && route.method === method,
     );
 
     if (isPublic) {
-      console.log(`API Public: ${method} ${path}`);
       return next();
     }
 
@@ -55,19 +66,53 @@ export class AuthMiddleware implements NestMiddleware {
 
     const token = authHeader.split(' ')[1];
 
+    // ══════════════════════════════════════════════════════════════════
+    // Step 1: เช็คใน auth_sessions table ก่อน (Microsoft SSO + Local)
+    // ══════════════════════════════════════════════════════════════════
     try {
-      // Validate กับ Portal
+      const session = await this.sessionRepo.findOne({
+        where: {
+          accessToken: token,
+          isRevoked: false,
+          expiresAt: MoreThan(new Date()),
+        },
+      });
+
+      if (session) {
+        // พบ session + ยังไม่หมดอายุ + ไม่ถูก revoke
+        const userData = JSON.parse(session.userData) as {
+          userCode?: string;
+          username?: string;
+        };
+
+        req.user = userData.userCode || userData.username || session.userCode;
+        req.token = token;
+
+        // อัพเดท lastAccessAt
+        session.lastAccessAt = new Date();
+        this.sessionRepo.save(session).catch((err) => {
+          console.error('Failed to update lastAccessAt:', err);
+        });
+
+        return next();
+      }
+    } catch (error) {
+      console.error('DB session check error:', error);
+      // ไม่ return error → fallthrough ไปเช็ค Portal
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // Step 2: Fallback → validate กับ Portal (Local login token)
+    // ══════════════════════════════════════════════════════════════════
+    try {
       const response = await axios.post(
         `${process.env.PORTAL_API_URL}/validate`,
-        {
-          access_token: token,
-        },
-        {
-          timeout: 5000,
-        },
+        { access_token: token },
+        { timeout: 5000 },
       );
-      //   console.log(response);
+
       const validationData = response.data as authValidationResponse;
+
       if (validationData?.valid === true) {
         req.user = validationData.user?.userCode as string;
         req.token = token;
@@ -77,7 +122,7 @@ export class AuthMiddleware implements NestMiddleware {
       return res.status(401).json({
         statusCode: 401,
         error: 'Unauthorized',
-        message: 'Invalid token format.',
+        message: 'Invalid token.',
         tokenInvalid: true,
         timestamp: new Date().toISOString(),
       });
@@ -86,7 +131,7 @@ export class AuthMiddleware implements NestMiddleware {
         return res.status(401).json({
           statusCode: 401,
           error: 'Unauthorized',
-          message: 'Token has expired. and Token  Please login again.',
+          message: 'Token has expired. Please login again.',
           tokenExpired: true,
           timestamp: new Date().toISOString(),
         });
