@@ -40,6 +40,7 @@ import { loadSarabunFont } from "@/lib/font/THSarabunPSK";
 interface ExportDropdownProps {
   jobData?: AuditJobData;
   auditItems: AuditItem[];
+  selectedItems?: AuditItem[];
   disabled?: boolean;
 }
 
@@ -61,8 +62,10 @@ function stringifyComments(comments?: AuditComment[]) {
 export default function ExportDropdown({
   jobData,
   auditItems,
+  selectedItems,
   disabled = false,
 }: ExportDropdownProps) {
+  const itemsToExport = selectedItems && selectedItems.length > 0 ? selectedItems : auditItems;
   const canExport = !!jobData && auditItems.length > 0 && !disabled;
 
   // ── PDF state ──────────────────────────────────────────────────
@@ -82,7 +85,7 @@ export default function ExportDropdown({
 
   // ── PDF export ─────────────────────────────────────────────────
   const handlePdfExport = async () => {
-    if (!jobData || auditItems.length === 0) {
+    if (!jobData || itemsToExport.length === 0) {
       toast.error("ไม่มีข้อมูลให้ Export");
       return;
     }
@@ -148,7 +151,7 @@ export default function ExportDropdown({
       doc.text("สรุปผลการตรวจ", 105, yPos, { align: "center" });
       yPos += 7;
 
-      const tableData = auditItems.map((item) => [
+      const tableData = itemsToExport.map((item) => [
         item.category_name || "ไม่ระบุ",
         getStatusText(item.item_status),
         item.note_1?.length ? item.note_1.map((c) => `${c.author}\n- ${c.text}`).join("\n\n") : "-",
@@ -248,7 +251,7 @@ export default function ExportDropdown({
 
   // ── Excel export ───────────────────────────────────────────────
   const handleExcelExport = async () => {
-    if (!jobData || auditItems.length === 0) {
+    if (!jobData || itemsToExport.length === 0) {
       toast.error("ไม่มีข้อมูลให้ Export");
       return;
     }
@@ -319,7 +322,7 @@ export default function ExportDropdown({
       });
       currentRow++;
 
-      auditItems.forEach((item) => {
+      itemsToExport.forEach((item) => {
         const rowData = [item.category_name || "ไม่ระบุ", getStatusText(item.item_status), stringifyComments(item.note_1), stringifyComments(item.note_2), stringifyComments(item.note_3)];
         rowData.forEach((value, idx) => {
           Object.assign(worksheet.getCell(`${String.fromCharCode(65 + idx)}${currentRow}`), {
@@ -404,7 +407,7 @@ export default function ExportDropdown({
           <AlertDialogHeader>
             <AlertDialogTitle>ยืนยันการ Export Excel</AlertDialogTitle>
             <AlertDialogDescription>
-              ต้องการ Export รายงานการตรวจสอบ
+              ต้องการ Export{selectedItems && selectedItems.length > 0 ? ` ${selectedItems.length} รายการที่เลือกจาก` : " รายงานการตรวจสอบ"}
               {jobData?.branchName ? ` "${jobData.branchName}"` : ""} เป็นไฟล์ Excel ใช่หรือไม่?
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -428,11 +431,28 @@ export default function ExportDropdown({
             {isAnyExporting ? (
               <><Loader2 className="mr-2 h-4 w-4 animate-spin" />กำลัง Export...</>
             ) : (
-              <><FileDown className="mr-2 h-4 w-4" />Export<ChevronDown className="ml-2 h-4 w-4" /></>
+              <>
+                <FileDown className="mr-2 h-4 w-4" />
+                Export
+                {selectedItems && selectedItems.length > 0 && (
+                  <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium min-w-[18px] h-[18px] px-1">
+                    {selectedItems.length}
+                  </span>
+                )}
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </>
             )}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {selectedItems && selectedItems.length > 0 && (
+            <>
+              <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                Export {selectedItems.length} รายการที่เลือก
+              </div>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuItem onClick={handlePdfExport} disabled={isPdfExporting}>
             <FileText className="mr-2 h-4 w-4 text-red-500" />
             PDF (ดูตัวอย่างก่อน)

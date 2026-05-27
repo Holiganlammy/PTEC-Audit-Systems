@@ -102,6 +102,7 @@ interface ListTaggedUser {
 function getStickyStyle(meta?: {
   sticky?: "left" | "right";
   stickyOffset?: number;
+  stickyWidth?: number;
   isLastSticky?: boolean;
 }): React.CSSProperties | undefined {
   if (!meta?.sticky) return undefined;
@@ -110,6 +111,11 @@ function getStickyStyle(meta?: {
     position: "sticky",
     [meta.sticky]: meta.stickyOffset ?? 0,
     zIndex: meta.isLastSticky ? 2 : 1,
+    // กำหนด width ให้ตรงกับ stickyWidth เพื่อป้องกัน <td> collapse
+    // จนเกิด gap ระหว่าง sticky columns ที่ทำให้ hover color ของ <tr> โผล่ออกมา
+    ...(meta.stickyWidth != null
+      ? { width: `${meta.stickyWidth}px`, minWidth: `${meta.stickyWidth}px` }
+      : {}),
   };
 }
 
@@ -183,7 +189,7 @@ type BranchAuditScoreApiRow = {
 // SORTABLE ROW (ใช้ sticky style ด้วย)
 // ══════════════════════════════════════════════════════════════════════════════
 
-function SortableTableRow({ row }: { row: Row<AuditItem> }) {
+function SortableTableRow({ row, viewport }: { row: Row<AuditItem>; viewport: 'mobile' | 'tablet' | 'desktop' }) {
   const {
     setNodeRef,
     transform,
@@ -211,8 +217,8 @@ function SortableTableRow({ row }: { row: Row<AuditItem> }) {
           return (
             <TableCell
               key={cell.id}
-              style={getStickyStyle(meta)}
-              className={getStickyClassName(meta, false)}
+              style={viewport === 'mobile' ? undefined : getStickyStyle(meta)}
+              className={viewport === 'mobile' ? '' : getStickyClassName(meta, false)}
             >
               {flexRender(cell.column.columnDef.cell, cell.getContext())}
             </TableCell>
@@ -245,6 +251,7 @@ interface DataTableItemListProps {
     threadType: 1 | 2 | 3,
     comments: AuditComment[]
   ) => void;
+  onSelectionChange?: (items: AuditItem[]) => void;
 }
 
 export default function DataTableItemList({
@@ -260,6 +267,7 @@ export default function DataTableItemList({
   positionType,
   onItemsChange,
   onCommentsChange,
+  onSelectionChange,
 }: DataTableItemListProps) {
   const { data: session } = useSession();
   const [orderedItems, setOrderedItems] = useState<AuditItem[]>(items);
@@ -279,6 +287,18 @@ export default function DataTableItemList({
   const [selectedAMChecklistItem, setSelectedAMChecklistItem] = useState<AuditItem | null>(null);
   const [openAttachmentModal, setOpenAttachmentModal] = useState(false);
   const [selectedAttachmentItem, setSelectedAttachmentItem] = useState<AuditItem | null>(null);
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+  const [viewport, setViewport] = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
+
+  useEffect(() => {
+    const update = () => {
+      const w = window.innerWidth;
+      setViewport(w < 768 ? 'mobile' : w < 1024 ? 'tablet' : 'desktop');
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
 
   useEffect(() => { setOrderedItems(items); }, [items]);
 
@@ -356,19 +376,23 @@ export default function DataTableItemList({
   }, [onCommentsChange]);
   const handleAMChecklistClick = useCallback((item: AuditItem) => { setSelectedAMChecklistItem(item); setOpenAMChecklistModal(true); }, []);
   const handleAttachmentClick = useCallback((item: AuditItem) => { setSelectedAttachmentItem(item); setOpenAttachmentModal(true); }, []);
-
+  // Permission logic for AM Checklist: role 1, 2, 4 หรือ role 3 ที่เป็น District Manager ของงานนี้
   const isAMChecklistAllowed = (() => {
     const roleId = session?.user?.role_id;
     const userId = String(session?.user?.UserID ?? "");
-    if (roleId === 1 || roleId === 2) return true;
+    if (roleId === 1 || roleId === 2 || roleId === 4) return true;
     return userId !== "" && userId === String(jobData?.districtManager?.userId ?? "");
   })();
 
+  // Permission logic for visible Audit items:
+  // - role 1, 2, 4: เห็นทุก item
+  // - role 3: เห็นทุก item ถ้าเป็น District Manager ของงานนี้, ถ้าไม่ใช่จะเห็นเฉพาะ item ที่ถูก tag
+  // - อื่นๆ: เห็นเฉพาะ item ที่ถูก tag
   const { visibleItems, accessDenied } = useMemo(() => {
     const roleId = session?.user?.role_id;
     const userId = session?.user?.UserID;
     if (!userId) return { visibleItems: [], accessDenied: false };
-    if (roleId === 1 || roleId === 2) return { visibleItems: orderedItems, accessDenied: false };
+    if (roleId === 1 || roleId === 2 || roleId === 4) return { visibleItems: orderedItems, accessDenied: false };
     if (roleId === 3) {
       const isJobMember = userId == jobData?.districtManager?.userId;
       if (!isJobMember) return { visibleItems: [], accessDenied: true };
@@ -420,18 +444,31 @@ export default function DataTableItemList({
     finally { setDeleteItem(null); }
   };
 
-  const handleDraftItemAdd = useCallback((draftItem: DraftAddItem) => {
+  const handleDraftItemAdd = useCallback((draftItems: DraftAddItem[]) => {
     const now = new Date().toISOString();
-    const tempNote1: AuditComment[] = draftItem.remarks ? [{ id: -(Date.now()), itemId: 0, userId: Number(session?.user?.UserID ?? 0), author: [session?.user?.fristName ?? "", session?.user?.lastName ?? ""].filter(Boolean).join(" ") || session?.user?.UserCode || "Draft", text: draftItem.remarks, approverStatus: draftItem.auditCommentStatus === "0" ? 0 : null, createdAt: now, updatedAt: now }] : [];
-    const newItem: AuditItem = { item_id: -(Date.now()), job_id: 0, category_item_id: draftItem.category_item_id, category_name: draftItem.category_name, inspection_date: draftItem.inspection_date, item_status: draftItem.item_status, item_status_edit: null, remarks: draftItem.remarks, note_1: tempNote1, note_2: [], note_3: [], created_at: now, updated_at: now, active: true };
-    const newItems = [...orderedItems, newItem];
-    setOrderedItems(newItems); onItemsChange(newItems);
+    const newItems: AuditItem[] = draftItems.map((draftItem) => {
+      const tempNote1: AuditComment[] = draftItem.remarks
+        ? [{ id: -(Date.now() + Math.random()), itemId: 0, userId: Number(session?.user?.UserID ?? 0), author: [session?.user?.fristName ?? "", session?.user?.lastName ?? ""].filter(Boolean).join(" ") || session?.user?.UserCode || "Draft", text: draftItem.remarks, approverStatus: draftItem.auditCommentStatus === "0" ? 0 : null, createdAt: now, updatedAt: now }]
+        : [];
+      return { item_id: -(Date.now() + Math.random()), job_id: 0, category_item_id: draftItem.category_item_id, category_name: draftItem.category_name, inspection_date: draftItem.inspection_date, item_status: draftItem.item_status, item_status_edit: null, remarks: draftItem.remarks, note_1: tempNote1, note_2: [], note_3: [], created_at: now, updated_at: now, active: true };
+    });
+    const merged = [...orderedItems, ...newItems];
+    setOrderedItems(merged);
+    onItemsChange(merged);
   }, [orderedItems, onItemsChange, session]);
 
   const columns = useMemo(
-    () => createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session?.user?.role_id === 1 || session?.user?.role_id === 2, isDraftMode, attachmentCountsMap),
-    [handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session, isDraftMode, attachmentCountsMap]
+    () => createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session?.user?.role_id === 1 || session?.user?.role_id === 2, isDraftMode, attachmentCountsMap, viewport),
+    [handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session, isDraftMode, attachmentCountsMap, viewport]
   );
+
+  useEffect(() => {
+    if (onSelectionChange) {
+      const selected = visibleItems.filter((item) => rowSelection[String(item.item_id)]);
+      onSelectionChange(selected);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowSelection, visibleItems]);
 
   const table = useReactTable({
     data: visibleItems,
@@ -440,8 +477,10 @@ export default function DataTableItemList({
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    state: { globalFilter: search, pagination: { pageIndex, pageSize } },
+    enableRowSelection: true,
+    state: { globalFilter: search, pagination: { pageIndex, pageSize }, rowSelection },
     onGlobalFilterChange: setSearch,
+    onRowSelectionChange: setRowSelection,
     onPaginationChange: (updater) => {
       const next = typeof updater === "function" ? updater({ pageIndex, pageSize }) : updater;
       setPageIndex(next.pageIndex); setPageSize(next.pageSize);
@@ -512,8 +551,8 @@ export default function DataTableItemList({
                       return (
                         <TableHead
                           key={header.id}
-                          style={getStickyStyle(meta)}
-                          className={getStickyClassName(meta, true)}
+                          style={viewport === 'mobile' ? undefined : getStickyStyle(meta)}
+                          className={viewport === 'mobile' ? '' : getStickyClassName(meta, true)}
                         >
                           {header.isPlaceholder
                             ? null
@@ -534,7 +573,7 @@ export default function DataTableItemList({
                     </TableRow>
                   ))
                 ) : rows.length ? (
-                  rows.map((row) => <SortableTableRow key={row.id} row={row} />)
+                  rows.map((row) => <SortableTableRow key={row.id} row={row} viewport={viewport} />)
                 ) : (
                   <TableRow>
                     <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">

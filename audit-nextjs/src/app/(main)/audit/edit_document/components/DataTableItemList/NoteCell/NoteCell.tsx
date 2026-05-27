@@ -80,11 +80,12 @@ export default function NoteCell({
   const [viewOnly, setViewOnly] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const roleId = session?.user?.role_id;
-
+  // Permission logic: - Delete/Edit allowed for role 1, 2 if not locked;
   const canDelete = (roleId === 1 || roleId === 2) && !isLocked;
   const canEdit = (roleId === 1 || roleId === 2) && !isLocked;
   const canMention = roleId === 1 || roleId === 2 || roleId === 3;
   
+  // Permission logic for commenting:
   const canComment = (() => {
     // Thread Type 1 (Audit): role 1, 2, 4
     if (threadType === 1) {
@@ -95,11 +96,11 @@ export default function NoteCell({
   if (threadType === 2) {
     const isDistrictManager =
       String(session?.user?.UserID) === String(jobData?.districtManager?.userId);
-    return roleId === 1 || roleId === 2 || roleId === 3 || isDistrictManager;
+    return roleId === 1 || roleId === 2 || roleId === 3 || isDistrictManager || roleId === 4;
   }
     
-    // Thread Type 3 (Other): เฉพาะคนที่ถูก tag หรือ role 1, 2
-    return roleId === 1 || roleId === 2 || taggedUsers.some(
+    // Thread Type 3 (Other): เฉพาะคนที่ถูก tag หรือ role 1, 2, 4
+    return roleId === 1 || roleId === 2 || roleId === 4 || taggedUsers.some(
       (t) => String(t.userId) === String(session?.user?.UserID)
     );
   })();

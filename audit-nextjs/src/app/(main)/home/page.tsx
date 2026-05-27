@@ -23,6 +23,7 @@ export default function HomePage() {
     redirect("/login");
   }
 
+  // Permission logic: ตรวจสอบ role_id ของผู้ใช้เพื่อแสดง dashboard ที่เหมาะสม
   const roleId = Number(session.user?.role_id);
   console.log("User Role ID:", roleId, typeof roleId);
   // Render dashboard based on role

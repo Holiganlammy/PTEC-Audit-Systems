@@ -377,21 +377,23 @@ export default function AuditJobsListPage() {
         {/* Header */}
         <div className="mb-6">
           <div className="flex flex-col gap-4">
-            <div className="flex items-start justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h1 className="text-3xl font-bold tracking-tight">Audit Jobs Management</h1>
-                <p className="text-muted-foreground mt-2">จัดการและติดตามงานตรวจสอบทั้งหมดของระบบ</p>
+                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Audit Jobs Management</h1>
+                <p className="text-muted-foreground mt-1 text-sm sm:mt-2 sm:text-base">จัดการและติดตามงานตรวจสอบทั้งหมดของระบบ</p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:gap-3 sm:flex-shrink-0">
                 <ExportListDropdown data={jobs} selectedRows={selectedRows} onExportComplete={handleExportComplete} disabled={isLoading} />
                 {canDelete && (
-                  <Button variant="destructive" size="lg" disabled={selectedCount === 0 || isLoading} onClick={() => setShowBulkDeleteDialog(true)}>
-                    <Trash2 className="mr-2 h-5 w-5" />ลบที่เลือก {selectedCount > 0 && `(${selectedCount})`}
+                  <Button variant="destructive" size="sm" className="sm:size-auto sm:h-10" disabled={selectedCount === 0 || isLoading} onClick={() => setShowBulkDeleteDialog(true)}>
+                    <Trash2 className="mr-1.5 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
+                    <span>ลบที่เลือก{selectedCount > 0 && ` (${selectedCount})`}</span>
                   </Button>
                 )}
                 {canDelete && (
-                  <Button onClick={() => router.push("/audit/create")} size="lg">
-                    <Plus className="mr-2 h-5 w-5" />Create New Job
+                  <Button onClick={() => router.push("/audit/create")} size="sm" className="sm:size-auto sm:h-10">
+                    <Plus className="mr-1.5 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
+                    <span>Create New Job</span>
                   </Button>
                 )}
               </div>
@@ -400,10 +402,10 @@ export default function AuditJobsListPage() {
             {/* ── Filter Bar ────────────────────────────────────────────── */}
             <div className="space-y-3">
               {/* Row 1: Quick Filters + Advanced Toggle */}
-              <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap sm:gap-3">
                 {/* Status */}
                 <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}>
-                  <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full sm:w-[200px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">สถานะ: ทั้งหมด</SelectItem>
                     <SelectItem value="1">อยู่ระหว่างดำเนินการ</SelectItem>
@@ -490,7 +492,7 @@ export default function AuditJobsListPage() {
 
               {/* Row 2: Advanced Filters (Collapsible) */}
               {showAdvancedFilters && (
-                <div className="flex items-end gap-3 flex-wrap p-4 rounded-lg border bg-muted/30">
+                <div className="flex items-end gap-3 flex-wrap p-3 rounded-lg border bg-muted/30 sm:p-4">
                   {/* Date From */}
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">วันที่เริ่มต้น</Label>
@@ -610,18 +612,18 @@ export default function AuditJobsListPage() {
         {hasDraft && draftInfo && (
           <Card className="mb-6 border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/20">
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg"><FileText className="h-5 w-5 text-orange-600 dark:text-orange-400" /></div>
+                  <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg shrink-0"><FileText className="h-5 w-5 text-orange-600 dark:text-orange-400" /></div>
                   <div>
-                    <CardTitle className="text-lg flex items-center gap-2">
+                    <CardTitle className="text-base flex flex-wrap items-center gap-2 sm:text-lg">
                       Draft - กำลังสร้างงานตรวจสอบ
                       <Badge variant="outline" className="text-orange-600 border-orange-600">Draft</Badge>
                     </CardTitle>
                     <CardDescription>บันทึกเมื่อ: {format(new Date(draftInfo.timestamp), "dd/MM/yyyy HH:mm", { locale: th })}</CardDescription>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Button variant="outline" size="sm" onClick={() => router.push("/audit/create")}><Edit className="mr-2 h-4 w-4" />แก้ไข Header</Button>
                   <Button variant="default" size="sm" onClick={() => router.push("/audit/create/add_items?mode=draft")}>เพิ่มรายการต่อ</Button>
                   <Button variant="ghost" size="sm" onClick={() => setShowDeleteDraftDialog(true)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -629,7 +631,7 @@ export default function AuditJobsListPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3 sm:gap-4">
                 <div><p className="text-muted-foreground">สาขา</p><p className="font-medium">{draftInfo.branchName}</p></div>
                 <div><p className="text-muted-foreground">วันที่ตรวจ</p><p className="font-medium">{format(new Date(draftInfo.auditDate), "dd/MM/yyyy", { locale: th })}</p></div>
                 <div><p className="text-muted-foreground">รายการตรวจสอบ</p><p className="font-medium">{draftInfo.itemCount} รายการ</p></div>

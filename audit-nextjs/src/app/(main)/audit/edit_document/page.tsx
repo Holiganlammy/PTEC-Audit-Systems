@@ -265,6 +265,7 @@ export default function EditAuditJobPage() {
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [jobData, setJobData] = useState<AuditJobData | null>(null);
   const [auditItems, setAuditItems] = useState<AuditItem[]>([]);
+  const [selectedAuditItems, setSelectedAuditItems] = useState<AuditItem[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(true);
 
   // Form state
@@ -450,7 +451,7 @@ export default function EditAuditJobPage() {
       fetchJobData();
     }
   }, [jobNo, fetchJobData, isLoadingUsers, users.length]);
-
+    // Permission logic for viewing files:
     useEffect(() => {
     const roleId = session?.user?.role_id;
  
@@ -1054,6 +1055,7 @@ export default function EditAuditJobPage() {
               <ExportDropdown
                 jobData={jobData ?? undefined}
                 auditItems={auditItems}
+                selectedItems={selectedAuditItems}
                 disabled={isLoadingData || isLoadingItems}
               />
               {canEdit && (
@@ -1899,6 +1901,7 @@ export default function EditAuditJobPage() {
             isLocked={jobData?.status === 2}
             onItemsChange={handleItemsChange}
             onCommentsChange={handleCommentsChange}
+            onSelectionChange={setSelectedAuditItems}
           />
         </div>
       </div>

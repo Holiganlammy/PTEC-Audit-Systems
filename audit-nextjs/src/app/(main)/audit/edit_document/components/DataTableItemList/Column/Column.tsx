@@ -40,6 +40,7 @@ import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import BranchAddScore from "../../BranchAddScore";
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -462,7 +463,8 @@ export const createAuditItemsColumns = (
   onBranchScoreSubmit?: (itemId: number, score: BranchScoreValue, note?: string) => void,
   canSendEmail?: boolean,
   isDraftMode?: boolean,
-  attachmentCountsMap: Record<number, number> = {}
+  attachmentCountsMap: Record<number, number> = {},
+  viewport: 'mobile' | 'tablet' | 'desktop' = 'desktop'
 ): ColumnDef<AuditItem>[] => {
   const effectiveLocked = isLocked || !!isDraftMode;
 
@@ -515,9 +517,19 @@ export const createAuditItemsColumns = (
       header: "รายการ",
       cell: ({ row }) => {
         const count = attachmentCountsMap[row.original.item_id] ?? 0;
+        const name = row.getValue("category_name") as string;
         return (
-          <div className="font-medium min-w-[180px] max-w-[220px]">
-            <div>{row.getValue("category_name")}</div>
+          <div className={cn(
+            "font-medium overflow-hidden",
+            viewport === 'mobile'
+              ? "min-w-[140px]"
+              : viewport === 'tablet'
+              ? "w-[160px] max-w-[160px]"
+              : "w-[220px] max-w-[220px]"
+          )}>
+            <div className="break-words whitespace-normal leading-snug" title={name}>
+              {name}
+            </div>
             {count > 0 && (
               <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
                 <Paperclip className="h-3 w-3" />
