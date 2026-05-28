@@ -286,7 +286,7 @@ export function DataTable<TData, TValue>({
 
    return (
       <div className="w-full min-w-0">
-         <div className="flex justify-between items-center py-4">
+         <div className="flex flex-wrap gap-2 justify-between items-center py-4">
             {shouldShowSearch && (
                <Input
                   placeholder={searchPlaceholder}
@@ -298,14 +298,14 @@ export function DataTable<TData, TValue>({
                            : (table.getColumn(finalSearchKeys[0])?.getFilterValue() as string) ?? ""
                   }
                   onChange={handleSearchChange}
-                  className="max-w-sm"
+                  className="max-w-sm flex-1 min-w-0"
                   disabled={Loading}
                />
             )}
             <div className="flex items-center space-x-2">
                <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                     <Button variant="outline" className="ml-auto" disabled={Loading}>
+                     <Button variant="outline" className="ml-auto text-xs sm:text-sm" disabled={Loading}>
                         Show Columns <ChevronDown />
                      </Button>
                   </DropdownMenuTrigger>
@@ -397,7 +397,7 @@ export function DataTable<TData, TValue>({
          </div>
 
          <div className="sm:flex items-center justify-between px-2 pt-4">
-            <div className="text-muted-foreground sm:flex-1 text-sm sm:ml-4 my-2">
+            <div className="text-muted-foreground sm:flex-1 text-xs sm:text-sm sm:ml-4 my-2">
                {isServerSidePagination ? (
                   <>
                      Showing {currentPagination.pageIndex * currentPagination.pageSize + 1} to{" "}
@@ -439,7 +439,7 @@ export function DataTable<TData, TValue>({
                   </Select>
                </div>
 
-               <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+               <div className="flex w-auto min-w-[80px] items-center justify-center text-xs sm:text-sm font-medium">
                   Page {table.getState().pagination.pageIndex + 1} of{" "}
                   {isServerSidePagination ? pageCount : table.getPageCount()}
                </div>

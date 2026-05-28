@@ -372,15 +372,15 @@ export default function AuditJobsListPage() {
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="py-8">
+    <div className="py-4 sm:py-8">
       <div className="container mx-auto px-4 max-w-[1500px]">
         {/* Header */}
         <div className="mb-6">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Audit Jobs Management</h1>
-                <p className="text-muted-foreground mt-1 text-sm sm:mt-2 sm:text-base">จัดการและติดตามงานตรวจสอบทั้งหมดของระบบ</p>
+                <h1 className="text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">Audit Jobs Management</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1 sm:mt-2">จัดการและติดตามงานตรวจสอบทั้งหมดของระบบ</p>
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:gap-3 sm:flex-shrink-0">
                 <ExportListDropdown data={jobs} selectedRows={selectedRows} onExportComplete={handleExportComplete} disabled={isLoading} />
@@ -485,20 +485,20 @@ export default function AuditJobsListPage() {
                 {pagination && (
                   <>
                     <div className="h-6 w-px bg-border ml-auto" />
-                    <span className="text-sm text-muted-foreground">{pagination.total} jobs total</span>
+                    <span className="text-xs sm:text-sm text-muted-foreground">{pagination.total} jobs total</span>
                   </>
                 )}
               </div>
 
               {/* Row 2: Advanced Filters (Collapsible) */}
               {showAdvancedFilters && (
-                <div className="flex items-end gap-3 flex-wrap p-3 rounded-lg border bg-muted/30 sm:p-4">
+                <div className="flex flex-col gap-3 p-3 rounded-lg border bg-muted/30 sm:flex-row sm:flex-wrap sm:items-end sm:p-4">
                   {/* Date From */}
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">วันที่เริ่มต้น</Label>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant="outline" className={cn("w-[160px] justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
+                        <Button variant="outline" className={cn("w-full sm:w-[160px] justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {dateFrom ? format(dateFrom, "dd/MM/yyyy", { locale: th }) : "เลือก"}
                         </Button>
@@ -514,7 +514,7 @@ export default function AuditJobsListPage() {
                     <Label className="text-xs text-muted-foreground">วันที่สิ้นสุด</Label>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant="outline" className={cn("w-[160px] justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
+                        <Button variant="outline" className={cn("w-full sm:w-[160px] justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {dateTo ? format(dateTo, "dd/MM/yyyy", { locale: th }) : "เลือก"}
                         </Button>
@@ -529,7 +529,7 @@ export default function AuditJobsListPage() {
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">ผู้จัดการเขต</Label>
                     <Select value={districtManagerFilter} onValueChange={(v) => { setDistrictManagerFilter(v); setCurrentPage(1); }}>
-                      <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="w-full sm:w-[200px]"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">ทั้งหมด</SelectItem>
                         {districtManagers.map((u) => (
@@ -548,7 +548,7 @@ export default function AuditJobsListPage() {
                           variant="outline"
                           role="combobox"
                           aria-expanded={openBranchManager}
-                          className="w-[220px] justify-between font-normal"
+                          className="w-full sm:w-[220px] justify-between font-normal"
                         >
                           <span className="truncate">
                             {branchManagerFilter === "all"

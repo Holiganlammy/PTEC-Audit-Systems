@@ -89,6 +89,7 @@ export class AuditItemAuditCommentController {
                   jobNo: job.jobNo,
                   categoryName: item.categoryItem?.categoryName || '-',
                   itemId: itemId,
+                  AuditCommentMail: true,
                 },
               );
 

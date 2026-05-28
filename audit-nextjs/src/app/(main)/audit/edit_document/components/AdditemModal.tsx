@@ -250,7 +250,7 @@ const statusOptions = [
                   <FieldLabel>
                     หมวดหมู่ <span className="text-red-500">*</span>
                     <span className="ml-2 text-xs text-muted-foreground font-normal">
-                      {selected.length}/15 รายการ
+                      {selected.length}/20 รายการ
                     </span>
                   </FieldLabel>
                   {isLoadingCategories ? (
@@ -292,7 +292,7 @@ const statusOptions = [
                                   const idStr = cat.categoryItemId.toString();
                                   const isSelected = selected.includes(idStr);
                                   const isDisabled =
-                                    !isSelected && selected.length >= 15;
+                                    !isSelected && selected.length >= 20;
                                   return (
                                     <CommandItem
                                       key={cat.categoryItemId}

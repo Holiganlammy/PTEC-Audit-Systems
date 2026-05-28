@@ -117,6 +117,39 @@ export class AuditUserRolesController {
     }
   }
 
+  // GET /audit-user-roles/check-role/:userId - Get role by user ID
+  @Get('check-role/:userId')
+  async checkRoleByUserId(@Param('userId', ParseIntPipe) userId: number) {
+    try {
+      const role = await this.auditUserRolesService.getRoleByUserId(userId);
+
+      if (!role) {
+        throw new HttpException(
+          `User ID ${userId} is not registered in Audit System`,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      return {
+        success: true,
+        data: {
+          userId,
+          roleId: role.roleId,
+          roleName: role.roleName,
+        },
+      };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      console.error('Error checking role by userId:', error);
+      throw new HttpException(
+        'Error checking role by userId',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   // GET /audit-user-roles/roles - Get all available roles (filtered by caller's role)
   @Get('roles')
   async getAllRoles(@Req() req: express.Request) {

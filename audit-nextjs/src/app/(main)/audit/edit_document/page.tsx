@@ -226,6 +226,17 @@ export default function EditAuditJobPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const jobNo = searchParams.get("jobNo") ?? "";
+  // Query-param format: ?highlightItemId=334&threadType=1 (sent via mention email)
+  const highlightItemId = searchParams.get("highlightItemId") ? parseInt(searchParams.get("highlightItemId")!) : undefined;
+  const highlightThreadType = searchParams.get("threadType") ? parseInt(searchParams.get("threadType")!) : undefined;
+  // Hash format: #item-334 (simpler anchor link format)
+  const [hashHighlightItemId, setHashHighlightItemId] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    const match = window.location.hash.match(/^#item-(\d+)$/);
+    if (match) setHashHighlightItemId(parseInt(match[1]));
+  }, []);
+  // Query param takes priority over hash; fallback to hash
+  const effectiveHighlightItemId = highlightItemId ?? hashHighlightItemId;
   const { data: session } = useSession();
   const fileAccessParam = searchParams.get("fileAccess");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -929,6 +940,7 @@ export default function EditAuditJobPage() {
         branchManagerFullname: jobData.branchManager?.fullname ?? "",
         jobUrl: `${window.location.origin}/audit/edit_document?jobNo=${jobData.jobNo}`,
         userby: session?.user?.UserID || 0,
+        additionalNotes: jobData.additionalNotes || "",
       };
 
       const response = await client.post(
@@ -1034,7 +1046,7 @@ export default function EditAuditJobPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-2xl font-bold sm:text-3xl">Edit Audit Job</h1>
+                <h1 className="text-xl font-bold sm:text-2xl lg:text-3xl">Edit Audit Job</h1>
                 {!isLoadingData && jobData?.status === 2 && (
                   <Badge variant="secondary" className="flex items-center gap-1 bg-green-100 text-green-700 border-green-300">
                     <Lock className="h-3 w-3" />
@@ -1045,7 +1057,7 @@ export default function EditAuditJobPage() {
               {isLoadingData ? (
                 <Skeleton className="h-4 w-48 mt-2" />
               ) : (
-                <p className="text-muted-foreground mt-2">
+                <p className="text-xs sm:text-sm text-muted-foreground mt-2">
                   แก้ไขข้อมูลงานตรวจสอบ: {jobData?.jobNo}
                 </p>
               )}
@@ -1068,7 +1080,7 @@ export default function EditAuditJobPage() {
                           <Button
                             variant="outline"
                             disabled={isLoadingData || isSendingEmail || !jobData || !!jobData?.jobCreatedEmailSentAt}
-                            className="gap-2"
+                            className="gap-2 text-xs sm:text-sm"
                           >
                             {isSendingEmail ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -1118,13 +1130,14 @@ export default function EditAuditJobPage() {
                 </Tooltip>
               </TooltipProvider>
               )}
-              <Button variant="outline" onClick={() => router.back()}>
+              <Button variant="outline" className="text-xs sm:text-sm" onClick={() => router.back()}>
                 Back
               </Button>
               {jobData?.status !== 2 && (
                 <>
                   <Button
                     variant="outline"
+                    className="text-xs sm:text-sm"
                     onClick={form.handleSubmit(onSubmit, handleFormError)}
                     disabled={isSubmitting || isLoadingData}
                   >
@@ -1145,7 +1158,7 @@ export default function EditAuditJobPage() {
                             <AlertDialogTrigger asChild>
                               <Button
                                 disabled={isConfirming || !canConfirm}
-                                className="bg-green-600 hover:bg-green-700 text-white"
+                                className="bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm"
                               >
                                 <ShieldCheck className=" h-4 w-4" />
                                 Confirm
@@ -1201,8 +1214,8 @@ export default function EditAuditJobPage() {
           <Card>
             <CardContent className="pt-6">
               <FieldSet>
-                <FieldLegend>แก้ไข Audit Report</FieldLegend>
-                <FieldDescription>
+                <FieldLegend className="text-sm sm:text-base">แก้ไข Audit Report</FieldLegend>
+                <FieldDescription className="text-xs sm:text-sm">
                   แก้ไขข้อมูลงานตรวจสอบตามต้องการ
                 </FieldDescription>
 
@@ -1902,6 +1915,8 @@ export default function EditAuditJobPage() {
             onItemsChange={handleItemsChange}
             onCommentsChange={handleCommentsChange}
             onSelectionChange={setSelectedAuditItems}
+            highlightItemId={effectiveHighlightItemId}
+            highlightThreadType={highlightThreadType}
           />
         </div>
       </div>

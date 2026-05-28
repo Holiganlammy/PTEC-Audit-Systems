@@ -143,6 +143,7 @@ export class AuditCreateDocGmailApiService {
     districtManagerFullname?: string;
     branchManagerFullname?: string;
     jobUrl?: string;
+    additionalNotes?: string;
   }) {
     const jobNo = params.jobNo?.trim() || '-';
     const branchName = params.branchName?.trim() || '-';
@@ -152,6 +153,7 @@ export class AuditCreateDocGmailApiService {
     const districtManagerFullname =
       params.districtManagerFullname?.trim() || '-';
     const branchManagerFullname = params.branchManagerFullname?.trim() || '-';
+    const additionalNotes = params.additionalNotes?.trim() || '-';
 
     // Build job URL
     const baseUrl = process.env.FRONTEND_URL || 'https://audit.purethai.co.th';
@@ -242,6 +244,10 @@ export class AuditCreateDocGmailApiService {
                       <tr>
                         <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">ผู้จัดการสาขา:</td>
                         <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${branchManagerFullname}</td>
+                      </tr>
+                                            <tr>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">รายละเอียดเพิ่มเติม:</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${additionalNotes}</td>
                       </tr>
                     </table>
                   </td>

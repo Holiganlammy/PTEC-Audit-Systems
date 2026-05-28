@@ -2,16 +2,19 @@
 
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { AuditFiles } from '../domain/model/audit-file.entity';
 import { AuditFileType } from '../domain/enum/audit-file-type.enum';
 import * as path from 'path';
+import { AuditItem } from '../domain/model/audit-item.entity';
 
 @Injectable()
 export class AuditFilesService {
   constructor(
     @InjectRepository(AuditFiles)
     private readonly auditFilesRepository: Repository<AuditFiles>,
+    @InjectRepository(AuditItem)
+    private readonly auditItemRepository: Repository<AuditItem>,
   ) {}
 
   // ==================== Helper: Get File Server Base URL ====================
@@ -196,5 +199,51 @@ export class AuditFilesService {
   ): Promise<void> {
     await this.getItemAttachmentFile(itemId, fileId);
     await this.deleteFile(fileId, deletedBy);
+  }
+  async getAttachmentsByJobId(jobId: number): Promise<{
+    grouped: Record<number, Array<AuditFiles & { fileUrl: string }>>;
+    totalFiles: number;
+  }> {
+    // 1. ดึง itemIds ทั้งหมดของ job นี้
+    const items = await this.auditItemRepository.find({
+      where: { jobId, active: true },
+      select: ['itemId'],
+    });
+
+    const itemIds = items.map((item) => item.itemId);
+
+    if (itemIds.length === 0) {
+      return { grouped: {}, totalFiles: 0 };
+    }
+
+    // 2. ดึง item attachments ทั้งหมด (query เดียว)
+    const files = await this.auditFilesRepository.find({
+      where: {
+        fileType: AuditFileType.ITEM_ATTACHMENT,
+        referenceId: In(itemIds),
+        active: true,
+      },
+      order: { uploadedAt: 'ASC' },
+    });
+
+    // 3. Group by referenceId (itemId)
+    const grouped: Record<number, Array<AuditFiles & { fileUrl: string }>> = {};
+
+    // Init ทุก itemId เป็น [] (แม้ไม่มีไฟล์)
+    for (const itemId of itemIds) {
+      grouped[itemId] = [];
+    }
+
+    for (const file of files) {
+      grouped[file.referenceId].push({
+        ...file,
+        fileUrl: this.getFileUrl(file.filePath),
+      });
+    }
+
+    return {
+      grouped,
+      totalFiles: files.length,
+    };
   }
 }

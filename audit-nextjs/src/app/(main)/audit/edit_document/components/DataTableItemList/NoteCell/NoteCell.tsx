@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, MessageSquare, Loader2 } from "lucide-react";
+import { Plus, MessageSquare, Loader2, Clock } from "lucide-react";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
 import { useSession } from "next-auth/react";
+import { cn } from "@/lib/utils";
 import type { TaggedUser } from "../TagCell/TagCell";
 import ThreadModal from "./ThreadModal";
 
@@ -29,6 +30,10 @@ interface NoteCellProps {
   jobData?: AuditJobData;
   users?: ApiUser[];
   isLocked?: boolean;
+  /** auto-open the thread modal on mount (used for email deep-link highlight) */
+  autoOpen?: boolean;
+  /** visually highlight this NoteCell (ring/glow) */
+  highlighted?: boolean;
 }
 
 interface auditCommentsComment {
@@ -73,11 +78,23 @@ export default function NoteCell({
   jobData,
   users = [],
   isLocked = false,
+  autoOpen = false,
+  highlighted = false,
 }: NoteCellProps) {
   const { data: session } = useSession();
   const [comments, setComments] = useState<AuditComment[]>(initialComments);
   const [openThread, setOpenThread] = useState(false);
   const [viewOnly, setViewOnly] = useState(false);
+  const hasAutoOpened = useRef(false);
+
+  // Auto-open modal once when mounted with autoOpen=true (email deep-link)
+  useEffect(() => {
+    if (autoOpen && !hasAutoOpened.current) {
+      hasAutoOpened.current = true;
+      setViewOnly(false);
+      setOpenThread(true);
+    }
+  }, [autoOpen]);
   const [isLoading, setIsLoading] = useState(false);
   const roleId = session?.user?.role_id;
   // Permission logic: - Delete/Edit allowed for role 1, 2 if not locked;
@@ -206,52 +223,63 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
           c.requireApprovalFrom
       );
  
-      // เก็บ approver ที่ต้อง tag
       const approversToTag = new Set<string>();
- 
+
       myPendingComments.forEach((c: auditCommentsComment) => {
         if (c.requireApprovalFrom) {
           const approverUser = users.find(
             (u: ApiUser) => u.UserCode === c.requireApprovalFrom!.userCode
           );
- 
           if (approverUser) {
             approversToTag.add(approverUser.UserID);
           }
         }
       });
- 
-      // Tag approvers
+
+      const actuallyTagged = new Set<string>();
+
       for (const approverUserId of approversToTag) {
         const alreadyTagged = taggedUsers.some(
           (t) => String(t.userId) === String(approverUserId)
         );
- 
+
         if (!alreadyTagged) {
           try {
-            await client.post(
-              `/audit-items/${itemId}/tagged-user`,
-              {
-                userId: approverUserId,
-                createdBy: session?.user?.UserID,
-              },
+            const roleRes = await client.get(
+              `/audit-user-roles/check-role/${approverUserId}`,
               { headers: dataConfig().headers }
             );
+            const approverRoleId = roleRes.data?.data?.roleId;
+
+            // ข้ามถ้าเป็น role 1, 2, 4
+            if (approverRoleId === 1 || approverRoleId === 2 || approverRoleId === 4) {
+              console.log(`⏭️ Skip auto-tag userId=${approverUserId} (role ${approverRoleId})`);
+              continue;
+            }
+
+            await client.post(
+              `/audit-items/${itemId}/tagged-user`,
+              { userId: approverUserId, createdBy: session?.user?.UserID },
+              { headers: dataConfig().headers }
+            );
+
+            actuallyTagged.add(approverUserId);
+
           } catch (error) {
             console.error('❌ Failed to auto-tag:', error);
           }
         }
       }
- 
-      // Update TagCell UI immediately without refresh
-      if (onTagChange) {
-        const newlyTagged = [...approversToTag]
-          .filter(uid => !taggedUsers.some(t => String(t.userId) === String(uid)))
+
+      // Update TagCell UI — ใช้ actuallyTagged (เฉพาะคนที่ tag จริง)
+      if (onTagChange && actuallyTagged.size > 0) {
+        const newlyTagged = [...actuallyTagged]
           .map(uid => {
             const u = users.find(u => u.UserID === uid);
             return u ? { userId: u.UserID, userCode: u.UserCode, fullname: u.Fullname } : null;
           })
           .filter((t): t is TaggedUser => t !== null);
+
         if (newlyTagged.length > 0) {
           onTagChange(itemId, [...taggedUsers, ...newlyTagged]);
         }
@@ -331,6 +359,7 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
             amChecklistStatus: item?.amChecklistStatus ?? null,
             auditChecked: item?.note_1 && item.note_1.length > 0,
             auditDate: item?.inspectionDate || '-',
+            jobUrl: `${window.location.origin}/audit/edit_document?jobNo=${jobData?.jobNo || item?.job?.jobNo || ''}&highlightItemId=${itemId}&threadType=${threadType}`,
           },
           { headers: dataConfig().headers }
         );
@@ -508,11 +537,27 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
 
   const latest = comments[comments.length - 1];
 
+  // Derive highlight from internal comments state so it clears immediately after approval
+  const hasPendingApproval = comments.some((c) => c.approverStatus === 0);
+  const isHighlighted = highlighted && hasPendingApproval;
+
   return (
     <div className="flex flex-col gap-1.5 w-[220px] max-w-[220px]">
+      {/* Highlight badge — shown when this cell has a pending-approval comment */}
+      {isHighlighted && (
+        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 w-fit">
+          <Clock className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0" />
+          <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 whitespace-nowrap">
+            รออนุมัติ — คลิกเพื่อดู
+          </span>
+        </div>
+      )}
       {/* Latest comment preview */}
       <div
-        className="min-h-[52px] rounded-md border border-border bg-muted/30 px-2.5 py-2 text-sm cursor-pointer hover:bg-muted/50 transition-colors"
+        className={cn(
+          "min-h-[52px] rounded-md border border-border bg-muted/30 px-2.5 py-2 text-sm cursor-pointer hover:bg-muted/50 transition-colors",
+          isHighlighted && "ring-2 ring-amber-400 border-amber-400 bg-amber-50/20 dark:bg-amber-900/10"
+        )}
         onClick={() => {
           setViewOnly(true);
           setOpenThread(true);

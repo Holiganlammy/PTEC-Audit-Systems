@@ -23,7 +23,6 @@ import {
   AuditItemWithUsers,
   AuditJobWithUsers,
 } from '../domain/type/audit-job.interface';
-import { AuditCreateDocGmailApiService } from '../../email/audit-create-doc-gmail-api.service';
 
 @Injectable()
 export class AuditJobsService {
@@ -32,7 +31,6 @@ export class AuditJobsService {
     private readonly auditJobsRepository: Repository<AuditJobsHeader>,
     private readonly dbManager: DatabaseManagerService,
     private readonly userRightService: UserRightService,
-    private readonly auditCreateDocGmailService: AuditCreateDocGmailApiService,
   ) {}
 
   // Helper: ดึงข้อมูล user

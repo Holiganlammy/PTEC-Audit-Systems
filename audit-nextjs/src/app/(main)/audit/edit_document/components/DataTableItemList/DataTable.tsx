@@ -1,6 +1,3 @@
-// app/audit/edit_document/components/DataTableItemList/DataTable.tsx
-// Version: 2.0.0 | Date: 2025-05-20 | Updated: Added sticky column support
-
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -77,20 +74,6 @@ import type { TaggedUser } from "./TagCell/TagCell";
 import AMChecklistModal from "./Amchecklist/modal";
 import ItemAttachmentModal from "./ItemAttachmentModal";
 
-interface ListTaggedUser {
-  taggedUserId: number;
-  itemId: number;
-  userId: number;
-  userCode?: string;
-  fullname?: string;
-  email?: string;
-  position?: string;
-  branchId?: number;
-  createdBy: number;
-  createdAt: Date;
-  active: boolean;
-  item_id?: number; // for compatibility with older API responses
-}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // STICKY COLUMN HELPERS
@@ -111,19 +94,12 @@ function getStickyStyle(meta?: {
     position: "sticky",
     [meta.sticky]: meta.stickyOffset ?? 0,
     zIndex: meta.isLastSticky ? 2 : 1,
-    // กำหนด width ให้ตรงกับ stickyWidth เพื่อป้องกัน <td> collapse
-    // จนเกิด gap ระหว่าง sticky columns ที่ทำให้ hover color ของ <tr> โผล่ออกมา
     ...(meta.stickyWidth != null
       ? { width: `${meta.stickyWidth}px`, minWidth: `${meta.stickyWidth}px` }
       : {}),
   };
 }
 
-/**
- * สร้าง className สำหรับ sticky column
- * - bg เพื่อไม่ให้โปร่งใสเวลา scroll
- * - shadow เฉพาะคอลัมน์สุดท้ายที่ sticky
- */
 function getStickyClassName(meta?: {
   sticky?: "left" | "right";
   isLastSticky?: boolean;
@@ -189,7 +165,7 @@ type BranchAuditScoreApiRow = {
 // SORTABLE ROW (ใช้ sticky style ด้วย)
 // ══════════════════════════════════════════════════════════════════════════════
 
-function SortableTableRow({ row, viewport }: { row: Row<AuditItem>; viewport: 'mobile' | 'tablet' | 'desktop' }) {
+function SortableTableRow({ row, viewport }: { row: Row<AuditItem>; viewport: 'mobile' | 'tablet' | 'desktop'; }) {
   const {
     setNodeRef,
     transform,
@@ -203,6 +179,8 @@ function SortableTableRow({ row, viewport }: { row: Row<AuditItem>; viewport: 'm
     <DragHandleContext.Provider value={{ listeners, attributes }}>
       <TableRow
         ref={setNodeRef}
+        id={`item-${row.original.item_id}`}
+        data-item-id={row.original.item_id}
         data-state={row.getIsSelected() && "selected"}
         style={{
           transform: CSS.Transform.toString(transform),
@@ -243,7 +221,6 @@ interface DataTableItemListProps {
   showAddButton?: boolean;
   isDraftMode?: boolean;
   inspectionDate?: string;
-  /** ใช้ใน Draft mode เพื่อส่งต่อ positionType ให้ AddItemModal กรอง category ได้ถูก */
   positionType?: string;
   onItemsChange: (updatedItems?: AuditItem[]) => void;
   onCommentsChange?: (
@@ -252,6 +229,8 @@ interface DataTableItemListProps {
     comments: AuditComment[]
   ) => void;
   onSelectionChange?: (items: AuditItem[]) => void;
+  highlightItemId?: number;
+  highlightThreadType?: number;
 }
 
 export default function DataTableItemList({
@@ -268,6 +247,8 @@ export default function DataTableItemList({
   onItemsChange,
   onCommentsChange,
   onSelectionChange,
+  highlightItemId,
+  highlightThreadType,
 }: DataTableItemListProps) {
   const { data: session } = useSession();
   const [orderedItems, setOrderedItems] = useState<AuditItem[]>(items);
@@ -350,20 +331,27 @@ export default function DataTableItemList({
   useEffect(() => { fetchBranchScores().catch(() => {}); }, [fetchBranchScores]);
 
   const fetchAttachmentCounts = useCallback(async () => {
-    if (isDraftMode) return;
-    const realItems = items.filter((item) => item.item_id > 0);
-    if (realItems.length === 0) return;
-    const results = await Promise.allSettled(
-      realItems.map(async (item) => {
-        const res = await client.get(`/audit-items/${item.item_id}/attachments`, { headers: dataConfig().headers });
-        const list = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
-        return { itemId: item.item_id, count: list.length };
-      })
-    );
-    const map: Record<number, number> = {};
-    results.forEach((r) => { if (r.status === 'fulfilled') map[r.value.itemId] = r.value.count; });
-    setAttachmentCountsMap(map);
-  }, [items, isDraftMode]);
+    if (isDraftMode || !jobId) return;
+ 
+    try {
+      const res = await client.get(`/audit-items/attachments/by-job/${jobId}`, {
+        headers: dataConfig().headers,
+      });
+ 
+      if (res.data?.success && res.data?.data) {
+        const grouped: Record<string, Array<{ fileId: number }>> = res.data.data;
+        const map: Record<number, number> = {};
+ 
+        for (const [itemIdStr, files] of Object.entries(grouped)) {
+          map[Number(itemIdStr)] = Array.isArray(files) ? files.length : 0;
+        }
+ 
+        setAttachmentCountsMap(map);
+      }
+    } catch (error) {
+      console.error("Error fetching attachment counts:", error);
+    }
+  }, [jobId, isDraftMode]);
 
   useEffect(() => { fetchAttachmentCounts().catch(() => {}); }, [fetchAttachmentCounts]);
 
@@ -374,8 +362,10 @@ export default function DataTableItemList({
     setOrderedItems((prev) => prev.map((item) => item.item_id === itemId ? { ...item, [noteKey]: comments } : item));
     onCommentsChange?.(itemId, threadType, comments);
   }, [onCommentsChange]);
+
   const handleAMChecklistClick = useCallback((item: AuditItem) => { setSelectedAMChecklistItem(item); setOpenAMChecklistModal(true); }, []);
   const handleAttachmentClick = useCallback((item: AuditItem) => { setSelectedAttachmentItem(item); setOpenAttachmentModal(true); }, []);
+
   // Permission logic for AM Checklist: role 1, 2, 4 หรือ role 3 ที่เป็น District Manager ของงานนี้
   const isAMChecklistAllowed = (() => {
     const roleId = session?.user?.role_id;
@@ -458,9 +448,19 @@ export default function DataTableItemList({
   }, [orderedItems, onItemsChange, session]);
 
   const columns = useMemo(
-    () => createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session?.user?.role_id === 1 || session?.user?.role_id === 2, isDraftMode, attachmentCountsMap, viewport),
-    [handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session, isDraftMode, attachmentCountsMap, viewport]
+    () => createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session?.user?.role_id === 1 || session?.user?.role_id === 2, isDraftMode, attachmentCountsMap, viewport, highlightItemId, highlightThreadType),
+    [handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session, isDraftMode, attachmentCountsMap, viewport, highlightItemId, highlightThreadType]
   );
+
+  // เมื่อโหลดข้อมูลเสร็จและมี highlightItemId ให้ scroll ไปหา row นั้น
+  useEffect(() => {
+    if (!highlightItemId || orderedItems.length === 0) return;
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-item-id="${highlightItemId}"]`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [highlightItemId, orderedItems.length]);
 
   useEffect(() => {
     if (onSelectionChange) {
@@ -516,7 +516,7 @@ export default function DataTableItemList({
         <Input placeholder="ค้นหารายการ..." value={search} onChange={(e) => { setSearch(e.target.value); setPageIndex(0); }} className="max-w-sm" disabled={isLoading} />
         {/* {!isLocked && showAddButton && ( */}
         {!isLocked && (
-          <Button onClick={() => setOpenAddModal(true)}>
+          <Button className="text-xs sm:text-sm" onClick={() => setOpenAddModal(true)}>
             <Plus className="mr-2 h-4 w-4" />
             เพิ่มรายการ
           </Button>
@@ -525,7 +525,7 @@ export default function DataTableItemList({
 
       {/* Branch Score Summary */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-sm text-muted-foreground">สรุปคะแนนสาขา</div>
+        <div className="text-xs sm:text-sm text-muted-foreground">สรุปคะแนนสาขา</div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">รวม: {branchScoreSummary.total}</Badge>
           <Badge className="bg-green-500 dark:bg-green-700 text-white border-transparent">+1: {branchScoreSummary.plus}</Badge>
@@ -589,10 +589,10 @@ export default function DataTableItemList({
 
       {/* Pagination */}
       <div className="flex flex-col gap-3 px-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm text-muted-foreground">{table.getFilteredRowModel().rows.length} รายการทั้งหมด</div>
+        <div className="text-xs sm:text-sm text-muted-foreground">{table.getFilteredRowModel().rows.length} รายการทั้งหมด</div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-medium whitespace-nowrap">Rows per page</p>
+            <p className="text-xs sm:text-sm font-medium whitespace-nowrap">Rows per page</p>
             <Select value={`${pageSize}`} onValueChange={(v) => { setPageSize(Number(v)); setPageIndex(0); }}>
               <SelectTrigger className="h-8 w-17.5"><SelectValue placeholder={pageSize} /></SelectTrigger>
               <SelectContent side="top">{[10, 20, 50, 100].map((s) => (<SelectItem key={s} value={`${s}`}>{s}</SelectItem>))}</SelectContent>
@@ -601,7 +601,7 @@ export default function DataTableItemList({
           <div className="flex items-center gap-1">
             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPageIndex(0)} disabled={!table.getCanPreviousPage()}><ChevronsLeft className="h-4 w-4" /></Button>
             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPageIndex((p) => p - 1)} disabled={!table.getCanPreviousPage()}><ChevronLeft className="h-4 w-4" /></Button>
-            <span className="text-sm whitespace-nowrap px-1">หน้า {pageIndex + 1} / {table.getPageCount() || 1}</span>
+            <span className="text-xs sm:text-sm whitespace-nowrap px-1">หน้า {pageIndex + 1} / {table.getPageCount() || 1}</span>
             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPageIndex((p) => p + 1)} disabled={!table.getCanNextPage()}><ChevronRight className="h-4 w-4" /></Button>
             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPageIndex(table.getPageCount() - 1)} disabled={!table.getCanNextPage()}><ChevronsRight className="h-4 w-4" /></Button>
           </div>

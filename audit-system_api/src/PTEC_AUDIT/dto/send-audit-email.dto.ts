@@ -49,6 +49,10 @@ export class SendAuditJobEmailDto {
   @IsNumber()
   @IsOptional()
   userby!: number;
+
+  @IsOptional()
+  @IsString()
+  additionalNotes?: string;
 }
 
 export class MentionedUserDto {

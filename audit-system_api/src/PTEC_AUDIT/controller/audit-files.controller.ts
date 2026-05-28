@@ -17,6 +17,7 @@ import {
   StreamableFile,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { SkipThrottle } from '@nestjs/throttler';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import { existsSync, mkdirSync, createReadStream } from 'fs';
@@ -69,6 +70,28 @@ export class AuditFilesController implements OnModuleInit {
       fileSize: file.size,
       mimeType: file.mimetype,
     };
+  }
+
+  @SkipThrottle()
+  @Get('attachments/by-job/:jobId')
+  async getAttachmentsByJob(
+    @Param('jobId', ParseIntPipe) jobId: number,
+  ): Promise<{
+    success: boolean;
+    data: Record<number, Array<AuditFiles & { fileUrl: string }>>;
+    totalFiles: number;
+  }> {
+    try {
+      const result = await this.auditFilesService.getAttachmentsByJobId(jobId);
+      return {
+        success: true,
+        data: result.grouped,
+        totalFiles: result.totalFiles,
+      };
+    } catch (error) {
+      console.error('Error fetching attachments by job:', error);
+      throw new InternalServerErrorException('Error fetching files');
+    }
   }
 
   //  POST /audit-items/:id/attachments - Upload item files
@@ -139,6 +162,7 @@ export class AuditFilesController implements OnModuleInit {
   }
 
   // GET /audit-items/:id/attachments - Get item files
+  @SkipThrottle()
   @Get(':id/attachments')
   async getItemAttachments(@Param('id', ParseIntPipe) itemId: number): Promise<{
     success: boolean;
@@ -158,6 +182,7 @@ export class AuditFilesController implements OnModuleInit {
   }
 
   // GET /audit-items/:id/attachments/:fileId/download - Download item file
+  @SkipThrottle()
   @Get(':id/attachments/:fileId/download')
   async downloadItemAttachment(
     @Param('id', ParseIntPipe) itemId: number,
@@ -194,6 +219,7 @@ export class AuditFilesController implements OnModuleInit {
   }
 
   // GET /audit-items/:id/attachments/:fileId/view - Preview item file
+  @SkipThrottle()
   @Get(':id/attachments/:fileId/view')
   async viewItemAttachment(
     @Param('id', ParseIntPipe) itemId: number,
@@ -417,6 +443,7 @@ export class AuditFilesController implements OnModuleInit {
   }
 
   // DELETE /audit-items/:id/am-checklist/attachments/:fileId - Delete File
+  @SkipThrottle()
   @Delete(':id/am-checklist/attachments/:fileId')
   async deleteAMChecklistAttachment(
     @Param('id', ParseIntPipe) itemId: number,

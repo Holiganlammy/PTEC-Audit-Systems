@@ -139,6 +139,7 @@ export class AuditCommentApprovalGmailApiService {
     categoryName: string;
     itemId: number;
     commentUrl?: string;
+    AuditCommentMail?: boolean;
   }) {
     const approverName = params.approverFullname?.trim() || 'ผู้อนุมัติ';
     const commenterName = params.commenterFullname?.trim() || 'ผู้ใช้งาน';
@@ -157,7 +158,9 @@ export class AuditCommentApprovalGmailApiService {
     // Logo path
     const logoPath = path.resolve(process.cwd(), 'src/images/Header_Mail.png');
 
-    const subject = `รออนุมัติ Comment: ${jobNo}`;
+    const subject = params.AuditCommentMail
+      ? `รอตรวจสอบ Comment: ${jobNo}`
+      : `รออนุมัติ Comment: ${jobNo}`;
 
     const html = `
 <!DOCTYPE html>
@@ -182,7 +185,7 @@ export class AuditCommentApprovalGmailApiService {
           <!-- Title Bar -->
           <tr>
             <td style="background: linear-gradient(135deg, #DC2626 0%, #EF4444 100%); padding: 24px 32px; text-align: center;">
-              <h1 style="margin: 0; color: #000000; font-size: 22px; font-weight: bold;">รออนุมัติ Comment</h1>
+              <h1 style="margin: 0; color: #000000; font-size: 22px; font-weight: bold;">${params.AuditCommentMail ? 'รอตรวจสอบ Comment' : 'รออนุมัติ Comment'}</h1>
               <p style="margin: 6px 0 0; color: #000000; font-size: 13px;">PTEC Audit System</p>
             </td>
           </tr>
@@ -198,7 +201,7 @@ export class AuditCommentApprovalGmailApiService {
  
               <!-- Message -->
               <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #374151;">
-                มี Comment ที่ต้องการการอนุมัติจากท่าน<br/>
+                มี Comment ที่ต้องการการ${params.AuditCommentMail ? 'ตรวจสอบ' : 'อนุมัติ'}จากท่าน<br/>
                 <strong>${commenterName}</strong>${commenterPosition ? ` (${commenterPosition})` : ''} ได้ Comment ในรายการตรวจสอบ
               </p>
  

@@ -65,6 +65,10 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const redirectParam = searchParams.get("redirect");
   const redirectPath = redirectParam?.startsWith("/") ? redirectParam : "/home";
+  // Preserve hash fragment (e.g. #item-334) through the login redirect flow
+  // Hash is client-side only so we read window.location.hash synchronously on first render
+  const [hashSuffix] = useState(() => typeof window !== "undefined" ? window.location.hash : "");
+  const redirectWithHash = redirectPath + hashSuffix;
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -95,7 +99,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (status === "authenticated" && session) {
-      window.location.href = redirectPath;
+      window.location.href = redirectWithHash;
     }
   }, [status, session, redirectPath]);
 
@@ -195,7 +199,7 @@ export default function LoginPage() {
       }
 
       toast.success("เข้าสู่ระบบสำเร็จ");
-      window.location.href = redirectPath;
+      window.location.href = redirectWithHash;
     } catch (err) {
       console.error("Sign in error:", err);
       toast.error("เข้าสู่ระบบไม่สำเร็จ");
@@ -273,7 +277,7 @@ export default function LoginPage() {
       if (result?.error) throw new Error("เข้าสู่ระบบไม่สำเร็จ");
 
       toast.success("เข้าสู่ระบบสำเร็จ");
-      window.location.href = redirectPath;
+      window.location.href = redirectWithHash;
     } catch (err) {
       setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
     } finally {
@@ -443,7 +447,7 @@ export default function LoginPage() {
                     className="w-full h-11 border-zinc-300 dark:border-zinc-700"
                     onClick={() =>
                       signIn("azure-ad", {
-                        callbackUrl: redirectPath,
+                        callbackUrl: redirectWithHash,
                       })
                     }
                     disabled={isLoading}

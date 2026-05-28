@@ -69,6 +69,7 @@ export class AuditEmailController {
       districtManagerFullname: body.districtManagerFullname,
       branchManagerFullname: body.branchManagerFullname,
       jobUrl: jobUrlWithFileAccess,
+      additionalNotes: body.additionalNotes,
     });
 
     return {
