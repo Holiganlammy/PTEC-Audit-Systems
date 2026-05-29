@@ -16,7 +16,6 @@ export class AuditItemAuditCommentService {
   ) {}
 
   async create(createDto: CreateCommentDto): Promise<AuditItemAuditComment> {
-    console.log('Creating audit detail with DTO:', createDto);
     const auditDetail = this.auditDetailsRepository.create({
       itemId: createDto.itemId,
       userId: createDto.userId,

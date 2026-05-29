@@ -218,7 +218,7 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
       // หา comment ที่เพิ่งสร้าง
       const myPendingComments = latestComments.filter(
         (c: auditCommentsComment) =>
-          c.createdBy === session?.user?.UserID &&
+          String(c.createdBy) === String(session?.user?.UserID) &&
           c.approverStatus === 0 &&
           c.requireApprovalFrom
       );
@@ -238,21 +238,38 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
 
       const actuallyTagged = new Set<string>();
 
-      for (const approverUserId of approversToTag) {
-        const alreadyTagged = taggedUsers.some(
-          (t) => String(t.userId) === String(approverUserId)
-        );
+      // Fetch current tagged users fresh from API to prevent duplicate tagging
+      let currentTaggedUserIds = new Set<string>(
+        taggedUsers.map((t) => String(t.userId))
+      );
+      try {
+        const taggedRes = await client.get(`/audit-items/${itemId}/tagged-user`, {
+          headers: dataConfig().headers,
+        });
+        if (taggedRes.data?.data) {
+          currentTaggedUserIds = new Set<string>(
+            taggedRes.data.data.map((t: { userId: string | number }) => String(t.userId))
+          );
+        }
+      } catch {
+        // fallback to prop value if API fails
+      }
 
+      for (const approverUserId of approversToTag) {
+        const alreadyTagged =
+          currentTaggedUserIds.has(String(approverUserId)) ||
+          actuallyTagged.has(approverUserId);
         if (!alreadyTagged) {
           try {
             const roleRes = await client.get(
               `/audit-user-roles/check-role/${approverUserId}`,
               { headers: dataConfig().headers }
             );
+            const hasrole = roleRes.data?.data?.hasrole;
             const approverRoleId = roleRes.data?.data?.roleId;
 
-            // ข้ามถ้าเป็น role 1, 2, 4
-            if (approverRoleId === 1 || approverRoleId === 2 || approverRoleId === 4) {
+            // ข้ามเฉพาะเมื่อมี role (hasrole === true) และเป็น role 1, 2, 4
+            if (hasrole === true && (approverRoleId === 1 || approverRoleId === 2 || approverRoleId === 4)) {
               console.log(`⏭️ Skip auto-tag userId=${approverUserId} (role ${approverRoleId})`);
               continue;
             }
@@ -264,6 +281,22 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
             );
 
             actuallyTagged.add(approverUserId);
+
+            // ถ้าไม่มี role ให้เพิ่ม role 4 (user) auto
+            if (hasrole === false) {
+              const approverInfo = users.find((u) => u.UserID === approverUserId);
+              await client.post(
+                `/audit-user-roles`,
+                {
+                  userId: parseInt(approverUserId),
+                  userCode: approverInfo?.UserCode,
+                  roleId: 4,
+                  createdBy: session?.user?.UserID,
+                },
+                { headers: dataConfig().headers }
+              );
+              console.log(`✅ Auto-assigned role 4 to userId=${approverUserId}`);
+            }
 
           } catch (error) {
             console.error('❌ Failed to auto-tag:', error);

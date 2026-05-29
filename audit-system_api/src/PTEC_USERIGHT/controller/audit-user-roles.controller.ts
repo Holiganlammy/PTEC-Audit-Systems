@@ -124,10 +124,11 @@ export class AuditUserRolesController {
       const role = await this.auditUserRolesService.getRoleByUserId(userId);
 
       if (!role) {
-        throw new HttpException(
-          `User ID ${userId} is not registered in Audit System`,
-          HttpStatus.NOT_FOUND,
-        );
+        return {
+          success: false,
+          message: `No active role found for userId ${userId}`,
+          hasrole: false,
+        };
       }
 
       return {

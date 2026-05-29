@@ -17,6 +17,7 @@ import {
   AuditUserResponseDto,
 } from '../dto/audit-user.dto';
 import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec_useright.service';
+import { AuditUserRolesService } from '../../PTEC_USERIGHT/service/audit-user-roles.service';
 import { TagOtherUserGmailApiService } from '../../email/tag-other-user-gmail-api.service';
 
 @Controller('audit-items')
@@ -26,6 +27,7 @@ export class AuditItemOtherUserCommentTagController {
     private readonly auditItemsService: AuditItemsService,
     private readonly userRightService: UserRightService,
     private readonly tagOtherUserGmailApiService: TagOtherUserGmailApiService,
+    private readonly auditUserRolesService: AuditUserRolesService,
   ) {}
 
   private async getItemData(itemId: number) {
@@ -176,6 +178,27 @@ export class AuditItemOtherUserCommentTagController {
         createdAt: result.createdAt,
         active: result.active,
       };
+      // Check if user has a role; if not, assign default User role (roleId 5)
+      let roleAssigned = false;
+      try {
+        const existingRole = await this.auditUserRolesService.getRoleByUserId(
+          result.userId,
+        );
+        if (!existingRole && userData?.userCode) {
+          await this.auditUserRolesService.create({
+            userId: result.userId,
+            userCode: userData.userCode,
+            roleId: 5,
+            createdBy: createDto.createdBy ?? undefined,
+          });
+          roleAssigned = true;
+        }
+      } catch (roleError) {
+        console.error(
+          `Error assigning role to userId ${result.userId}:`,
+          roleError,
+        );
+      }
 
       let emailSent = false;
       if (response.email) {
@@ -210,6 +233,7 @@ export class AuditItemOtherUserCommentTagController {
         data: response,
         message: 'User tagged successfully',
         emailSent,
+        roleAssigned,
       };
     } catch (error) {
       console.error('Error tagging user:', error);
