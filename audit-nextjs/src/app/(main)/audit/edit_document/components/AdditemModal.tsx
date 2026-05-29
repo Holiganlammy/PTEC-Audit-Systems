@@ -46,7 +46,7 @@ const formSchema = z.object({
   categoryItemIds: z
     .array(z.string())
     .min(1, "กรุณาเลือกหมวดหมู่อย่างน้อย 1 รายการ")
-    .max(15, "เลือกได้สูงสุด 15 รายการ"),
+    .max(20, "เลือกได้สูงสุด 20 รายการ"),
   itemStatus: z.string().min(1, "กรุณาเลือกสถานะ"),
   remarks: z.string().optional(),
   auditCommentStatus: z.enum(["0", "null"]),

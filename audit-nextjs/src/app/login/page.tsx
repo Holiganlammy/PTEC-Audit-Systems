@@ -70,6 +70,7 @@ export default function LoginPage() {
   const [hashSuffix] = useState(() => typeof window !== "undefined" ? window.location.hash : "");
   const redirectWithHash = redirectPath + hashSuffix;
   const [isLoading, setIsLoading] = useState(false);
+  const [isSsoLoading, setIsSsoLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
@@ -445,20 +446,30 @@ export default function LoginPage() {
                     type="button"
                     variant="outline"
                     className="w-full h-11 border-zinc-300 dark:border-zinc-700"
-                    onClick={() =>
+                    onClick={() => {
+                      setIsSsoLoading(true);
                       signIn("azure-ad", {
                         callbackUrl: redirectWithHash,
-                      })
-                    }
-                    disabled={isLoading}
+                      });
+                    }}
+                    disabled={isLoading || isSsoLoading}
                   >
-                    <svg className="mr-2 h-5 w-5" viewBox="0 0 21 21">
-                      <rect x="1" y="1" width="9" height="9" fill="#f25022" />
-                      <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
-                      <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
-                      <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
-                    </svg>
-                    เข้าสู่ระบบด้วย Microsoft
+                    {isSsoLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        กำลังเชื่อมต่อ Microsoft...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="mr-2 h-5 w-5" viewBox="0 0 21 21">
+                          <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                          <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                          <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                          <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+                        </svg>
+                        เข้าสู่ระบบด้วย Microsoft
+                      </>
+                    )}
                   </Button>
                 </form>
               </TabsContent>
