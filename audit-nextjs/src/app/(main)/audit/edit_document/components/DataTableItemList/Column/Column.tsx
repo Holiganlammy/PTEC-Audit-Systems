@@ -98,9 +98,21 @@ function BranchScoreCell({
       : entry?.score === 0
       ? "bg-yellow-500 dark:bg-yellow-700 text-white border-transparent"
       : "bg-destructive dark:bg-red-700 text-white border-transparent";
+  const scoreBadgeClassName = cn(
+    scoreClassName,
+    "min-w-[80px] whitespace-normal break-words text-center leading-tight"
+  );
+  const scoreValue = entry ? (entry.score === 1 ? "+1" : entry.score === 0 ? "0" : "-1") : "";
+  const scoreText = entry
+    ? entry.score === 1
+      ? "ผ่าน"
+      : entry.score === 0
+      ? "ไม่ผ่าน"
+      : "ทุจริต"
+    : "";
   const scoreVariant = "outline" as const;
   const label = entry
-    ? `คะแนน ${entry.score === 1 ? "+1" : entry.score === 0 ? "0" : "-1"}`
+    ? `คะแนน ${entry.score === 1 ? "+1 ผ่าน" : entry.score === 0 ? "0 ไม่เป็นไปตามข้อกำหนด" : "-1 ทุจริต"}`
     : "ให้คะแนน";
 
   // เมื่อ disabled และมีคะแนนแล้ว → render badge โดยตรง ไม่ใช้ disabled button (ป้องกัน opacity fade)
@@ -108,7 +120,12 @@ function BranchScoreCell({
     return (
       <div className="flex justify-center">
         <span title={disabled ? "รายการถูกล็อก ไม่สามารถแก้ไขคะแนนได้" : "เฉพาะสิทธิ์ผู้ดูแลและ Audit เท่านั้นที่แก้ไขคะแนนได้"}>
-          <Badge variant={scoreVariant} className={scoreClassName}>{label}</Badge>
+          <Badge variant={scoreVariant} className={scoreBadgeClassName}>
+            <span className="flex flex-col items-center gap-0.5">
+              <span className="text-[10px] font-semibold leading-none">{scoreValue}</span>
+              <span className="text-[10px] leading-tight">{scoreText}</span>
+            </span>
+          </Badge>
         </span>
       </div>
     );
@@ -141,7 +158,12 @@ function BranchScoreCell({
         >
           {entry ? (
             <span className="inline-flex items-center gap-1.5">
-              <Badge variant={scoreVariant} className={scoreClassName}>{label}</Badge>
+              <Badge variant={scoreVariant} className={scoreBadgeClassName}>
+                <span className="flex flex-col items-center gap-0.5">
+                  <span className="text-[12px] font-semibold leading-none">{scoreValue}</span>
+                  <span className="text-[12px] leading-tight">{scoreText}</span>
+                </span>
+              </Badge>
               {!isDisabled && (
                 <Pencil className="h-3.5 w-3.5 text-muted-foreground transition-colors group-hover:text-foreground" />
               )}

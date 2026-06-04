@@ -17,6 +17,7 @@ const routeConfig: Record<string, { label: string; parent?: { label: string; hre
   "/audit/create/add_items":    { label: "Add Items", parent: { label: "Create Document", href: "/audit/create" } },
   "/audit/edit_document":       { label: "Edit Document", parent: { label: "Audit Document", href: "/audit/list" } },
   "/permission_manage":         { label: "Permission Manage" },
+  "/areamanage/create":         { label: "Create Document", parent: { label: "Area Document", href: "/areamanage/create" } },
 }
 
 export function DynamicBreadcrumb() {

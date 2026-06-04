@@ -444,21 +444,23 @@ const statusOptions = [
           />
 
           {/* Remarks + Audit Comment Status */}
-          <Controller
-            name="remarks"
-            control={form.control}
-            render={({ field }) => (
-              <Field>
-                <FieldLabel>หมายเหตุ / Comment Audit แรก</FieldLabel>
-                <Textarea
-                  {...field}
-                  placeholder="กรอกหมายเหตุ (จะถูกบันทึกเป็น Comment Audit แรก)..."
-                  rows={3}
-                  className="resize-none"
-                />
-              </Field>
-            )}
-          />
+          {isDraftMode === false &&
+            <Controller
+              name="remarks"
+              control={form.control}
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel>หมายเหตุ / Comment Audit แรก</FieldLabel>
+                  <Textarea
+                    {...field}
+                    placeholder="กรอกหมายเหตุ (จะถูกบันทึกเป็น Comment Audit แรก)..."
+                    rows={3}
+                    className="resize-none"
+                  />
+                </Field>
+              )}
+            />
+          }
 
           {/* Audit Comment Approval Status - แสดงเฉพาะเมื่อเลือก ผิดปกติ */}
           {watchedItemStatus === "3" && <Controller
