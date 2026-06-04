@@ -4,8 +4,7 @@ import { signOut } from "next-auth/react";
 export async function logout(accessToken?: string) {
   try {
     if (accessToken) {
-      await fetch(`https://localhost:7777/api/logout`, 
-      {
+      await fetch(`${process.env.PORTAL_API_URL}/logout`, {
         method: 'POST',
         body: JSON.stringify({access_token: accessToken}),
         headers: {

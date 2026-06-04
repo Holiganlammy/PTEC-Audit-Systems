@@ -322,6 +322,7 @@ function SendEmailCell({ item, isLocked }: { item: AuditItem; isLocked?: boolean
         { headers: dataConfig().headers }
       );
       const job = jobResponse.data.data;
+      // const branchEmails = job?.branchManager.email || [];
       const branchEmails = ['npc@rpcthai.com'];
 
       if (branchEmails.length === 0) {

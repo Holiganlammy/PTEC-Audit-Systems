@@ -89,7 +89,7 @@ export default function TagCell({
     }
   }, [isOpen, search]);
 
-  const canTag = !isLocked && [1, 2, 4].includes(session?.user?.role_id ?? -1);
+  const canTag = !isLocked && [1, 2, 3, 4].includes(session?.user?.role_id ?? -1);
   const filtered = search.trim()
     ? users
         .filter(
