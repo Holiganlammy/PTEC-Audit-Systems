@@ -240,7 +240,6 @@ export default function DataTableItemList({
   jobData,
   isLoading = false,
   isLocked = false,
-  showAddButton = false,
   isDraftMode = false,
   inspectionDate,
   positionType,
@@ -420,6 +419,8 @@ export default function DataTableItemList({
     return { plus, zero, minus, total, scored, unscored: Math.max(0, visibleItems.length - scored) };
   }, [visibleItems, branchScoresMap]);
 
+  const canShowAddButton = session?.user?.role_id === 1 || session?.user?.role_id === 2;
+
   const confirmDelete = async () => {
     if (!deleteItem) return;
     if (isDraftMode) {
@@ -515,7 +516,7 @@ export default function DataTableItemList({
       <div className="flex items-center justify-between gap-4">
         <Input placeholder="ค้นหารายการ..." value={search} onChange={(e) => { setSearch(e.target.value); setPageIndex(0); }} className="max-w-sm" disabled={isLoading} />
         {/* {!isLocked && showAddButton && ( */}
-        {!isLocked && (
+        {!isLocked && canShowAddButton && (
           <Button className="text-xs sm:text-sm" onClick={() => setOpenAddModal(true)}>
             <Plus className="mr-2 h-4 w-4" />
             เพิ่มรายการ
