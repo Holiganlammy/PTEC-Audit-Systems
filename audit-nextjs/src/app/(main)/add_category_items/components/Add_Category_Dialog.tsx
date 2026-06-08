@@ -43,7 +43,7 @@ interface AddCategoryItemsPageProps {
 
 const formSchema = z.object({
   categoryName: z.string().min(1, "กรุณากรอกชื่อหมวดหมู่"),
-  categoryCode: z.string().nullable().optional(),
+  categoryCode: z.number().nullable().optional(),
   positionType: z.string().min(1, "กรุณาเลือกประเภทการตรวจสอบ"),
   description: z.string().optional(),
 });
@@ -74,7 +74,7 @@ export default function AddCategoryItemsPage({
     if (editingCategory) {
       form.reset({
         categoryName: editingCategory.categoryName,
-        categoryCode: editingCategory.categoryCode ?? null,
+        categoryCode: editingCategory.categoryCode != null ? Number(editingCategory.categoryCode) : null,
         positionType: editingCategory.positionType ?? "",
         description: editingCategory.description ?? "",
       });
@@ -85,17 +85,28 @@ export default function AddCategoryItemsPage({
 
   const onSubmit = async (data: FormValues) => {
     try {
-      const payload = {
-        categoryName: data.categoryName,
-        categoryCode: data.categoryCode || undefined,
-        description: data.description || undefined,
-        positionType: data.positionType || undefined,
-        createBy: session?.user.UserID
-      };
       if (isEditing && editingCategory) {
+        const trimmedDescription = data.description?.trim() ?? "";
+        const payload = {
+          categoryName: data.categoryName,
+          categoryCode: data.categoryCode ?? undefined,
+          description: trimmedDescription === "" ? null : trimmedDescription,
+          positionType: data.positionType || undefined,
+          createBy: session?.user.UserID,
+        };
+
         await auditCategoriesApi.update(editingCategory.categoryItemId, payload);
         toast.success("แก้ไขหมวดหมู่เรียบร้อยแล้ว");
       } else {
+        const trimmedDescription = data.description?.trim() ?? "";
+        const payload = {
+          categoryName: data.categoryName,
+          categoryCode: data.categoryCode ?? undefined,
+          description: trimmedDescription === "" ? undefined : trimmedDescription,
+          positionType: data.positionType || undefined,
+          createBy: session?.user.UserID,
+        };
+
         await auditCategoriesApi.create(payload);
         toast.success("เพิ่มหมวดหมู่เรียบร้อยแล้ว");
       }
@@ -156,9 +167,14 @@ export default function AddCategoryItemsPage({
                     type="number"
                     placeholder="เช่น 101"
                     aria-invalid={fieldState.invalid}
-                    // disabled
-                    {...field}
                     value={field.value ?? ""}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      field.onChange(value === "" ? null : Number(value));
+                    }}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
                   />
                 </Field>
               )}

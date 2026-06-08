@@ -6,7 +6,7 @@ import { dataConfig } from "@/config/config";
 export interface AuditCategory {
   categoryItemId: number;
   categoryName: string;
-  categoryCode: string | null;
+  categoryCode: number | null;
   description: string;
   positionType: string;
   active: boolean;
@@ -18,15 +18,15 @@ export interface AuditCategory {
 
 export interface CreateCategoryDto {
   categoryName: string;
-  categoryCode?: string | null;
+  categoryCode?: number | null;
   description?: string;
   positionType?: string;
 }
 
 export interface UpdateCategoryDto {
   categoryName?: string;
-  categoryCode?: string | null;
-  description?: string;
+  categoryCode?: number | null;
+  description?: string | null;
   positionType?: string;
 }
 
@@ -42,7 +42,7 @@ export const auditCategoriesApi = {
    * Get all categories with pagination (for management table — shows all positionTypes)
    */
   async getAll(page = 1, limit = 20): Promise<AuditCategoryPaginatedResponse> {
-    const response = await client.get("/audit-categories", {
+    const response = await client.get("/am-categories", {
       headers: dataConfig().headers,
       params: { page, limit },
     });
@@ -66,7 +66,7 @@ export const auditCategoriesApi = {
       params.positionType = positionType;
     }
 
-    const response = await client.get("/audit-categories", {
+    const response = await client.get("/am-categories", {
       headers: dataConfig().headers,
       params,
     });
@@ -78,7 +78,7 @@ export const auditCategoriesApi = {
    * Get category by ID
    */
   async getById(id: number): Promise<AuditCategory> {
-    const response = await client.get(`/audit-categories/${id}`, {
+    const response = await client.get(`/am-categories/${id}`, {
       headers: dataConfig().headers,
     });
     return response.data.data;
@@ -88,7 +88,7 @@ export const auditCategoriesApi = {
    * Create category
    */
   async create(data: CreateCategoryDto): Promise<AuditCategory> {
-    const response = await client.post("/audit-categories", data, {
+    const response = await client.post("/am-categories", data, {
       headers: dataConfig().headers,
     });
     return response.data.data;
@@ -98,7 +98,7 @@ export const auditCategoriesApi = {
    * Update category
    */
   async update(id: number, data: UpdateCategoryDto): Promise<AuditCategory> {
-    const response = await client.put(`/audit-categories/${id}`, data, {
+    const response = await client.put(`/am-categories/${id}`, data, {
       headers: dataConfig().headers,
     });
     return response.data.data;
@@ -108,7 +108,7 @@ export const auditCategoriesApi = {
    * Delete category (soft delete)
    */
   async delete(id: number, updatedBy: number): Promise<void> {
-    await client.delete(`/audit-categories/${id}`, {
+    await client.delete(`/am-categories/${id}`, {
       headers: dataConfig().headers,
       data: { updatedBy },
     });
@@ -118,7 +118,7 @@ export const auditCategoriesApi = {
    * Hard delete category
    */
   async hardDelete(id: number): Promise<void> {
-    await client.delete(`/audit-categories/${id}/hard`, {
+    await client.delete(`/am-categories/${id}/hard`, {
       headers: dataConfig().headers,
     });
   },

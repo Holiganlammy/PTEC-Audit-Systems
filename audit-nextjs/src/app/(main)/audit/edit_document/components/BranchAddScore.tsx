@@ -214,7 +214,7 @@ export default function BranchAddScore({
                             -1 (หักคะแนน)
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            ทุจริต
+                            มีผลกระทบ
                           </span>
                         </div>
                       </label>

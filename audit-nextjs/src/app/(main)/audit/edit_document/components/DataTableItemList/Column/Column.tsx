@@ -108,11 +108,11 @@ function BranchScoreCell({
       ? "ผ่าน"
       : entry.score === 0
       ? "ไม่ผ่าน"
-      : "ทุจริต"
+      : "มีผลกระทบ"
     : "";
   const scoreVariant = "outline" as const;
   const label = entry
-    ? `คะแนน ${entry.score === 1 ? "+1 ผ่าน" : entry.score === 0 ? "0 ไม่เป็นไปตามข้อกำหนด" : "-1 ทุจริต"}`
+    ? `คะแนน ${entry.score === 1 ? "+1 ผ่าน" : entry.score === 0 ? "0 ไม่เป็นไปตามข้อกำหนด" : "-1 มีผลกระทบ"}`
     : "ให้คะแนน";
 
   // เมื่อ disabled และมีคะแนนแล้ว → render badge โดยตรง ไม่ใช้ disabled button (ป้องกัน opacity fade)
