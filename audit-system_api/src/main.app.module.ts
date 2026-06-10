@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PTEC_USERRIGHT_Module } from './PTEC_USERIGHT/app.module';
 import { PTEC_AUDIT_Module } from './PTEC_AUDIT/app.module';
+import { PTEC_AUDIT_AM_AA_Module } from './PTEC_AUDIT_AM_AA/app.module';
 // import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -16,6 +17,7 @@ import { APP_GUARD } from '@nestjs/core';
       { name: 'long', ttl: 3600000, limit: 1000 },
     ]),
     PTEC_AUDIT_Module,
+    PTEC_AUDIT_AM_AA_Module,
     TypeOrmModule.forRoot({
       type: 'mssql',
       host: process.env.DB_SERVER,

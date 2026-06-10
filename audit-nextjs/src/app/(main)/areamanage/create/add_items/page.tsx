@@ -1,5 +1,3 @@
-// app/audit/create/add_items/page.tsx
-// Version: 2.0.0 | Date: 2024-05-18 | Updated: Added Draft Mode support with SessionStorage
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -20,19 +18,20 @@ import { ArrowLeft, CheckCircle, Loader2, X, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
-import DataTableItemList from "@/app/(main)/audit/edit_document/components/DataTableItemList/DataTable";
+import DataTableItemList from "@/app/(main)/areamanage/edit_document/components/DataTableItemList/DataTable";
 import { format } from "date-fns";
 import {
   loadDraft,
   clearDraft,
   updateDraftItems,
   loadDraftHeaderFiles,
-} from "@/utils/audit-draft";
+  type AMAuditDraftHeader,
+} from "@/utils/am-audit-draft";
 import { useSession } from "next-auth/react";
 
 // ── Transform helper ──────────────────────────────────────────────────────────
 
-function transformItems(data: AuditItemData[]): AuditItem[] {
+function transformItems(data: AMItemData[]): AuditItem[] {
   return data.map((item) => ({
     item_id: item.itemId,
     job_id: item.jobId,
@@ -42,8 +41,8 @@ function transformItems(data: AuditItemData[]): AuditItem[] {
     item_status: item.itemStatus,
     item_status_edit: item.itemStatusEdit,
     remarks: item.remarks || "",
-    note_1: (item.auditComments || []).map((c) => ({
-      id: c.auditDetailId,
+    note_1: (item.amCheckerComments  || []).map((c) => ({
+      id: c.amCheckerDetailId,
       itemId: c.itemId,
       userId: c.createdBy,
       author: c.OwnerCommentUser?.fullname || "Unknown",
@@ -104,6 +103,7 @@ export default function AddItemsPage() {
   const { data: session } = useSession();
 
   const mode = searchParams.get("mode"); // "draft" or null
+  const formTypeParam = searchParams.get("formType") === "AA" ? "AA" : "AM";
   const jobNoParam = searchParams.get("jobNo") ?? "";
   const jobIdParam = parseInt(searchParams.get("jobId") ?? "0");
 
@@ -115,25 +115,25 @@ export default function AddItemsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Draft state
-  const [draftHeader, setDraftHeader] = useState<DraftHeader | null>(null);
+  const [draftHeader, setDraftHeader] = useState<AMAuditDraftHeader | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [users, setUsers] = useState<User[]>([]);
 
   // ตรวจสอบโหมด Draft
   useEffect(() => {
     if (mode === "draft") {
-      const draft = loadDraft();
+      const draft = loadDraft(formTypeParam);
       if (!draft) {
         toast.error("ไม่พบข้อมูล Draft", {
           id: "draft-not-found",
           description: "กรุณาสร้าง Header ก่อน",
         });
-        router.push("/audit/create");
+        router.push(`/areamanage/create?formType=${formTypeParam}`);
         return;
       }
 
       setIsDraftMode(true);
-      setDraftHeader(draft.header);
+      setDraftHeader({ ...draft.header, RoleFormType: draft.header.RoleFormType || formTypeParam });
 
       // โหลด Items จาก Draft
       if (draft.items && draft.items.length > 0) {
@@ -164,13 +164,13 @@ export default function AddItemsPage() {
     } else if (jobNoParam && jobIdParam) {
       setIsDraftMode(false);
     }
-  }, [mode, jobNoParam, jobIdParam, router]);
+  }, [mode, formTypeParam, jobNoParam, jobIdParam, router]);
 
   // Fetch Job Data (ถ้าไม่ใช่ Draft Mode)
   useEffect(() => {
     if (!isDraftMode && jobNoParam) {
       client
-        .get("/audit-jobs/detail", {
+        .get("/am-jobs/detail", {
           params: { jobNo: jobNoParam },
           headers: dataConfig().headers,
         })
@@ -187,7 +187,7 @@ export default function AddItemsPage() {
 
     try {
       setIsLoadingItems(true);
-      const response = await client.get(`/audit-items/job/${jobIdParam}`, {
+      const response = await client.get(`/am-items/job/${jobIdParam}`, {
         headers: dataConfig().headers,
       });
       if (response.data.success) {
@@ -274,13 +274,13 @@ export default function AddItemsPage() {
         districtManagerUserId: parseInt(draftHeader.DistrictManager),
         branchManagerUserId: parseInt(branchManager?.UserID || "0"),
         additionalNotes: draftHeader.AdditionalNotes || "",
-        positionType: draftHeader.Type,
+        positionType: draftHeader.RoleFormType,
         status: 1,
         createdBy: session?.user?.UserID,
       };
 
       // 3. สร้าง Job
-      const result = await client.post("/audit-jobs/create", headerPayload, {
+      const result = await client.post("/am-jobs/create", headerPayload, {
         headers: dataConfig().headers,
       });
 
@@ -303,7 +303,7 @@ export default function AddItemsPage() {
         }));
 
         const bulkResult = await client.post(
-          `/audit-items/bulk`,
+          `/am-items/bulk`,
           itemsPayload,
           { headers: dataConfig().headers }
         );
@@ -320,7 +320,7 @@ export default function AddItemsPage() {
             if (!draftComment?.text?.trim()) continue;
             const approverStatus = draftComment.approverStatus === 0 ? 0 : null;
             await client.post(
-              `/audit-items/${created.itemId}/audit-comments`,
+              `/am-items/${created.itemId}/audit-comments`,
               {
                 itemId: created.itemId,
                 note: draftComment.text,
@@ -335,7 +335,7 @@ export default function AddItemsPage() {
       }
 
       // 5. อัปโหลดไฟล์แนบ Header (ถ้ามี)
-      const headerFiles = await loadDraftHeaderFiles();
+      const headerFiles = await loadDraftHeaderFiles(formTypeParam);
       if (headerFiles.length > 0) {
         const formData = new FormData();
         headerFiles.forEach((file) => {
@@ -344,7 +344,7 @@ export default function AddItemsPage() {
         formData.append("uploadedBy", String(session?.user?.UserID ?? ""));
 
         await client.post(
-          `/audit-jobs/${createdJobId}/header-attachments`,
+          `/am-jobs/${createdJobId}/header-attachments`,
           formData,
           {
             headers: {
@@ -356,13 +356,13 @@ export default function AddItemsPage() {
       }
 
       // 6. Clear Draft
-      clearDraft();
+      clearDraft(formTypeParam);
 
       toast.success("เสร็จสิ้น!", {
         description: `งาน ${createdJobNo} ถูกสร้างเรียบร้อยแล้ว`,
       });
 
-      router.push("/audit/list");
+      router.push("/areamanage/list");
     } catch (error) {
       console.error("Error creating job:", error);
       const message =
@@ -399,17 +399,17 @@ export default function AddItemsPage() {
           note_2: item.note_2 ?? [],
           note_3: item.note_3 ?? [],
         }));
-        updateDraftItems(draftItems);
+        updateDraftItems(draftItems, formTypeParam);
       }
     } else {
       fetchItems();
     }
-  }, [isDraftMode, fetchItems]);
+  }, [isDraftMode, fetchItems, formTypeParam]);
 
   const handleBack = () => {
     if (isDraftMode) {
       // กลับไป Create Page (Draft ยังอยู่)
-      router.push("/audit/create");
+      router.push(`/areamanage/create?formType=${formTypeParam}`);
     } else {
       router.push("/audit/list");
     }
@@ -571,7 +571,7 @@ export default function AddItemsPage() {
             showAddButton
             isDraftMode={isDraftMode}
             inspectionDate={draftHeader?.Date}
-            positionType={isDraftMode ? draftHeader?.Type : undefined}
+            positionType={isDraftMode ? draftHeader?.RoleFormType : undefined}
             onItemsChange={handleItemsChange}
           />
         )}

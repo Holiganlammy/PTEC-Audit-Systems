@@ -72,6 +72,19 @@ interface DataTableProps<TData, TValue> {
    rowIdKey?: string  // ชื่อ field ที่จะใช้เป็น unique id (เช่น 'jobId', 'id', 'userId')
 }
 
+function isRowSelectionEqual(a: RowSelectionState, b: RowSelectionState): boolean {
+   const aKeys = Object.keys(a)
+   const bKeys = Object.keys(b)
+
+   if (aKeys.length !== bKeys.length) return false
+
+   for (const key of aKeys) {
+      if (a[key] !== b[key]) return false
+   }
+
+   return true
+}
+
 export function DataTable<TData, TValue>({
    columns,
    data,
@@ -144,7 +157,7 @@ export function DataTable<TData, TValue>({
       if (isServerSideSearch && controlledSearchValue === "" && internalSearchValue !== "") {
          setInternalSearchValue("")
       }
-   }, [controlledSearchValue, isServerSideSearch])
+   }, [controlledSearchValue, isServerSideSearch, internalSearchValue])
 
    const table = useReactTable({
       data,
@@ -165,9 +178,14 @@ export function DataTable<TData, TValue>({
          if (isExternalRowSelection && externalOnRowSelectionChange) {
             // External control
             if (typeof updaterOrValue === 'function') {
-               externalOnRowSelectionChange(updaterOrValue(currentRowSelection ?? {}))
+               const nextSelection = updaterOrValue(currentRowSelection ?? {})
+               if (!isRowSelectionEqual(nextSelection, currentRowSelection ?? {})) {
+                  externalOnRowSelectionChange(nextSelection)
+               }
             } else {
-               externalOnRowSelectionChange(updaterOrValue)
+               if (!isRowSelectionEqual(updaterOrValue, currentRowSelection ?? {})) {
+                  externalOnRowSelectionChange(updaterOrValue)
+               }
             }
          } else {
             // Internal control
@@ -275,10 +293,6 @@ export function DataTable<TData, TValue>({
    }
    
    const shouldShowSearch = finalSearchKeys.length > 0
-
-   const displayedRowsCount = isServerSidePagination 
-      ? Math.min(data.length, currentPagination.pageSize)
-      : table.getFilteredRowModel().rows.length
 
    const totalRowsCount = isServerSidePagination 
       ? (totalRows || 0)

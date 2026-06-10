@@ -1,13 +1,14 @@
 /**
  * ====================================
- * Audit Draft Management
+ * AM AreaManage Draft Management
  * ====================================
- * จัดการ Draft ของ Audit Job ใน SessionStorage
+ * จัดการ Draft ของ AreaManage Job ใน SessionStorage
  * - เก็บ Header + Items ใน SessionStorage
- * - เก็บไฟล์แนบ Header ใน IndexedDB
+ * - เก็บไฟล์แนบ Header ใน IndexedDB (แยกตาม FormType)
+ * - แยก Draft ตาม FormType (AM/AA)
  */
 
-export interface AuditDraftHeader {
+export interface AMAuditDraftHeader {
   Branch: string;
   Firstname: string;
   Lastname: string;
@@ -18,12 +19,10 @@ export interface AuditDraftHeader {
   DistrictManager: string;
   BranchManager?: string;
   AdditionalNotes?: string;
-  Type: "visit" | "online";
-  PositionType: string;
   RoleFormType: "AM" | "AA";
 }
 
-export interface AuditDraftItem {
+export interface AMAuditDraftItem {
   tempId: string; // Unique temp ID for draft
   category_item_id: number;
   category_name: string;
@@ -36,17 +35,19 @@ export interface AuditDraftItem {
   note_3: AuditComment[];
 }
 
-interface AuditDraft {
-  header: AuditDraftHeader;
-  items: AuditDraftItem[];
+interface AMAuditDraft {
+  header: AMAuditDraftHeader;
+  items: AMAuditDraftItem[];
   timestamp: number;
 }
 
-const DRAFT_KEY = "audit_draft";
-const DRAFT_DB_NAME = "audit_draft_db";
+export type AMDraftFormType = "AM" | "AA";
+
+const DRAFT_KEY_PREFIX = "am_audit_draft";
+const ACTIVE_DRAFT_FORM_KEY = "am_audit_draft_active_form";
+const DRAFT_DB_NAME = "am_audit_draft_db";
 const DRAFT_DB_VERSION = 1;
 const DRAFT_FILE_STORE = "header_files";
-const DRAFT_FILE_KEY = "header_files";
 
 interface DraftFileRecord {
   key: string;
@@ -57,6 +58,14 @@ interface DraftFileRecord {
     size: number;
     data: ArrayBuffer;
   }>;
+}
+
+function getDraftKey(formType: AMDraftFormType): string {
+  return `${DRAFT_KEY_PREFIX}_${formType}`;
+}
+
+function getDraftFileKey(formType: AMDraftFormType): string {
+  return `header_files_${formType}`;
 }
 
 function openDraftDB(): Promise<IDBDatabase> {
@@ -78,8 +87,12 @@ function openDraftDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function saveDraftHeaderFiles(files: File[]): Promise<void> {
+export async function saveDraftHeaderFiles(
+  files: File[],
+  formType: AMDraftFormType
+): Promise<void> {
   const db = await openDraftDB();
+  const key = getDraftFileKey(formType);
 
   const storedFiles = await Promise.all(
     files.map(async (file) => ({
@@ -94,10 +107,10 @@ export async function saveDraftHeaderFiles(files: File[]): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(DRAFT_FILE_STORE, "readwrite");
     const store = tx.objectStore(DRAFT_FILE_STORE);
-    const record: DraftFileRecord = { key: DRAFT_FILE_KEY, files: storedFiles };
+    const record: DraftFileRecord = { key, files: storedFiles };
 
     if (storedFiles.length === 0) {
-      store.delete(DRAFT_FILE_KEY);
+      store.delete(key);
     } else {
       store.put(record);
     }
@@ -109,14 +122,17 @@ export async function saveDraftHeaderFiles(files: File[]): Promise<void> {
   db.close();
 }
 
-export async function loadDraftHeaderFiles(): Promise<File[]> {
+export async function loadDraftHeaderFiles(
+  formType: AMDraftFormType
+): Promise<File[]> {
   try {
     const db = await openDraftDB();
+    const key = getDraftFileKey(formType);
 
     const record = await new Promise<DraftFileRecord | undefined>((resolve, reject) => {
       const tx = db.transaction(DRAFT_FILE_STORE, "readonly");
       const store = tx.objectStore(DRAFT_FILE_STORE);
-      const request = store.get(DRAFT_FILE_KEY);
+      const request = store.get(key);
       request.onsuccess = () => resolve(request.result as DraftFileRecord | undefined);
       request.onerror = () => reject(request.error);
     });
@@ -138,14 +154,17 @@ export async function loadDraftHeaderFiles(): Promise<File[]> {
   }
 }
 
-export async function clearDraftHeaderFiles(): Promise<void> {
+export async function clearDraftHeaderFiles(formType?: AMDraftFormType): Promise<void> {
   try {
     const db = await openDraftDB();
+    const keys = formType
+      ? [getDraftFileKey(formType)]
+      : ([getDraftFileKey("AM"), getDraftFileKey("AA")] as const);
 
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(DRAFT_FILE_STORE, "readwrite");
       const store = tx.objectStore(DRAFT_FILE_STORE);
-      store.delete(DRAFT_FILE_KEY);
+      keys.forEach((key) => store.delete(key));
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
@@ -156,128 +175,99 @@ export async function clearDraftHeaderFiles(): Promise<void> {
   }
 }
 
-/**
- * บันทึก Draft
- */
-export function saveDraft(draft: AuditDraft): void {
+function saveActiveDraftFormType(formType: AMDraftFormType): void {
+  sessionStorage.setItem(ACTIVE_DRAFT_FORM_KEY, formType);
+}
+
+function getActiveDraftFormType(): AMDraftFormType | null {
+  const data = sessionStorage.getItem(ACTIVE_DRAFT_FORM_KEY);
+  if (data === "AM" || data === "AA") return data;
+  return null;
+}
+
+export function saveDraft(draft: AMAuditDraft, formType: AMDraftFormType): void {
   try {
-    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-    console.log("✓ Draft saved to SessionStorage");
+    sessionStorage.setItem(getDraftKey(formType), JSON.stringify(draft));
+    saveActiveDraftFormType(formType);
+    console.log("✓ AM draft saved to SessionStorage");
   } catch (error) {
-    console.error("Failed to save draft:", error);
+    console.error("Failed to save AM draft:", error);
     throw new Error("ไม่สามารถบันทึก Draft ได้");
   }
 }
 
-/**
- * โหลด Draft
- */
-export function loadDraft(): AuditDraft | null {
+export function loadDraft(formType?: AMDraftFormType): AMAuditDraft | null {
   try {
-    const data = sessionStorage.getItem(DRAFT_KEY);
+    const activeFormType = formType ?? getActiveDraftFormType();
+    if (!activeFormType) return null;
+
+    const data = sessionStorage.getItem(getDraftKey(activeFormType));
     if (!data) return null;
 
-    const draft = JSON.parse(data) as AuditDraft;
-    console.log("✓ Draft loaded from SessionStorage");
+    const draft = JSON.parse(data) as AMAuditDraft;
+    console.log("✓ AM draft loaded from SessionStorage");
     return draft;
   } catch (error) {
-    console.error("Failed to load draft:", error);
+    console.error("Failed to load AM draft:", error);
     return null;
   }
 }
 
-/**
- * อัพเดท Header
- */
-export function updateDraftHeader(header: AuditDraftHeader): void {
-  const draft = loadDraft();
-  const newDraft: AuditDraft = {
+export function updateDraftHeader(header: AMAuditDraftHeader, formType: AMDraftFormType): void {
+  const draft = loadDraft(formType);
+  const newDraft: AMAuditDraft = {
     header,
     items: draft?.items || [],
     timestamp: Date.now(),
   };
-  saveDraft(newDraft);
+  saveDraft(newDraft, formType);
 }
 
-/**
- * อัพเดท Items
- */
-export function updateDraftItems(items: AuditDraftItem[]): void {
-  const draft = loadDraft();
+export function updateDraftItems(items: AMAuditDraftItem[], formType: AMDraftFormType): void {
+  const draft = loadDraft(formType);
   if (!draft) {
     throw new Error("ไม่พบ Draft Header กรุณาสร้าง Header ก่อน");
   }
 
-  const newDraft: AuditDraft = {
+  const newDraft: AMAuditDraft = {
     ...draft,
     items,
     timestamp: Date.now(),
   };
-  saveDraft(newDraft);
+  saveDraft(newDraft, formType);
 }
 
-/**
- * เพิ่ม Item เดียว
- */
-export function addDraftItem(item: AuditDraftItem): void {
-  const draft = loadDraft();
-  if (!draft) {
-    throw new Error("ไม่พบ Draft Header กรุณาสร้าง Header ก่อน");
-  }
-
-  const newDraft: AuditDraft = {
-    ...draft,
-    items: [...draft.items, item],
-    timestamp: Date.now(),
-  };
-  saveDraft(newDraft);
-}
-
-/**
- * ลบ Item
- */
-export function removeDraftItem(tempId: string): void {
-  const draft = loadDraft();
-  if (!draft) return;
-
-  const newDraft: AuditDraft = {
-    ...draft,
-    items: draft.items.filter((item) => item.tempId !== tempId),
-    timestamp: Date.now(),
-  };
-  saveDraft(newDraft);
-}
-
-/**
- * ลบ Draft ทั้งหมด
- */
-export function clearDraft(): void {
+export function clearDraft(formType?: AMDraftFormType): void {
   try {
-    sessionStorage.removeItem(DRAFT_KEY);
-    void clearDraftHeaderFiles();
-    console.log("✓ Draft cleared from SessionStorage");
+    if (formType) {
+      sessionStorage.removeItem(getDraftKey(formType));
+      const active = getActiveDraftFormType();
+      if (active === formType) {
+        sessionStorage.removeItem(ACTIVE_DRAFT_FORM_KEY);
+      }
+    } else {
+      sessionStorage.removeItem(getDraftKey("AM"));
+      sessionStorage.removeItem(getDraftKey("AA"));
+      sessionStorage.removeItem(ACTIVE_DRAFT_FORM_KEY);
+    }
+    void clearDraftHeaderFiles(formType);
+    console.log("✓ AM draft cleared from SessionStorage");
   } catch (error) {
-    console.error("Failed to clear draft:", error);
+    console.error("Failed to clear AM draft:", error);
   }
 }
 
-/**
- * ตรวจสอบว่ามี Draft หรือไม่
- */
-export function hasDraft(): boolean {
-  return sessionStorage.getItem(DRAFT_KEY) !== null;
+export function hasDraft(formType: AMDraftFormType): boolean {
+  return sessionStorage.getItem(getDraftKey(formType)) !== null;
 }
 
-/**
- * ดึง Draft Info (สำหรับแสดงใน List)
- */
-export function getDraftInfo(): {
+export function getDraftInfo(formType?: AMDraftFormType): {
   branchName: string;
   auditDate: string;
   itemCount: number;
   timestamp: number;
 } | null {
-  const draft = loadDraft();
+  const draft = loadDraft(formType);
   if (!draft) return null;
 
   return {

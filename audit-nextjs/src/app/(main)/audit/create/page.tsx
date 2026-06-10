@@ -68,7 +68,14 @@ import { useSession } from "next-auth/react";
 import Branch from "./components/Branch";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { saveDraft, loadDraft, clearDraft, updateDraftHeader } from "@/utils/audit-draft";
+import {
+  saveDraft,
+  loadDraft,
+  clearDraft,
+  updateDraftHeader,
+  saveDraftHeaderFiles,
+  loadDraftHeaderFiles,
+} from "@/utils/audit-draft";
 
 const formSchema = z.object({
   Branch: z.string().nonempty("กรุณาเลือกสาขา"),
@@ -145,25 +152,41 @@ export default function CreateAuditJobPage() {
 
   // โหลด Draft เมื่อ Component Mount
   useEffect(() => {
-    const draft = loadDraft();
-    if (draft) {
-      toast.info("พบข้อมูล Draft", {
-        description: "กำลังโหลดข้อมูลที่บันทึกไว้...",
-      });
+    let isActive = true;
 
-      // Restore form values
-      form.setValue("Branch", draft.header.Branch);
-      form.setValue("Firstname", draft.header.Firstname);
-      form.setValue("Lastname", draft.header.Lastname);
-      form.setValue("Date", new Date(draft.header.Date));
-      form.setValue("PMCode", draft.header.PMCode);
-      form.setValue("Address", draft.header.Address);
-      form.setValue("Auditor", draft.header.Auditor);
-      form.setValue("DistrictManager", draft.header.DistrictManager);
-      form.setValue("BranchManager", draft.header.BranchManager || "");
-      form.setValue("AdditionalNotes", draft.header.AdditionalNotes || "");
-      form.setValue("Type", draft.header.Type);
-    }
+    const loadDraftData = async () => {
+      const draft = loadDraft();
+      if (draft) {
+        toast.info("พบข้อมูล Draft", {
+          description: "กำลังโหลดข้อมูลที่บันทึกไว้...",
+        });
+
+        form.setValue("Branch", draft.header.Branch);
+        form.setValue("Firstname", draft.header.Firstname);
+        form.setValue("Lastname", draft.header.Lastname);
+        form.setValue("Date", new Date(draft.header.Date));
+        form.setValue("PMCode", draft.header.PMCode);
+        form.setValue("Address", draft.header.Address);
+        form.setValue("Auditor", draft.header.Auditor);
+        form.setValue("DistrictManager", draft.header.DistrictManager);
+        form.setValue("BranchManager", draft.header.BranchManager || "");
+        form.setValue("AdditionalNotes", draft.header.AdditionalNotes || "");
+        form.setValue("Type", draft.header.Type);
+
+        const savedFiles = await loadDraftHeaderFiles();
+        if (isActive) {
+          setJobHeaderFiles(savedFiles);
+        }
+      } else if (isActive) {
+        setJobHeaderFiles([]);
+      }
+    };
+
+    void loadDraftData();
+
+    return () => {
+      isActive = false;
+    };
   }, [form]);
 
   // Fetch branches from API
@@ -336,9 +359,9 @@ export default function CreateAuditJobPage() {
   /**
    * บันทึก Draft และไปหน้า Add Items
    */
-  const handleSaveDraft = (values: z.infer<typeof formSchema>) => {
+  const handleSaveDraft = async (values: z.infer<typeof formSchema>) => {
     try {
-      // บันทึก Header ลง SessionStorage
+      setIsSubmitting(true);
       updateDraftHeader({
         Branch: values.Branch,
         Firstname: values.Firstname || "",
@@ -352,18 +375,20 @@ export default function CreateAuditJobPage() {
         AdditionalNotes: values.AdditionalNotes,
         Type: values.Type,
       });
+      await saveDraftHeaderFiles(jobHeaderFiles);
 
       toast.success("บันทึก Draft แล้ว", {
         description: "กำลังไปหน้าเพิ่มรายการตรวจสอบ...",
       });
 
-      // Redirect ไปหน้า Add Items (Draft Mode)
       router.push("/audit/create/add_items?mode=draft");
     } catch (error) {
       console.error("Error saving draft:", error);
       toast.error("ไม่สามารถบันทึก Draft ได้", {
         description: "กรุณาลองใหม่อีกครั้ง",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -431,9 +456,8 @@ export default function CreateAuditJobPage() {
           <Alert className="mb-6">
             <FileWarning className="h-4 w-4" />
             <AlertDescription>
-              <strong>หมายเหตุ:</strong> ไฟล์แนบจะถูกบันทึกเมื่อกด{" "}
-              <strong>&quot;เสร็จสิ้น&quot;</strong> เท่านั้น
-              หาก Refresh หน้าเว็บหรือปิดแท็บ กรุณาเลือกไฟล์ใหม่
+              <strong>หมายเหตุ:</strong> ไฟล์แนบจะถูกเก็บใน Draft และอัปโหลดเมื่อกด{" "}
+              <strong>&quot;เสร็จสิ้น&quot;</strong> ในหน้ารายการตรวจสอบ
             </AlertDescription>
           </Alert>
         )}
