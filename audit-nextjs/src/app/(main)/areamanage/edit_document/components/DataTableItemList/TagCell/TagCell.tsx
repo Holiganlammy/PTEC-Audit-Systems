@@ -41,6 +41,7 @@ interface TagCellProps {
   onTagChange?: (tags: TaggedUser[]) => void;
   isLocked?: boolean;
   forceRefresh?: boolean;
+  positionType?: string;
 }
 
 export default function TagCell({
@@ -50,6 +51,7 @@ export default function TagCell({
   onTagChange,
   isLocked = false,
   forceRefresh = false,
+  positionType,
 }: TagCellProps) {
   const { data: session } = useSession();
   const [tags, setTags] = useState<TaggedUser[]>(initialTags);
@@ -89,7 +91,8 @@ export default function TagCell({
     }
   }, [isOpen, search]);
 
-  const canTag = !isLocked && [1, 2, 4].includes(session?.user?.role_id ?? -1);
+  const allowedTagRoles = positionType === "AA" ? [1, 4, 8] : [1, 3, 4];
+  const canTag = !isLocked && allowedTagRoles.includes(session?.user?.role_id ?? -1);
   const filtered = search.trim()
     ? users
         .filter(

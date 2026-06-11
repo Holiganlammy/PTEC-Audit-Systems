@@ -366,32 +366,30 @@ export default function DataTableItemList({
   const handleAMChecklistClick = useCallback((item: AuditItem) => { setSelectedAMChecklistItem(item); setOpenAMChecklistModal(true); }, []);
   const handleAttachmentClick = useCallback((item: AuditItem) => { setSelectedAttachmentItem(item); setOpenAttachmentModal(true); }, []);
 
-  // Permission logic for AM Checklist: role 1, 4 
+  // AM: role 1, 4 can check; AA: role 1, 3, 4 can check
   const isAMChecklistAllowed = (() => {
     const roleId = session?.user?.role_id;
-    // const userId = String(session?.user?.UserID ?? "");
-    if (roleId === 1 || roleId === 4) return true;
+    if (positionType === "AA") return roleId === 1 || roleId === 3 || roleId === 4;
+    return roleId === 1 || roleId === 4;
   })();
 
-  // Permission logic for visible Audit items:
-  // - role 1, 4: เห็นทุก item
-  // - role 3: เห็นทุก item ถ้าเป็น District Manager ของงานนี้, ถ้าไม่ใช่จะเห็นเฉพาะ item ที่ถูก tag
-  // - อื่นๆ: เห็นเฉพาะ item ที่ถูก tag
   const { visibleItems, accessDenied } = useMemo(() => {
+    if (isDraftMode) return { visibleItems: orderedItems, accessDenied: false };
     const roleId = session?.user?.role_id;
     const userId = session?.user?.UserID;
     if (!userId) return { visibleItems: [], accessDenied: false };
     if (roleId === 1 || roleId === 4) return { visibleItems: orderedItems, accessDenied: false };
     if (roleId === 3) {
-      const isJobMember = userId == jobData?.districtManager?.userId;
-      if (!isJobMember) return { visibleItems: [], accessDenied: true };
+      const isAssignedAM = userId == jobData?.auditor?.userId;
+      const isCreator = userId == jobData?.createdByUser?.userId;
+      if (!isAssignedAM && !isCreator) return { visibleItems: [], accessDenied: true };
       return { visibleItems: orderedItems, accessDenied: false };
     }
     return {
       visibleItems: orderedItems.filter((item) => (taggedUsersMap[item.item_id] ?? []).some((t) => t.userId == String(userId))),
       accessDenied: false,
     };
-  }, [orderedItems, taggedUsersMap, session, jobData]);
+  }, [isDraftMode, orderedItems, taggedUsersMap, session, jobData]);
 
   const handleDelete = useCallback((item: AuditItem) => { setDeleteItem(item); }, []);
 
@@ -508,13 +506,14 @@ export default function DataTableItemList({
   const rows = table.getRowModel().rows;
   const noPermission = !isLoading && (accessDenied || (orderedItems.length > 0 && visibleItems.length === 0));
 
+  const canShowAddButton = session?.user?.role_id === 1 || session?.user?.role_id === 2;
+
   return (
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4">
         <Input placeholder="ค้นหารายการ..." value={search} onChange={(e) => { setSearch(e.target.value); setPageIndex(0); }} className="max-w-sm" disabled={isLoading} />
-        {/* {!isLocked && showAddButton && ( */}
-        {!isLocked && (
+        {!isLocked && canShowAddButton && (
           <Button className="text-xs sm:text-sm" onClick={() => setOpenAddModal(true)}>
             <Plus className="mr-2 h-4 w-4" />
             เพิ่มรายการ

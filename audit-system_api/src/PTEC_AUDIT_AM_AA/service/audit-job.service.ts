@@ -335,8 +335,11 @@ export class AMJobsService {
     if (roleId === 1) {
       // เห็นทุก job
     } else if (roleId === 3) {
-      // AM: เห็นเฉพาะ job ที่ตัวเองเป็น amUser (คนตรวจ)
-      query.andWhere('job.amUserId = :userId', { userId });
+      // AM: เห็น job ที่ตัวเองเป็น amUser หรือเป็นคนสร้าง job
+      query.andWhere(
+        '(job.amUserId = :userId OR job.createdBy = :userId)',
+        { userId },
+      );
     } else if (roleId === 4) {
       // RM: เห็นเฉพาะ job ที่ตัวเองเป็น rmUser (หัวหน้า)
       query.andWhere('job.rmUserId = :userId', { userId });

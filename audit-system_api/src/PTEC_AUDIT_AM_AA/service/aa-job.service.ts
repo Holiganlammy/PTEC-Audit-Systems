@@ -309,11 +309,20 @@ export class AAJobsService {
     if (roleId === 1) {
       // Admin: เห็นทุก job
     } else if (roleId === 3) {
-      // AA: เห็นเฉพาะ job ที่ตัวเองเป็น aaUser (คนตรวจ)
-      query.andWhere('job.aaUserId = :userId', { userId });
+      // AM: เห็น job ที่ตัวเองเป็น amManager หรือเป็นคนสร้าง
+      query.andWhere(
+        '(job.amManagerUserId = :userId OR job.createdBy = :userId)',
+        { userId },
+      );
     } else if (roleId === 4) {
-      // AM Manager: เห็นเฉพาะ job ที่ตัวเองเป็น amManager (หัวหน้า)
+      // RM: เห็นเฉพาะ job ที่ตัวเองเป็น amManager
       query.andWhere('job.amManagerUserId = :userId', { userId });
+    } else if (roleId === 8) {
+      // AA: เห็น job ที่ตัวเองเป็น aaUser หรือเป็นคนสร้าง
+      query.andWhere(
+        '(job.aaUserId = :userId OR job.createdBy = :userId)',
+        { userId },
+      );
     } else if (roleId === 5) {
       // User: เห็นเฉพาะ job ที่ถูก tag
       query.andWhere((qb) => {

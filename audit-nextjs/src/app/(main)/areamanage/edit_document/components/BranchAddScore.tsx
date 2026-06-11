@@ -169,7 +169,7 @@ export default function BranchAddScore({
                                                 <RadioGroupItem value="0" aria-invalid={!!form.formState.errors.score} />
                                                 <div className="flex flex-col">
                                                     <span className="text-sm font-medium">0 (ไม่คิดคะแนน)</span>
-                                                    <span className="text-xs text-muted-foreground">ไม่เกี่ยวข้อง / ไม่ประเมิน</span>
+                                                    <span className="text-xs text-muted-foreground">ไม่ผ่าน / ไม่เป็นไปตามข้อกำหนด</span>
                                                 </div>
                                             </label>
 
@@ -182,7 +182,7 @@ export default function BranchAddScore({
                                                 <RadioGroupItem value="-1" aria-invalid={!!form.formState.errors.score} />
                                                 <div className="flex flex-col">
                                                     <span className="text-sm font-medium">-1 (หักคะแนน)</span>
-                                                    <span className="text-xs text-muted-foreground">ไม่ผ่าน / พบข้อผิดปกติ</span>
+                                                    <span className="text-xs text-muted-foreground">มีผลกระทบ</span>
                                                 </div>
                                             </label>
                                         </RadioGroup>

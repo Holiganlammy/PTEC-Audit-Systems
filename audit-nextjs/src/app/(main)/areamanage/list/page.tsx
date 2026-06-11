@@ -328,6 +328,7 @@ export default function AuditJobsListPage() {
     setCurrentPage(1);
     setSelectedRows({});
     setPagination(null);
+    setSearchQuery("");
   };
 
   // ── Handlers ────────────────────────────────────────────────────────────
@@ -448,13 +449,18 @@ export default function AuditJobsListPage() {
                   const isActive = activeTab === tab;
                   const dotColor = tab === "AM" ? "bg-blue-500" : "bg-violet-500";
                   const label = tab === "AM" ? "Area Manager" : "Area Assistant";
+                  const tabAllowed = tab === "AM" ? [1, 3, 4] : [1, 4, 8];
+                  const isDisabled = !tabAllowed.includes(roleId ?? -1);
                   return (
                     <button
                       key={tab}
                       onClick={() => handleTabChange(tab)}
+                      disabled={isDisabled}
                       className={cn(
                         "relative flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors focus-visible:outline-none",
-                        isActive
+                        isDisabled
+                          ? "text-muted-foreground/40 cursor-not-allowed"
+                          : isActive
                           ? "text-foreground"
                           : "text-muted-foreground hover:text-foreground"
                       )}

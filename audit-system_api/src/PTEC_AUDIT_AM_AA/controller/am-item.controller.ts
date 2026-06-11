@@ -375,7 +375,7 @@ export class AMItemsController {
     }
 
     return {
-      user_id: userId,
+      user_id: userId ?? auditRole.userId,
       role_id: auditRole.roleId,
       username: userCode,
       is_admin: auditRole.roleId === 1,

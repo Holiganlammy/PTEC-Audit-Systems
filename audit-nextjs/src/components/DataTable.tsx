@@ -154,10 +154,10 @@ export function DataTable<TData, TValue>({
    }, [debouncedInternalSearch, isServerSideSearch])
 
    useEffect(() => {
-      if (isServerSideSearch && controlledSearchValue === "" && internalSearchValue !== "") {
+      if (isServerSideSearch && controlledSearchValue === "") {
          setInternalSearchValue("")
       }
-   }, [controlledSearchValue, isServerSideSearch, internalSearchValue])
+   }, [controlledSearchValue, isServerSideSearch])
 
    const table = useReactTable({
       data,

@@ -857,7 +857,9 @@ export default function EditAuditJobPage() {
   const { isDirty } = form.formState;
 
   const isFormLocked = jobData?.status === 2;
-  const canEdit = session?.user?.role_id === 1 || session?.user?.role_id === 2;
+  const canEdit = roleFormTab === "AA"
+    ? [1, 4, 8].includes(session?.user?.role_id ?? 0)
+    : [1, 3, 4].includes(session?.user?.role_id ?? 0);
 
   const canConfirm =
     !isLoadingItems &&
@@ -1612,8 +1614,8 @@ export default function EditAuditJobPage() {
                     className="w-full"
                   >
                     <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="AM">AM Form</TabsTrigger>
-                      <TabsTrigger value="AA">AA Form</TabsTrigger>
+                      <TabsTrigger value="AM" disabled>AM Form</TabsTrigger>
+                      <TabsTrigger value="AA" disabled>AA Form</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="AM" className="mt-4">

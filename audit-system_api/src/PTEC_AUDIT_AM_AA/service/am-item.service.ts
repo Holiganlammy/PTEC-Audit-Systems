@@ -128,13 +128,16 @@ export class AMItemsService {
       const roleId = user.role_id;
       const userId = user.user_id;
 
-      if (roleId === 1 || roleId === 2) {
-        // Role 1, 2: เห็นทุก item
+      if (roleId === 1) {
+        // Role 1 (Admin): เห็นทุก item
       } else if (roleId === 3) {
-        // Role 3: เห็น item ของ job ที่เป็น district_manager
-        query.andWhere('job.districtManagerUserId = :userId', { userId });
+        // Role 3 (AM): เห็น item ของ job ที่ตัวเองเป็น AM หรือเป็นคนสร้าง
+        query.andWhere('(job.amUserId = :userId OR job.createdBy = :userId)', {
+          userId,
+        });
       } else if (roleId === 4) {
-        // Role 4: เห็นทุก item
+        // Role 4 (RM): เห็น item ของ job ที่ตัวเองเป็น RM
+        query.andWhere('job.rmUserId = :userId', { userId });
       } else if (roleId === 5) {
         // Role 5: เห็นเฉพาะ item ที่ถูก tag
         query.andWhere((qb) => {
@@ -209,41 +212,97 @@ export class AMItemsService {
 
     // console.log('🔒 Filtering items:', { roleId, userId, filters });
 
-    if (roleId === 1 || roleId === 2) {
-      // เห็นทุก item
+    const isAA = filters?.jobSource?.toUpperCase() === 'AA';
+    const jobAlias = isAA ? 'item.aaJob' : 'item.job';
+
+    if (roleId === 1) {
+      // Admin: เห็นทุก item
       query.where('item.jobId = :jobId', { jobId: filters?.jobId });
-    } else if (roleId === 3) {
-      // เห็น item ถ้าเป็น district_manager ของ job
-      query
-        .innerJoin('item.job', 'job')
-        .where('item.jobId = :jobId', { jobId: filters?.jobId })
-        .andWhere('job.districtManagerUserId = :userId', { userId });
-    } else if (roleId === 4) {
-      // เห็นทุก item
-      query.where('item.jobId = :jobId', { jobId: filters?.jobId });
-    } else if (roleId === 5) {
-      // เห็นเฉพาะ item ที่ถูก tag
-      query
-        .where('item.jobId = :jobId', { jobId: filters?.jobId })
-        .andWhere((qb) => {
-          const subQuery = qb
-            .subQuery()
-            .select('1')
-            .from(AMItemOtherCommentUsersTag, 'tag')
-            .where('tag.itemId = item.itemId')
-            .andWhere('tag.userId = :userId', { userId })
-            .andWhere('tag.active = :tagActive', { tagActive: true })
-            .getQuery();
-          return `EXISTS ${subQuery}`;
-        });
-    } else if (roleId === 6) {
-      // เห็น item ถ้าเป็น branch_manager ของ job
-      query
-        .innerJoin('item.job', 'job')
-        .where('item.jobId = :jobId', { jobId: filters?.jobId })
-        .andWhere('job.branchManagerUserId = :userId', { userId });
+    } else if (isAA) {
+      // AA job — แยก permission ตาม role
+      if (roleId === 3) {
+        // AM: เห็น item ของ AA job ที่ตัวเองเป็น amManager หรือเป็นคนสร้าง
+        query
+          .innerJoin(jobAlias, 'job')
+          .where('item.jobId = :jobId', { jobId: filters?.jobId })
+          .andWhere(
+            '(job.amManagerUserId = :userId OR job.createdBy = :userId)',
+            { userId },
+          );
+      } else if (roleId === 4) {
+        // RM: เห็น item ของ AA job ที่ตัวเองเป็น amManager
+        query
+          .innerJoin(jobAlias, 'job')
+          .where('item.jobId = :jobId', { jobId: filters?.jobId })
+          .andWhere('job.amManagerUserId = :userId', { userId });
+      } else if (roleId === 8) {
+        // AA: เห็น item ของ AA job ที่ตัวเองเป็น aaUser หรือเป็นคนสร้าง
+        query
+          .innerJoin(jobAlias, 'job')
+          .where('item.jobId = :jobId', { jobId: filters?.jobId })
+          .andWhere('(job.aaUserId = :userId OR job.createdBy = :userId)', {
+            userId,
+          });
+      } else if (roleId === 5) {
+        query
+          .where('item.jobId = :jobId', { jobId: filters?.jobId })
+          .andWhere((qb) => {
+            const subQuery = qb
+              .subQuery()
+              .select('1')
+              .from(AMItemOtherCommentUsersTag, 'tag')
+              .where('tag.itemId = item.itemId')
+              .andWhere('tag.userId = :userId', { userId })
+              .andWhere('tag.active = :tagActive', { tagActive: true })
+              .getQuery();
+            return `EXISTS ${subQuery}`;
+          });
+      } else if (roleId === 6) {
+        query
+          .innerJoin(jobAlias, 'job')
+          .where('item.jobId = :jobId', { jobId: filters?.jobId })
+          .andWhere('job.branchManagerUserId = :userId', { userId });
+      } else {
+        query.where('1 = 0');
+      }
     } else {
-      query.where('1 = 0'); // ไม่เห็นอะไร
+      // AM job permission
+      if (roleId === 3) {
+        // AM: เห็น item ของ job ที่ตัวเองเป็น AM หรือเป็นคนสร้าง
+        query
+          .innerJoin(jobAlias, 'job')
+          .where('item.jobId = :jobId', { jobId: filters?.jobId })
+          .andWhere('(job.amUserId = :userId OR job.createdBy = :userId)', {
+            userId,
+          });
+      } else if (roleId === 4) {
+        // RM: เห็น item ของ job ที่ตัวเองเป็น RM
+        query
+          .innerJoin(jobAlias, 'job')
+          .where('item.jobId = :jobId', { jobId: filters?.jobId })
+          .andWhere('job.rmUserId = :userId', { userId });
+      } else if (roleId === 5) {
+        query
+          .where('item.jobId = :jobId', { jobId: filters?.jobId })
+          .andWhere((qb) => {
+            const subQuery = qb
+              .subQuery()
+              .select('1')
+              .from(AMItemOtherCommentUsersTag, 'tag')
+              .where('tag.itemId = item.itemId')
+              .andWhere('tag.userId = :userId', { userId })
+              .andWhere('tag.active = :tagActive', { tagActive: true })
+              .getQuery();
+            return `EXISTS ${subQuery}`;
+          });
+      } else if (roleId === 6) {
+        query
+          .innerJoin(jobAlias, 'job')
+          .where('item.jobId = :jobId', { jobId: filters?.jobId })
+          .andWhere('job.branchManagerUserId = :userId', { userId });
+      } else {
+        query.where('1 = 0');
+      }
     }
     if (filters?.search && filters.search.trim()) {
       query.andWhere(
@@ -293,7 +352,12 @@ export class AMItemsService {
     return await Promise.all(
       items.map(async (item) => {
         const enrichComments = async (
-          comments: Array<{ userId: number; approverBy: number; active: boolean; [key: string]: unknown }>,
+          comments: Array<{
+            userId: number;
+            approverBy: number;
+            active: boolean;
+            [key: string]: unknown;
+          }>,
         ) =>
           Promise.all(
             (comments || [])
@@ -314,10 +378,42 @@ export class AMItemsService {
           aaCommentsEnriched,
           otherCommentsEnriched,
         ] = await Promise.all([
-          enrichComments(item.amComments as any),
-          enrichComments(item.amCheckerComments as any),
-          enrichComments((item as any).aaComments as any),
-          enrichComments(item.otherComments as any),
+          enrichComments(
+            item.amComments as unknown as Array<{
+              userId: number;
+              approverBy: number;
+              active: boolean;
+              [key: string]: unknown;
+            }>,
+          ),
+          enrichComments(
+            item.amCheckerComments as unknown as Array<{
+              userId: number;
+              approverBy: number;
+              active: boolean;
+              [key: string]: unknown;
+            }>,
+          ),
+          enrichComments(
+            (
+              item as unknown as {
+                aaComments: Array<{
+                  userId: number;
+                  approverBy: number;
+                  active: boolean;
+                  [key: string]: unknown;
+                }>;
+              }
+            ).aaComments,
+          ),
+          enrichComments(
+            item.otherComments as unknown as Array<{
+              userId: number;
+              approverBy: number;
+              active: boolean;
+              [key: string]: unknown;
+            }>,
+          ),
         ]);
 
         return {

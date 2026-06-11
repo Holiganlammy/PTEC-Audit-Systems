@@ -107,27 +107,21 @@ export default function NoteCell({
   }, [autoOpen]);
   const [isLoading, setIsLoading] = useState(false);
   const roleId = session?.user?.role_id;
-  // Permission logic: - Delete/Edit allowed for role 1, 4 if not locked;
-  const canDelete = (roleId === 1 || roleId === 4) && !isLocked;
-  const canEdit = (roleId === 1 || roleId === 4) && !isLocked;
-  const canMention = roleId === 1 || roleId === 4 || roleId === 3;
-  
+  const allowedRoles = positionType === "AA" ? [1, 4, 8] : [1, 3, 4];
+  // Permission logic: - Delete/Edit allowed for role 1, 3, 4 (AM) / 1, 4, 8 (AA) if not locked;
+  const canDelete = allowedRoles.includes(roleId ?? -1) && !isLocked;
+  const canEdit = allowedRoles.includes(roleId ?? -1) && !isLocked;
+  const canMention = allowedRoles.includes(roleId ?? -1);
+
   // Permission logic for commenting:
   const canComment = (() => {
-    // Thread Type 1 (Audit): role 1, 3, 4
-    if (threadType === 1) {
-      return roleId === 1 || roleId === 3 || roleId === 4;
-    }
-    
-    // Thread Type 2 (AM): role 1, 4 และต้องเป็น districtManager ของ job นี้
-  if (threadType === 2) {
-    const isDistrictManager =
-      String(session?.user?.UserID) === String(jobData?.districtManager?.userId);
-    return roleId === 1 || roleId === 4 || isDistrictManager;
-  }
-    
-    // Thread Type 3 (Other): เฉพาะคนที่ถูก tag หรือ role 1, 3, 4
-    return roleId === 1 || roleId === 3 || roleId === 4 || taggedUsers.some(
+    if (isLocked) return false;
+    // Thread Type 1 (Audit/AA): role 1, 3, 4 (AM) / 1, 4, 8 (AA)
+    if (threadType === 1) return allowedRoles.includes(roleId ?? -1);
+    // Thread Type 2 (AM & RM): role 1, 3, 4 (AM) / 1, 4, 8 (AA)
+    if (threadType === 2) return allowedRoles.includes(roleId ?? -1);
+    // Thread Type 3 (Other): role 1, 3, 4 (AM) / 1, 4, 8 (AA) หรือคนที่ถูก tag
+    return allowedRoles.includes(roleId ?? -1) || taggedUsers.some(
       (t) => String(t.userId) === String(session?.user?.UserID)
     );
   })();
