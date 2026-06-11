@@ -309,7 +309,7 @@ export default function DataTableItemList({
     const branchId = Number(jobData?.branchId);
     if (!Number.isFinite(branchId)) return;
     const res = await client.get("/branch-am-scores/list", {
-      params: { jobId, branchId },
+      params: { jobId, branchId, ...(positionType === "AA" ? { source: "AA" } : {}) },
       headers: dataConfig().headers,
     });
     const list: BranchAuditScoreApiRow[] = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
@@ -326,7 +326,7 @@ export default function DataTableItemList({
       map[Number(id)] = { scoreId: row.scoreId, score: row.score, note: row.remarks ?? undefined };
     }
     setBranchScoresMap(map);
-  }, [jobId, jobData?.branchId]);
+  }, [jobId, jobData?.branchId, positionType]);
 
   useEffect(() => { fetchBranchScores().catch(() => {}); }, [fetchBranchScores]);
 
@@ -366,23 +366,22 @@ export default function DataTableItemList({
   const handleAMChecklistClick = useCallback((item: AuditItem) => { setSelectedAMChecklistItem(item); setOpenAMChecklistModal(true); }, []);
   const handleAttachmentClick = useCallback((item: AuditItem) => { setSelectedAttachmentItem(item); setOpenAttachmentModal(true); }, []);
 
-  // Permission logic for AM Checklist: role 1, 2, 4 หรือ role 3 ที่เป็น District Manager ของงานนี้
+  // Permission logic for AM Checklist: role 1, 4 
   const isAMChecklistAllowed = (() => {
     const roleId = session?.user?.role_id;
-    const userId = String(session?.user?.UserID ?? "");
-    if (roleId === 1 || roleId === 2 || roleId === 4) return true;
-    return userId !== "" && userId === String(jobData?.districtManager?.userId ?? "");
+    // const userId = String(session?.user?.UserID ?? "");
+    if (roleId === 1 || roleId === 4) return true;
   })();
 
   // Permission logic for visible Audit items:
-  // - role 1, 2, 4: เห็นทุก item
+  // - role 1, 4: เห็นทุก item
   // - role 3: เห็นทุก item ถ้าเป็น District Manager ของงานนี้, ถ้าไม่ใช่จะเห็นเฉพาะ item ที่ถูก tag
   // - อื่นๆ: เห็นเฉพาะ item ที่ถูก tag
   const { visibleItems, accessDenied } = useMemo(() => {
     const roleId = session?.user?.role_id;
     const userId = session?.user?.UserID;
     if (!userId) return { visibleItems: [], accessDenied: false };
-    if (roleId === 1 || roleId === 2 || roleId === 4) return { visibleItems: orderedItems, accessDenied: false };
+    if (roleId === 1 || roleId === 4) return { visibleItems: orderedItems, accessDenied: false };
     if (roleId === 3) {
       const isJobMember = userId == jobData?.districtManager?.userId;
       if (!isJobMember) return { visibleItems: [], accessDenied: true };
@@ -399,15 +398,15 @@ export default function DataTableItemList({
   const handleBranchScoreSubmit = useCallback(async (itemId: number, score: BranchScoreValue, note?: string) => {
     const existing = branchScoresMap[itemId];
     if (existing?.scoreId) {
-      await client.put(`/branch-am-scores/${existing.scoreId}`, { score, remarks: note, updatedBy: session?.user?.UserID }, { headers: dataConfig().headers });
+      await client.put(`/branch-am-scores/${existing.scoreId}`, { score, remarks: note, updatedBy: session?.user?.UserID, ...(positionType === "AA" ? { source: "AA" } : {}) }, { headers: dataConfig().headers });
       setBranchScoresMap((prev) => ({ ...prev, [itemId]: { scoreId: existing.scoreId, score, note } }));
       toast.success("แก้ไขคะแนนสาขาเรียบร้อย");
     } else {
-      await client.post("/branch-am-scores/create", { jobId, itemId, branchId: Number(jobData?.branchId), score, remarks: note, createdBy: String(session?.user?.UserID ?? ""), createdDate: new Date().toISOString() }, { headers: dataConfig().headers });
+      await client.post("/branch-am-scores/create", { jobId, itemId, branchId: Number(jobData?.branchId), score, remarks: note, createdBy: String(session?.user?.UserID ?? ""), createdDate: new Date().toISOString(), ...(positionType === "AA" ? { source: "AA" } : {}) }, { headers: dataConfig().headers });
       await fetchBranchScores();
       toast.success("บันทึกคะแนนสาขาเรียบร้อย");
     }
-  }, [jobId, jobData, session, branchScoresMap, fetchBranchScores]);
+  }, [jobId, jobData, session, branchScoresMap, fetchBranchScores, positionType]);
 
   const branchScoreSummary = useMemo(() => {
     let plus = 0, zero = 0, minus = 0, total = 0, scored = 0;
@@ -448,8 +447,8 @@ export default function DataTableItemList({
   }, [orderedItems, onItemsChange, session]);
 
   const columns = useMemo(
-    () => createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session?.user?.role_id === 1 || session?.user?.role_id === 2, isDraftMode, attachmentCountsMap, viewport, highlightItemId, highlightThreadType),
-    [handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session, isDraftMode, attachmentCountsMap, viewport, highlightItemId, highlightThreadType]
+    () => createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session?.user?.role_id === 1 || session?.user?.role_id === 2, isDraftMode, attachmentCountsMap, viewport, highlightItemId, highlightThreadType, (positionType === "AA" ? "AA" : "AM")),
+    [handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session, isDraftMode, attachmentCountsMap, viewport, highlightItemId, highlightThreadType, positionType]
   );
 
   // เมื่อโหลดข้อมูลเสร็จและมี highlightItemId ให้ scroll ไปหา row นั้น

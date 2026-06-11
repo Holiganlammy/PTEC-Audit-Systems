@@ -275,6 +275,7 @@ export class AMItemsService {
       .leftJoinAndSelect('item.categoryItem', 'categoryItem')
       .leftJoinAndSelect('item.amComments', 'amComments')
       .leftJoinAndSelect('item.amCheckerComments', 'amCheckerComments')
+      .leftJoinAndSelect('item.aaComments', 'aaComments')
       .leftJoinAndSelect('item.otherComments', 'otherComments')
       .leftJoinAndSelect('item.itemStatusRelation', 'itemStatusRelation')
       .leftJoinAndSelect(
@@ -291,53 +292,39 @@ export class AMItemsService {
 
     return await Promise.all(
       items.map(async (item) => {
+        const enrichComments = async (
+          comments: Array<{ userId: number; approverBy: number; active: boolean; [key: string]: unknown }>,
+        ) =>
+          Promise.all(
+            (comments || [])
+              .filter((d) => d.active)
+              .map(async (detail) => {
+                const { userId, approverBy, ...rest } = detail;
+                const [OwnerCommentUser, approverByUser] = await Promise.all([
+                  this.getUserData(userId),
+                  this.getUserData(approverBy),
+                ]);
+                return { ...rest, OwnerCommentUser, approverByUser };
+              }),
+          );
+
         const [
           amCommentsEnriched,
           amCheckerCommentsEnriched,
+          aaCommentsEnriched,
           otherCommentsEnriched,
         ] = await Promise.all([
-          Promise.all(
-            (item.amComments || [])
-              .filter((d) => d.active)
-              .map(async (detail) => {
-                const { userId, approverBy, ...rest } = detail;
-                const [OwnerCommentUser, approverByUser] = await Promise.all([
-                  this.getUserData(userId),
-                  this.getUserData(approverBy),
-                ]);
-                return { ...rest, OwnerCommentUser, approverByUser };
-              }),
-          ),
-          Promise.all(
-            (item.amCheckerComments || [])
-              .filter((d) => d.active)
-              .map(async (detail) => {
-                const { userId, approverBy, ...rest } = detail;
-                const [OwnerCommentUser, approverByUser] = await Promise.all([
-                  this.getUserData(userId),
-                  this.getUserData(approverBy),
-                ]);
-                return { ...rest, OwnerCommentUser, approverByUser };
-              }),
-          ),
-          Promise.all(
-            (item.otherComments || [])
-              .filter((d) => d.active)
-              .map(async (detail) => {
-                const { userId, approverBy, ...rest } = detail;
-                const [OwnerCommentUser, approverByUser] = await Promise.all([
-                  this.getUserData(userId),
-                  this.getUserData(approverBy),
-                ]);
-                return { ...rest, OwnerCommentUser, approverByUser };
-              }),
-          ),
+          enrichComments(item.amComments as any),
+          enrichComments(item.amCheckerComments as any),
+          enrichComments((item as any).aaComments as any),
+          enrichComments(item.otherComments as any),
         ]);
 
         return {
           ...item,
           amComments: amCommentsEnriched,
           amCheckerComments: amCheckerCommentsEnriched,
+          aaComments: aaCommentsEnriched,
           otherComments: otherCommentsEnriched,
         };
       }),

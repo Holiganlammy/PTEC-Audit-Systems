@@ -20,7 +20,8 @@ interface ApiUser {
 
 interface NoteCellProps {
   itemId: number;
-  threadType: 1 | 2 | 3; // 1=Audit, 2=AM, 3=Other
+  threadType: 1 | 2 | 3; // 1=Audit/AA, 2=AM, 3=Other
+  positionType?: "AM" | "AA";
   label: string;
   initialComments?: AuditComment[];
   onRefresh?: () => void;
@@ -38,6 +39,7 @@ interface NoteCellProps {
 
 interface auditCommentsComment {
   amCheckerDetailId?: number;
+  aaDetailId?: number;
   amDetailId?: number;
   otherDetailId?: number;
   itemId: number;
@@ -69,6 +71,7 @@ interface auditCommentsComment {
 export default function NoteCell({
   itemId,
   threadType,
+  positionType = "AM",
   label,
   initialComments = [],
   // onRefresh is kept for potential future use (currently unused after modal-close fix)
@@ -104,36 +107,43 @@ export default function NoteCell({
   }, [autoOpen]);
   const [isLoading, setIsLoading] = useState(false);
   const roleId = session?.user?.role_id;
-  // Permission logic: - Delete/Edit allowed for role 1, 2 if not locked;
-  const canDelete = (roleId === 1 || roleId === 2) && !isLocked;
-  const canEdit = (roleId === 1 || roleId === 2) && !isLocked;
-  const canMention = roleId === 1 || roleId === 2 || roleId === 3;
+  // Permission logic: - Delete/Edit allowed for role 1, 4 if not locked;
+  const canDelete = (roleId === 1 || roleId === 4) && !isLocked;
+  const canEdit = (roleId === 1 || roleId === 4) && !isLocked;
+  const canMention = roleId === 1 || roleId === 4 || roleId === 3;
   
   // Permission logic for commenting:
   const canComment = (() => {
-    // Thread Type 1 (Audit): role 1, 2, 4
+    // Thread Type 1 (Audit): role 1, 3, 4
     if (threadType === 1) {
-      return roleId === 1 || roleId === 2 || roleId === 4;
+      return roleId === 1 || roleId === 3 || roleId === 4;
     }
     
-    // Thread Type 2 (AM): role 1, 2 และต้องเป็น districtManager ของ job นี้
+    // Thread Type 2 (AM): role 1, 4 และต้องเป็น districtManager ของ job นี้
   if (threadType === 2) {
     const isDistrictManager =
       String(session?.user?.UserID) === String(jobData?.districtManager?.userId);
-    return roleId === 1 || roleId === 2 || roleId === 3 || isDistrictManager || roleId === 4;
+    return roleId === 1 || roleId === 4 || isDistrictManager;
   }
     
-    // Thread Type 3 (Other): เฉพาะคนที่ถูก tag หรือ role 1, 2, 4
-    return roleId === 1 || roleId === 2 || roleId === 4 || taggedUsers.some(
+    // Thread Type 3 (Other): เฉพาะคนที่ถูก tag หรือ role 1, 3, 4
+    return roleId === 1 || roleId === 3 || roleId === 4 || taggedUsers.some(
       (t) => String(t.userId) === String(session?.user?.UserID)
     );
   })();
 
   // Map threadType to API endpoint
   const getEndpoint = () => {
-    if (threadType === 1) return "audit-comments";
+    if (threadType === 1) return positionType === "AA" ? "aa-comments" : "audit-comments";
     if (threadType === 2) return "am-comments";
     return "other-comments";
+  };
+
+  // Map comment response to id field (threadType 1 differs by positionType)
+  const getCommentId = (c: auditCommentsComment) => {
+    if (threadType === 1) return positionType === "AA" ? c.aaDetailId! : c.amCheckerDetailId!;
+    if (threadType === 2) return c.amDetailId!;
+    return c.otherDetailId!;
   };
 
   // Fetch comments when modal opens
@@ -157,12 +167,7 @@ export default function NoteCell({
           // Transform API response to AuditComment format
           const transformedComments: AuditComment[] = response.data.data.map(
             (c: auditCommentsComment) => ({
-              id:
-                threadType === 1
-                  ? c.amCheckerDetailId!
-                  : threadType === 2
-                  ? c.amDetailId!
-                  : c.otherDetailId!,
+              id: getCommentId(c),
               itemId: c.itemId,
               userId: c.createdBy,
               author: c.OwnerCommentUser?.fullname || "Unknown",
@@ -329,12 +334,7 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
     // Update UI
     const transformedComments: AuditComment[] = latestComments.map(
       (c: auditCommentsComment) => ({
-        id:
-          threadType === 1
-            ? c.amCheckerDetailId!
-            : threadType === 2
-            ? c.amDetailId!
-            : c.otherDetailId!,
+        id: getCommentId(c),
         itemId: c.itemId,
         userId: c.createdBy,
         author: c.OwnerCommentUser?.fullname || "Unknown",
@@ -351,11 +351,11 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
         updatedAt: c.updatedAt,
       })
     );
- 
+
     setComments(transformedComments);
     onCommentsChange?.(itemId, threadType, transformedComments);
   }
- 
+
   // 3. Send email notification to mentioned users
   const mentionMatches = [...text.matchAll(/@(\w+)/g)];
   const mentionedCodes = Array.from(
@@ -442,12 +442,7 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
     if (response.data.success) {
       const transformedComments: AuditComment[] = response.data.data.map(
         (c: auditCommentsComment) => ({
-          id:
-            threadType === 1
-              ? c.amCheckerDetailId!
-              : threadType === 2
-              ? c.amDetailId!
-              : c.otherDetailId!,
+          id: getCommentId(c),
           itemId: c.itemId,
           userId: c.createdBy,
           author: c.OwnerCommentUser?.fullname || "Unknown",
@@ -495,12 +490,7 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
     if (response.data.success) {
       const transformedComments: AuditComment[] = response.data.data.map(
         (c: auditCommentsComment) => ({
-          id:
-            threadType === 1
-              ? c.amCheckerDetailId!
-              : threadType === 2
-              ? c.amDetailId!
-              : c.otherDetailId!,
+          id: getCommentId(c),
           itemId: c.itemId,
           userId: c.createdBy,
           author: c.OwnerCommentUser?.fullname || "Unknown",
@@ -548,12 +538,7 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
     if (response.data.success) {
       const transformedComments: AuditComment[] = response.data.data.map(
         (c: auditCommentsComment) => ({
-          id:
-            threadType === 1
-              ? c.amCheckerDetailId!
-              : threadType === 2
-              ? c.amDetailId!
-              : c.otherDetailId!,
+          id: getCommentId(c),
           itemId: c.itemId,
           userId: c.createdBy,
           author: c.OwnerCommentUser?.fullname || "Unknown",

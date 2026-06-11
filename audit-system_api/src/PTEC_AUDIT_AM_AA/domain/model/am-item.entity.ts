@@ -9,9 +9,11 @@ import {
   OneToMany,
 } from 'typeorm';
 import { AMJobHeader } from './am.jobs-header.entity';
+import { AAJobHeader } from './aa.jobs-header.entity';
 import { AuditCategoryItem } from './audit-category-item.entity';
 import { AMItemAMComment } from './am-item-am-comment.entity';
 import { AMItemAMCheckerComment } from './am-item-am-checker-comment.entity';
+import { AMItemAAComment } from './am-item-aa-comment.entity';
 import { AMItemOtherComment } from './am-item-other-comment.entity';
 import { AMItemOtherCommentUsersTag } from './am-item-other-comment-users-tag.entity';
 import { AMItemStatus } from './am-item-status.entity';
@@ -86,6 +88,12 @@ export class AMItem {
   @JoinColumn({ name: 'job_id' })
   job!: AMJobHeader;
 
+  @ManyToOne(() => AAJobHeader, (job) => job.items, {
+    createForeignKeyConstraints: false,
+  })
+  @JoinColumn({ name: 'job_id' })
+  aaJob!: AAJobHeader;
+
   @ManyToOne(() => AuditCategoryItem, (category) => category.items)
   @JoinColumn({ name: 'category_item_id' })
   categoryItem!: AuditCategoryItem;
@@ -95,6 +103,9 @@ export class AMItem {
 
   @OneToMany(() => AMItemAMCheckerComment, (comment) => comment.item)
   amCheckerComments!: AMItemAMCheckerComment[];
+
+  @OneToMany(() => AMItemAAComment, (comment) => comment.item)
+  aaComments!: AMItemAAComment[];
 
   @OneToMany(() => AMItemOtherComment, (otherComment) => otherComment.item)
   otherComments!: AMItemOtherComment[];

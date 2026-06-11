@@ -28,8 +28,8 @@ export default function HomePage() {
   console.log("User Role ID:", roleId, typeof roleId);
   // Render dashboard based on role
   switch (roleId) {
-    case 3: // AM
-      return <AMDashboard />;
+    // case 3: // AM
+    //   return <AMDashboard />;
  
     case 2: // Audit
       return <AuditDashboard />;

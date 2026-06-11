@@ -467,6 +467,7 @@ export const createAuditItemsColumns = (
   viewport: 'mobile' | 'tablet' | 'desktop' = 'desktop',
   highlightItemId?: number,
   highlightThreadType?: number,
+  positionType: "AM" | "AA" = "AM",
 ): ColumnDef<AuditItem>[] => {
   const effectiveLocked = isLocked || !!isDraftMode;
 
@@ -567,16 +568,16 @@ export const createAuditItemsColumns = (
     },
     {
       id: "note_1",
-      header: "หน่วยงานตรวจสอบ (AM Checker)",
+      header: positionType === "AA" ? "หน่วยงานตรวจสอบ AA" : "หน่วยงานตรวจสอบ (AM Checker)",
       cell: ({ row }) => (
-        <NoteCell itemId={row.original.item_id} threadType={1} label="AM (Checker)" initialComments={row.original.note_1} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 1} highlighted={highlightItemId === row.original.item_id && (highlightThreadType === 1 || highlightThreadType === undefined) && (row.original.note_1 ?? []).some(c => c.approverStatus === 0)} />
+        <NoteCell itemId={row.original.item_id} threadType={1} positionType={positionType} label={positionType === "AA" ? "AA" : "AM (Checker)"} initialComments={row.original.note_1} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 1} highlighted={highlightItemId === row.original.item_id && (highlightThreadType === 1 || highlightThreadType === undefined) && (row.original.note_1 ?? []).some(c => c.approverStatus === 0)} />
       ),
     },
     {
       id: "note_2",
-      header: "หน่วยงาน AM & RM",
+      header: positionType === "AA" ? "หน่วยงาน AM" : "หน่วยงาน AM & RM",
       cell: ({ row }) => (
-        <NoteCell itemId={row.original.item_id} threadType={2} label="AM & RM" initialComments={row.original.note_2} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 2} highlighted={highlightItemId === row.original.item_id && (highlightThreadType === 2 || highlightThreadType === undefined) && (row.original.note_2 ?? []).some(c => c.approverStatus === 0)} />
+        <NoteCell itemId={row.original.item_id} threadType={2} label={positionType === "AA" ? "AM" : "AM & RM"} initialComments={row.original.note_2} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 2} highlighted={highlightItemId === row.original.item_id && (highlightThreadType === 2 || highlightThreadType === undefined) && (row.original.note_2 ?? []).some(c => c.approverStatus === 0)} />
       ),
     },
     {

@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { ColumnDef, Row } from "@tanstack/react-table"
 import { Button } from "@/components/ui/button"
 import { ArrowUpDown, MoreHorizontal, Pencil, Trash2, Loader2 } from "lucide-react"
@@ -19,12 +18,21 @@ const statusColorConfig: Record<number, string> = {
   2: "bg-green-100 text-green-800",
 };
 
-function ActionsCell({ row, onDelete }: { row: Row<AuditList>; onDelete: (jobId: number) => void }) {
+function ActionsCell({
+  row,
+  onDelete,
+  formType,
+}: {
+  row: Row<AuditList>;
+  onDelete: (jobId: number) => void;
+  formType: "AM" | "AA";
+}) {
   const { data: session, status } = useSession();
   const isLoadingSession = status === "loading";
 
   const auditList = row.original;
   const canDelete = session?.user?.role_id === 1 || session?.user?.role_id === 2;
+  const editHref = `/areamanage/edit_document?jobNo=${auditList.jobNo}&formType=${formType}`;
 
   return (
     <DropdownMenu>
@@ -38,7 +46,7 @@ function ActionsCell({ row, onDelete }: { row: Row<AuditList>; onDelete: (jobId:
         <DropdownMenuLabel>Actions</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href={`/areamanage/edit_document?jobNo=${auditList.jobNo}`}>
+          <Link href={editHref}>
             <Pencil className="mr-2 h-4 w-4" />
             Edit
           </Link>
@@ -46,7 +54,7 @@ function ActionsCell({ row, onDelete }: { row: Row<AuditList>; onDelete: (jobId:
         {isLoadingSession ? (
           <DropdownMenuItem disabled>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            <span className="opacity-50">Delete AM & AA Jobs</span>
+            <span className="opacity-50">Delete</span>
           </DropdownMenuItem>
         ) : canDelete && (
           <DropdownMenuItem
@@ -54,7 +62,7 @@ function ActionsCell({ row, onDelete }: { row: Row<AuditList>; onDelete: (jobId:
             onClick={() => onDelete(auditList.jobId)}
           >
             <Trash2 className="mr-2 h-4 w-4" />
-            Delete AM && AA Jobs
+            Delete
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>
@@ -62,7 +70,10 @@ function ActionsCell({ row, onDelete }: { row: Row<AuditList>; onDelete: (jobId:
   );
 }
 
-export const createAuditListColumns = (onDelete: (jobId: number) => void): ColumnDef<AuditList>[] => [
+export const createAuditListColumns = (
+  onDelete: (jobId: number) => void,
+  formType: "AM" | "AA" = "AM",
+): ColumnDef<AuditList>[] => [
   {
     id: "select",
     header: ({ table }) => (
@@ -181,7 +192,7 @@ export const createAuditListColumns = (onDelete: (jobId: number) => void): Colum
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           className="font-semibold text-sm"
         >
-          Area Manager
+          {formType === "AA" ? "Area Assistant (AA)" : "Area Manager (AM)"}
         </Button>
       )
     },
@@ -214,7 +225,7 @@ export const createAuditListColumns = (onDelete: (jobId: number) => void): Colum
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           className="font-semibold"
         >
-          Regional Manager (RM)
+          {formType === "AA" ? "ผู้จัดการเขต (AM)" : "Regional Manager (RM)"}
         </Button>
       )
     },
@@ -355,6 +366,6 @@ export const createAuditListColumns = (onDelete: (jobId: number) => void): Colum
     header: () => (
       <div className="text-[13px] 3xl:text-sm text-center">การจัดการ</div>
     ),
-    cell: ({ row }) => <ActionsCell row={row} onDelete={onDelete} />,
+    cell: ({ row }) => <ActionsCell row={row} onDelete={onDelete} formType={formType} />,
   },
 ]

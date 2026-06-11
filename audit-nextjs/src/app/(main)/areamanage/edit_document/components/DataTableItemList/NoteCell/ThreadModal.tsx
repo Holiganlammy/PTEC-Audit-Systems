@@ -120,7 +120,7 @@ function renderMentions(text: string, users?: ApiUser[]) {
         </span>
       );
     }
-    return part;
+    return <span key={i}>{part}</span>;
   });
 }
 

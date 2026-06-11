@@ -1,13 +1,8 @@
-// Version: 1.0.0 | Date: 2025-06-05 | Updated: AM Jobs Service - แก้แค่ column references
-// ==========================================
-// am-job.service.ts
-// ==========================================
-
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as sql from 'mssql';
-import { AMJobHeader } from '../domain/model/am.jobs-header.entity';
+import { AAJobHeader } from '../domain/model/aa.jobs-header.entity';
 import { AMItem } from '../domain/model/am-item.entity';
 import { AMItemOtherCommentUsersTag } from '../domain/model/am-item-other-comment-users-tag.entity';
 import { CreateAuditJobDto } from '../dto/create-audit-job.dto';
@@ -25,15 +20,14 @@ import {
 } from '../domain/type/audit-job.interface';
 
 @Injectable()
-export class AMJobsService {
+export class AAJobsService {
   constructor(
-    @InjectRepository(AMJobHeader)
-    private readonly amJobsRepository: Repository<AMJobHeader>,
+    @InjectRepository(AAJobHeader)
+    private readonly aaJobsRepository: Repository<AAJobHeader>,
     private readonly dbManager: DatabaseManagerService,
     private readonly userRightService: UserRightService,
   ) {}
 
-  // Helper: ดึงข้อมูล user
   private async getUserData(
     userId: number | null,
   ): Promise<UserData | undefined> {
@@ -65,61 +59,56 @@ export class AMJobsService {
     return undefined;
   }
 
-  private transformAMItemWithUsers(item: AMItem): AuditItemWithUsers {
+  private transformAAItemWithUsers(item: AMItem): AuditItemWithUsers {
     return item as AuditItemWithUsers;
   }
 
-  private async transformAMJobWithUsers(
-    job: AMJobHeader,
+  private async transformAAJobWithUsers(
+    job: AAJobHeader,
   ): Promise<AuditJobWithUsers> {
-    const [
-      amUser, // คนตรวจสอบ (AM)
-      rmManager, // หัวหน้า (RM)
-      branchManager,
-      createdByUser,
-      updatedByUser,
-    ] = await Promise.all([
-      this.getUserData(job.amUserId),
-      this.getUserData(job.rmUserId),
-      this.getUserData(job.branchManagerUserId),
-      this.getUserData(job.createdBy),
-      this.getUserData(job.updatedBy),
-    ]);
+    const [aaUser, amManager, branchManager, createdByUser, updatedByUser] =
+      await Promise.all([
+        this.getUserData(job.aaUserId),
+        this.getUserData(job.amManagerUserId),
+        this.getUserData(job.branchManagerUserId),
+        this.getUserData(job.createdBy),
+        this.getUserData(job.updatedBy),
+      ]);
 
     let transformedItems: AuditItemWithUsers[] | undefined;
     if (job.items && job.items.length > 0) {
       transformedItems = job.items.map((item) =>
-        this.transformAMItemWithUsers(item),
+        this.transformAAItemWithUsers(item),
       );
     }
 
-    // AM User (คนตรวจสอบ) + snapshot → ส่งเป็น "auditor" ใน response
-    const auditorWithSnapshot = amUser
+    // AA User (คนตรวจสอบ) + snapshot
+    const auditorWithSnapshot = aaUser
       ? {
-          ...amUser,
-          userCode: job.amUserCode || amUser.userCode,
-          firstName: job.amFirstName || amUser.firstName,
-          lastName: job.amLastName || amUser.lastName,
+          ...aaUser,
+          userCode: job.aaUserCode || aaUser.userCode,
+          firstName: job.aaFirstName || aaUser.firstName,
+          lastName: job.aaLastName || aaUser.lastName,
           fullname:
-            job.amFirstName && job.amLastName
-              ? `${job.amFirstName} ${job.amLastName}`
-              : amUser.fullname,
-          branchName: job.amBranchName || amUser.branchName,
+            job.aaFirstName && job.aaLastName
+              ? `${job.aaFirstName} ${job.aaLastName}`
+              : aaUser.fullname,
+          branchName: job.aaBranchName || aaUser.branchName,
         }
       : undefined;
 
-    // RM Manager (หัวหน้า) + snapshot → ส่งเป็น "districtManager" ใน response
-    const districtManagerWithSnapshot = rmManager
+    // AM Manager (หัวหน้า) + snapshot
+    const districtManagerWithSnapshot = amManager
       ? {
-          ...rmManager,
-          userCode: job.rmUserCode || rmManager.userCode,
-          firstName: job.rmFirstName || rmManager.firstName,
-          lastName: job.rmLastName || rmManager.lastName,
+          ...amManager,
+          userCode: job.amManagerUserCode || amManager.userCode,
+          firstName: job.amManagerFirstName || amManager.firstName,
+          lastName: job.amManagerLastName || amManager.lastName,
           fullname:
-            job.rmFirstName && job.rmLastName
-              ? `${job.rmFirstName} ${job.rmLastName}`
-              : rmManager.fullname,
-          branchName: job.rmBranchName || rmManager.branchName,
+            job.amManagerFirstName && job.amManagerLastName
+              ? `${job.amManagerFirstName} ${job.amManagerLastName}`
+              : amManager.fullname,
+          branchName: job.amManagerBranchName || amManager.branchName,
         }
       : undefined;
 
@@ -138,17 +127,17 @@ export class AMJobsService {
       : undefined;
 
     const {
-      amUserId: _amUserId,
-      amUserCode: _amUserCode,
-      amFirstName: _amFirstName,
-      amLastName: _amLastName,
-      amBranchName: _amBranchName,
+      aaUserId: _aaUserId,
+      aaUserCode: _aaUserCode,
+      aaFirstName: _aaFirstName,
+      aaLastName: _aaLastName,
+      aaBranchName: _aaBranchName,
 
-      rmUserId: _rmUserId,
-      rmUserCode: _rmUserCode,
-      rmFirstName: _rmFirstName,
-      rmLastName: _rmLastName,
-      rmBranchName: _rmBranchName,
+      amManagerUserId: _amManagerUserId,
+      amManagerUserCode: _amManagerUserCode,
+      amManagerFirstName: _amManagerFirstName,
+      amManagerLastName: _amManagerLastName,
+      amManagerBranchName: _amManagerBranchName,
 
       branchManagerUserId: _branchManagerUserId,
       branchManagerUserCode: _branchManagerUserCode,
@@ -172,7 +161,6 @@ export class AMJobsService {
     };
   }
 
-  // Running number generator
   async running_number(type: string): Promise<string> {
     try {
       const pool = await this.dbManager.getPool();
@@ -186,39 +174,28 @@ export class AMJobsService {
         `${databaseConfig.database}.dbo.RunningNo`,
       );
 
-      const docno = result.output.docno as string;
-      return docno;
+      return result.output.docno as string;
     } catch (error) {
       console.error('Running Number Error:', error);
       throw error;
     }
   }
 
-  // Create
-  async create(createDto: CreateAuditJobDto): Promise<AMJobHeader> {
+  async create(createDto: CreateAuditJobDto): Promise<AAJobHeader> {
     try {
-      // TODO: เปลี่ยน running type ตามที่ต้องการ
-      const runningType =
-        createDto.positionType === 'AM'
-          ? 'ROS-AM'
-          : createDto.positionType === 'AA'
-            ? 'ROS-AA'
-            : 'AM';
-      const jobNo = await this.running_number(runningType);
+      const jobNo = await this.running_number('ROS-AA');
 
       if (!jobNo) {
         throw new Error('Running number not generated');
       }
 
-      // ดึงข้อมูล users สำหรับ snapshot
-      // DTO ยังใช้ชื่อเดิม → map ไปหา entity field
-      const [amUser, rmManager, branchManager] = await Promise.all([
+      const [aaUser, amManager, branchManager] = await Promise.all([
         this.getUserData(createDto.auditorUserId || null),
         this.getUserData(createDto.districtManagerUserId || null),
         this.getUserData(createDto.branchManagerUserId || null),
       ]);
 
-      const amJob = this.amJobsRepository.create({
+      const aaJob = this.aaJobsRepository.create({
         jobNo,
         branchId: createDto.branchId,
         branchName: createDto.branchName,
@@ -230,19 +207,19 @@ export class AMJobsService {
         createdBy: createDto.createdBy,
         status: 1,
 
-        // AM User (คนตรวจสอบ) ← จาก DTO.auditorUserId
-        amUserId: createDto.auditorUserId,
-        amUserCode: amUser?.userCode || undefined,
-        amFirstName: amUser?.firstName || undefined,
-        amLastName: amUser?.lastName || undefined,
-        amBranchName: amUser?.branchName || undefined,
+        // AA User (คนตรวจสอบ) ← จาก DTO.auditorUserId
+        aaUserId: createDto.auditorUserId,
+        aaUserCode: aaUser?.userCode || undefined,
+        aaFirstName: aaUser?.firstName || undefined,
+        aaLastName: aaUser?.lastName || undefined,
+        aaBranchName: aaUser?.branchName || undefined,
 
-        // RM User (หัวหน้า) ← จาก DTO.districtManagerUserId
-        rmUserId: createDto.districtManagerUserId,
-        rmUserCode: rmManager?.userCode || undefined,
-        rmFirstName: rmManager?.firstName || undefined,
-        rmLastName: rmManager?.lastName || undefined,
-        rmBranchName: rmManager?.branchName || undefined,
+        // AM Manager (หัวหน้า) ← จาก DTO.districtManagerUserId
+        amManagerUserId: createDto.districtManagerUserId,
+        amManagerUserCode: amManager?.userCode || undefined,
+        amManagerFirstName: amManager?.firstName || undefined,
+        amManagerLastName: amManager?.lastName || undefined,
+        amManagerBranchName: amManager?.branchName || undefined,
 
         // Branch Manager
         branchManagerUserId: createDto.branchManagerUserId,
@@ -251,14 +228,13 @@ export class AMJobsService {
         branchManagerLastName: branchManager?.lastName || undefined,
       });
 
-      return await this.amJobsRepository.save(amJob);
+      return await this.aaJobsRepository.save(aaJob);
     } catch (error) {
-      console.error('Error creating AM job:', error);
+      console.error('Error creating AA job:', error);
       throw error;
     }
   }
 
-  // Get all with pagination
   async findAll(
     params: PaginationParams,
     user: UserInfo,
@@ -267,7 +243,7 @@ export class AMJobsService {
     const limit = params.limit || 20;
     const skip = (page - 1) * limit;
 
-    const query = this.amJobsRepository.createQueryBuilder('job');
+    const query = this.aaJobsRepository.createQueryBuilder('job');
 
     query.leftJoinAndSelect('job.statusInfo', 'statusInfo');
 
@@ -277,16 +253,14 @@ export class AMJobsService {
     if (params.branchId !== undefined) {
       query.andWhere('job.branchId = :branchId', { branchId: params.branchId });
     }
-    // DTO ใช้ auditorUserId → entity เป็น amUserId
     if (params.auditorUserId !== undefined) {
-      query.andWhere('job.amUserId = :amUserId', {
-        amUserId: params.auditorUserId,
+      query.andWhere('job.aaUserId = :aaUserId', {
+        aaUserId: params.auditorUserId,
       });
     }
-    // DTO ใช้ districtManagerUserId → entity เป็น rmUserId
     if (params.districtManagerUserId !== undefined) {
-      query.andWhere('job.rmUserId = :rmUserId', {
-        rmUserId: params.districtManagerUserId,
+      query.andWhere('job.amManagerUserId = :amManagerUserId', {
+        amManagerUserId: params.districtManagerUserId,
       });
     }
     if (params.branchManagerUserId !== undefined) {
@@ -309,12 +283,12 @@ export class AMJobsService {
           job.branchName LIKE :search OR
           statusInfo.statusName LIKE :search OR
           CONVERT(NVARCHAR, job.auditDate, 23) LIKE :search OR
-          job.amFirstName LIKE :search OR
-          job.amLastName LIKE :search OR
-          job.amUserCode LIKE :search OR
-          job.rmFirstName LIKE :search OR
-          job.rmLastName LIKE :search OR
-          job.rmUserCode LIKE :search OR
+          job.aaFirstName LIKE :search OR
+          job.aaLastName LIKE :search OR
+          job.aaUserCode LIKE :search OR
+          job.amManagerFirstName LIKE :search OR
+          job.amManagerLastName LIKE :search OR
+          job.amManagerUserCode LIKE :search OR
           job.branchManagerFirstName LIKE :search OR
           job.branchManagerLastName LIKE :search OR
           job.branchManagerUserCode LIKE :search
@@ -333,13 +307,13 @@ export class AMJobsService {
     const userId = user.user_id;
 
     if (roleId === 1) {
-      // เห็นทุก job
+      // Admin: เห็นทุก job
     } else if (roleId === 3) {
-      // AM: เห็นเฉพาะ job ที่ตัวเองเป็น amUser (คนตรวจ)
-      query.andWhere('job.amUserId = :userId', { userId });
+      // AA: เห็นเฉพาะ job ที่ตัวเองเป็น aaUser (คนตรวจ)
+      query.andWhere('job.aaUserId = :userId', { userId });
     } else if (roleId === 4) {
-      // RM: เห็นเฉพาะ job ที่ตัวเองเป็น rmUser (หัวหน้า)
-      query.andWhere('job.rmUserId = :userId', { userId });
+      // AM Manager: เห็นเฉพาะ job ที่ตัวเองเป็น amManager (หัวหน้า)
+      query.andWhere('job.amManagerUserId = :userId', { userId });
     } else if (roleId === 5) {
       // User: เห็นเฉพาะ job ที่ถูก tag
       query.andWhere((qb) => {
@@ -370,7 +344,7 @@ export class AMJobsService {
 
     const data = await query.getMany();
     const transformedData = await Promise.all(
-      data.map((job) => this.transformAMJobWithUsers(job)),
+      data.map((job) => this.transformAAJobWithUsers(job)),
     );
 
     const totalPages = Math.ceil(total / limit);
@@ -391,189 +365,179 @@ export class AMJobsService {
     };
   }
 
-  // Get by ID
   async findOne(id: number): Promise<AuditJobWithUsers> {
-    const amJob = await this.amJobsRepository.findOne({
+    const aaJob = await this.aaJobsRepository.findOne({
       where: { jobId: id },
       relations: [
         'statusInfo',
         'items',
         'items.categoryItem',
         'items.amComments',
-        'items.amCheckerComments',
+        'items.aaComments',
         'items.otherComments',
         'items.taggedUsers',
       ],
     });
 
-    if (!amJob) {
-      throw new NotFoundException(`AM Job with ID ${id} not found`);
+    if (!aaJob) {
+      throw new NotFoundException(`AA Job with ID ${id} not found`);
     }
 
-    return await this.transformAMJobWithUsers(amJob);
+    return await this.transformAAJobWithUsers(aaJob);
   }
 
-  // Get by jobNo
   async findByJobNo(jobNo: string): Promise<AuditJobWithUsers> {
-    const amJob = await this.amJobsRepository.findOne({
+    const aaJob = await this.aaJobsRepository.findOne({
       where: { jobNo },
       relations: [
         'statusInfo',
         'items',
         'items.categoryItem',
         'items.amComments',
-        'items.amCheckerComments',
+        'items.aaComments',
         'items.otherComments',
         'items.taggedUsers',
       ],
     });
 
-    if (!amJob) {
-      throw new NotFoundException(`AM Job with JobNo ${jobNo} not found`);
+    if (!aaJob) {
+      throw new NotFoundException(`AA Job with JobNo ${jobNo} not found`);
     }
 
-    return await this.transformAMJobWithUsers(amJob);
+    return await this.transformAAJobWithUsers(aaJob);
   }
 
-  // Update - snapshot ถ้าเปลี่ยน user
   async update(
     id: number,
     updateDto: UpdateAuditJobDto,
   ): Promise<AuditJobWithUsers> {
-    const amJob = await this.amJobsRepository.findOne({ where: { jobId: id } });
+    const aaJob = await this.aaJobsRepository.findOne({ where: { jobId: id } });
 
-    if (!amJob) {
-      throw new NotFoundException(`AM Job with ID ${id} not found`);
+    if (!aaJob) {
+      throw new NotFoundException(`AA Job with ID ${id} not found`);
     }
 
-    // DTO.auditorUserId → entity.amUserId
+    // DTO.auditorUserId → entity.aaUserId
     if (
       updateDto.auditorUserId !== undefined &&
-      updateDto.auditorUserId !== amJob.amUserId
+      updateDto.auditorUserId !== aaJob.aaUserId
     ) {
-      const amUser = await this.getUserData(updateDto.auditorUserId);
-      if (amUser) {
-        amJob.amUserId = updateDto.auditorUserId;
-        amJob.amUserCode = amUser.userCode || '';
-        amJob.amFirstName = amUser.firstName || '';
-        amJob.amLastName = amUser.lastName || '';
-        amJob.amBranchName = amUser.branchName || '';
+      const aaUser = await this.getUserData(updateDto.auditorUserId);
+      if (aaUser) {
+        aaJob.aaUserId = updateDto.auditorUserId;
+        aaJob.aaUserCode = aaUser.userCode || '';
+        aaJob.aaFirstName = aaUser.firstName || '';
+        aaJob.aaLastName = aaUser.lastName || '';
+        aaJob.aaBranchName = aaUser.branchName || '';
       }
     }
 
-    // DTO.districtManagerUserId → entity.rmUserId
+    // DTO.districtManagerUserId → entity.amManagerUserId
     if (
       updateDto.districtManagerUserId !== undefined &&
-      updateDto.districtManagerUserId !== amJob.rmUserId
+      updateDto.districtManagerUserId !== aaJob.amManagerUserId
     ) {
-      const rm = await this.getUserData(updateDto.districtManagerUserId);
-      if (rm) {
-        amJob.rmUserId = updateDto.districtManagerUserId;
-        amJob.rmUserCode = rm.userCode || '';
-        amJob.rmFirstName = rm.firstName || '';
-        amJob.rmLastName = rm.lastName || '';
-        amJob.rmBranchName = rm.branchName || '';
+      const amManager = await this.getUserData(updateDto.districtManagerUserId);
+      if (amManager) {
+        aaJob.amManagerUserId = updateDto.districtManagerUserId;
+        aaJob.amManagerUserCode = amManager.userCode || '';
+        aaJob.amManagerFirstName = amManager.firstName || '';
+        aaJob.amManagerLastName = amManager.lastName || '';
+        aaJob.amManagerBranchName = amManager.branchName || '';
       }
     }
 
     // Branch Manager
     if (
       updateDto.branchManagerUserId !== undefined &&
-      updateDto.branchManagerUserId !== amJob.branchManagerUserId
+      updateDto.branchManagerUserId !== aaJob.branchManagerUserId
     ) {
       const bm = await this.getUserData(updateDto.branchManagerUserId);
       if (bm) {
-        amJob.branchManagerUserId = updateDto.branchManagerUserId;
-        amJob.branchManagerUserCode = bm.userCode;
-        amJob.branchManagerFirstName = bm.firstName;
-        amJob.branchManagerLastName = bm.lastName;
+        aaJob.branchManagerUserId = updateDto.branchManagerUserId;
+        aaJob.branchManagerUserCode = bm.userCode;
+        aaJob.branchManagerFirstName = bm.firstName;
+        aaJob.branchManagerLastName = bm.lastName;
       }
     }
 
-    // อัพเดท fields อื่นๆ ที่ไม่ใช่ user (branchId, branchName, auditDate, etc.)
-    if (updateDto.branchId !== undefined) amJob.branchId = updateDto.branchId;
+    if (updateDto.branchId !== undefined) aaJob.branchId = updateDto.branchId;
     if (updateDto.branchName !== undefined)
-      amJob.branchName = updateDto.branchName;
+      aaJob.branchName = updateDto.branchName;
     if (updateDto.auditDate !== undefined)
-      amJob.auditDate = updateDto.auditDate;
-    if (updateDto.address !== undefined) amJob.address = updateDto.address;
-    if (updateDto.pmCode !== undefined) amJob.pmCode = updateDto.pmCode;
+      aaJob.auditDate = updateDto.auditDate;
+    if (updateDto.address !== undefined) aaJob.address = updateDto.address;
+    if (updateDto.pmCode !== undefined) aaJob.pmCode = updateDto.pmCode;
     if (updateDto.positionType !== undefined)
-      amJob.positionType = updateDto.positionType;
+      aaJob.positionType = updateDto.positionType;
     if (updateDto.additionalNotes !== undefined)
-      amJob.additionalNotes = updateDto.additionalNotes;
+      aaJob.additionalNotes = updateDto.additionalNotes;
     if (updateDto.updatedBy !== undefined)
-      amJob.updatedBy = updateDto.updatedBy;
+      aaJob.updatedBy = updateDto.updatedBy;
 
-    const savedJob = await this.amJobsRepository.save(amJob);
-    return await this.transformAMJobWithUsers(savedJob);
+    const savedJob = await this.aaJobsRepository.save(aaJob);
+    return await this.transformAAJobWithUsers(savedJob);
   }
 
-  // Soft delete
   async remove(
     id: number,
     deleteReason?: string,
     deletedBy?: number,
   ): Promise<void> {
-    const amJob = await this.amJobsRepository.findOne({ where: { jobId: id } });
-    if (!amJob) throw new NotFoundException(`AM Job with ID ${id} not found`);
+    const aaJob = await this.aaJobsRepository.findOne({ where: { jobId: id } });
+    if (!aaJob) throw new NotFoundException(`AA Job with ID ${id} not found`);
 
-    amJob.active = false;
+    aaJob.active = false;
     if (deleteReason) {
-      amJob.deleteReason = deleteReason;
-      amJob.deletedAt = new Date();
-      amJob.deletedBy = deletedBy;
+      aaJob.deleteReason = deleteReason;
+      aaJob.deletedAt = new Date();
+      aaJob.deletedBy = deletedBy;
     }
-    await this.amJobsRepository.save(amJob);
+    await this.aaJobsRepository.save(aaJob);
   }
 
-  // Confirm (lock)
   async confirm(id: number, confirmedBy: number): Promise<AuditJobWithUsers> {
-    const amJob = await this.amJobsRepository.findOne({ where: { jobId: id } });
-    if (!amJob) throw new NotFoundException(`AM Job with ID ${id} not found`);
+    const aaJob = await this.aaJobsRepository.findOne({ where: { jobId: id } });
+    if (!aaJob) throw new NotFoundException(`AA Job with ID ${id} not found`);
 
-    amJob.status = 2;
-    amJob.updatedBy = confirmedBy;
+    aaJob.status = 2;
+    aaJob.updatedBy = confirmedBy;
 
-    const savedJob = await this.amJobsRepository.save(amJob);
-    return await this.transformAMJobWithUsers(savedJob);
+    const savedJob = await this.aaJobsRepository.save(aaJob);
+    return await this.transformAAJobWithUsers(savedJob);
   }
 
-  // Hard delete
   async delete(id: number): Promise<void> {
-    const result = await this.amJobsRepository.delete(id);
+    const result = await this.aaJobsRepository.delete(id);
     if (result.affected === 0)
-      throw new NotFoundException(`AM Job with ID ${id} not found`);
+      throw new NotFoundException(`AA Job with ID ${id} not found`);
   }
 
-  // Get by status
-  async findByStatus(status: number): Promise<AMJobHeader[]> {
-    return await this.amJobsRepository.find({
+  async findByStatus(status: number): Promise<AAJobHeader[]> {
+    return await this.aaJobsRepository.find({
       where: { status, active: true },
     });
   }
 
-  // Get by AM User (คนตรวจ)
-  async findByAMUser(amUserId: number): Promise<AMJobHeader[]> {
-    return await this.amJobsRepository.find({
-      where: { amUserId, active: true },
+  async findByAAUser(aaUserId: number): Promise<AAJobHeader[]> {
+    return await this.aaJobsRepository.find({
+      where: { aaUserId, active: true },
       relations: ['items'],
     });
   }
 
-  // Check email sent
   async checkAndMarkJobCreatedEmail(
     jobId: number,
     userby: number,
   ): Promise<{ alreadySent: boolean; sentAt: Date | null }> {
-    const job = await this.amJobsRepository.findOne({ where: { jobId } });
+    const job = await this.aaJobsRepository.findOne({ where: { jobId } });
     if (!job) throw new NotFoundException(`Job id ${jobId} not found`);
 
     if (job.jobCreatedEmailSentAt !== null) {
       return { alreadySent: true, sentAt: job.jobCreatedEmailSentAt };
     }
 
-    await this.amJobsRepository.update(jobId, {
+    await this.aaJobsRepository.update(jobId, {
       jobCreatedEmailSentAt: new Date(),
       jobCreatedEmailSentBy: userby,
     });

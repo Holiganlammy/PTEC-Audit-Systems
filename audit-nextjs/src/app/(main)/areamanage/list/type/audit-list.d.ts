@@ -134,6 +134,7 @@ interface AuditItemData {
     active: boolean;
     categoryItem?: AuditCategoryItem;
     amCheckerComments: amCheckerComments[];
+    aaComments?: aaComments[];
     otherComments: otherComments[];
     headerChecklistStatus?: number;
     headerChecklistDetail?: string;
@@ -163,6 +164,23 @@ interface DetailUser {
 
 interface amComments {
     amDetailId: number;
+    itemId: number;
+    approverBy: number | null;
+    approverStatus: number;
+    approverDate: string | null;
+    note: string;
+    createdBy: number;
+    createdAt: string;
+    updateBy: number | null;
+    updatedAt: string;
+    active: boolean;
+    userId: number;
+    OwnerCommentUser?: DetailUser;
+    approverByUser?: DetailUser;
+}
+
+interface aaComments {
+    aaDetailId: number;
     itemId: number;
     approverBy: number | null;
     approverStatus: number;

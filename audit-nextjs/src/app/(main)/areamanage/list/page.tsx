@@ -1,4 +1,4 @@
-// Version: 4.0.0 | Date: 2025-05-20 | Updated: Added filters - date range, district manager, branch manager, search
+// Version: 5.0.0 | Date: 2026-06-10 | Updated: Added AM/AA tabs with separate API sources
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -128,8 +128,11 @@ interface ApiResponse {
   user: { role_id: number; is_admin: boolean };
 }
 
+type FormTab = "AM" | "AA";
+
 export default function AuditJobsListPage() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<FormTab>("AM");
   const [jobs, setJobs] = useState<AuditList[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -172,17 +175,21 @@ export default function AuditJobsListPage() {
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [bulkDeleteNote, setBulkDeleteNote] = useState("");
 
-  const canDelete = session.data?.user?.role_id === 1 || session.data?.user?.role_id === 2;
+  const roleId = session.data?.user?.role_id;
+  const canDelete = roleId === 1 || roleId === 2;
+  // role 1,3,4: unrestricted | role 5: branchManager-only | role 6: own-branch-only
+  const isRestrictedRole = roleId === 5 || roleId === 6;
   const selectedJobIds = Object.keys(selectedRows).filter((key) => selectedRows[key]).map((key) => parseInt(key));
   const selectedCount = selectedJobIds.length;
 
   // ── URL Params Sync ──────────────────────────────────────────────────────
-  const [isReadyToFetch, setIsReadyToFetch] = useState(false); // gate: รอให้อ่าน URL params ก่อนค่อย fetch
+  const [isReadyToFetch, setIsReadyToFetch] = useState(false);
   const isFirstMount = useRef(true);
 
   // อ่านค่า filter จาก URL เมื่อ mount ครั้งแรก
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
     const search = params.get("search");
     const status = params.get("status");
     const page = params.get("page");
@@ -191,6 +198,7 @@ export default function AuditJobsListPage() {
     const dt = params.get("dateTo");
     const dm = params.get("dm");
     const bm = params.get("bm");
+    if (tab === "AA" || tab === "AM") setActiveTab(tab);
     if (search) setSearchQuery(search);
     if (status) setStatusFilter(status);
     if (page) setCurrentPage(parseInt(page, 10) || 1);
@@ -199,8 +207,8 @@ export default function AuditJobsListPage() {
     if (dt) setDateTo(new Date(dt));
     if (dm) setDistrictManagerFilter(dm);
     if (bm) setBranchManagerFilter(bm);
-    setIsReadyToFetch(true); // อนุญาตให้ fetchJobs ทำงานได้หลังอ่าน URL params แล้ว
-  }, []); 
+    setIsReadyToFetch(true);
+  }, []);
 
   // เขียนค่า filter ลง URL เมื่อ state เปลี่ยน (ข้าม render แรก)
   useEffect(() => {
@@ -209,6 +217,7 @@ export default function AuditJobsListPage() {
       return;
     }
     const params = new URLSearchParams();
+    if (activeTab !== "AM") params.set("tab", activeTab);
     if (searchQuery) params.set("search", searchQuery);
     if (statusFilter !== "all") params.set("status", statusFilter);
     if (currentPage > 1) params.set("page", String(currentPage));
@@ -219,7 +228,7 @@ export default function AuditJobsListPage() {
     if (branchManagerFilter !== "all") params.set("bm", branchManagerFilter);
     const qs = params.toString();
     window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
-  }, [searchQuery, statusFilter, currentPage, itemsPerPage, dateFrom, dateTo, districtManagerFilter, branchManagerFilter]);
+  }, [activeTab, searchQuery, statusFilter, currentPage, itemsPerPage, dateFrom, dateTo, districtManagerFilter, branchManagerFilter]);
 
   // ── Computed: Filter users by role ──────────────────────────────────────
   const districtManagers = users.filter((u) =>
@@ -264,7 +273,7 @@ export default function AuditJobsListPage() {
 
   // ── Fetch Jobs ──────────────────────────────────────────────────────────
   const fetchJobs = useCallback(async () => {
-    if (!isReadyToFetch) return; // รอให้อ่าน URL params ก่อน
+    if (!isReadyToFetch) return;
     try {
       setIsLoading(true);
       const params: FetchJobsParams = {
@@ -273,14 +282,22 @@ export default function AuditJobsListPage() {
       };
 
       if (statusFilter !== "all") params.status = statusFilter;
-      if (branchFilter !== "all") params.branchId = branchFilter;
-      if (districtManagerFilter !== "all") params.districtManagerUserId = districtManagerFilter;
-      if (branchManagerFilter !== "all") params.branchManagerUserId = branchManagerFilter;
       if (dateFrom) params.dateFrom = format(dateFrom, "yyyy-MM-dd");
       if (dateTo) params.dateTo = format(dateTo, "yyyy-MM-dd");
       if (searchQuery.trim()) params.search = searchQuery.trim();
 
-      const response = await client.get<ApiResponse>("/am-jobs/list", {
+      // Restricted roles (5, 6): permission filter is handled by the backend from JWT
+      // Unrestricted roles: also apply manual UI filters
+      if (!isRestrictedRole || activeTab !== "AM") {
+        if (branchFilter !== "all") params.branchId = branchFilter;
+        if (districtManagerFilter !== "all") params.districtManagerUserId = districtManagerFilter;
+        if (branchManagerFilter !== "all") params.branchManagerUserId = branchManagerFilter;
+      }
+
+      // เลือก endpoint ตาม tab
+      const endpoint = activeTab === "AA" ? "/aa-jobs/list" : "/am-jobs/list";
+
+      const response = await client.get<ApiResponse>(endpoint, {
         headers: dataConfig().headers,
         params,
       });
@@ -299,23 +316,37 @@ export default function AuditJobsListPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, statusFilter, branchFilter, districtManagerFilter, branchManagerFilter, dateFrom, dateTo, searchQuery, itemsPerPage, isReadyToFetch]);
+  }, [activeTab, currentPage, statusFilter, branchFilter, districtManagerFilter, branchManagerFilter, dateFrom, dateTo, searchQuery, itemsPerPage, isReadyToFetch, isRestrictedRole]);
 
   useEffect(() => {
     fetchJobs();
   }, [fetchJobs]);
 
+  // ── Tab Switch: reset pagination & selection ────────────────────────────
+  const handleTabChange = (tab: FormTab) => {
+    setActiveTab(tab);
+    setCurrentPage(1);
+    setSelectedRows({});
+    setPagination(null);
+  };
+
   // ── Handlers ────────────────────────────────────────────────────────────
+
+  const deleteEndpoint = activeTab === "AA" ? "/aa-jobs" : "/am-jobs";
 
   const handleDelete = async () => {
     if (!deleteJobId) return;
     setIsDeleting(true);
     try {
-      await client.delete(`/am-jobs/${deleteJobId}`, { headers: dataConfig().headers, data: { delete_reason: deleteNote, deleted_by: session.data?.user.UserID } });
-      toast.success("ลบ AM & AA Jobs สำเร็จ"); fetchJobs();
+      await client.delete(`${deleteEndpoint}/${deleteJobId}`, {
+        headers: dataConfig().headers,
+        data: { delete_reason: deleteNote, deleted_by: session.data?.user.UserID },
+      });
+      toast.success("ลบสำเร็จ");
+      fetchJobs();
     } catch (error: unknown) {
       const errorMessage = error instanceof Error && "response" in error ? (error as { response?: { data?: { message?: string } } }).response?.data?.message : undefined;
-      toast.error("ไม่สามารถลบ AM & AA Jobs ได้", { description: errorMessage || "กรุณาลองใหม่อีกครั้ง" });
+      toast.error("ไม่สามารถลบได้", { description: errorMessage || "กรุณาลองใหม่อีกครั้ง" });
     } finally { setIsDeleting(false); setDeleteJobId(null); setDeleteNote(""); }
   };
 
@@ -325,17 +356,26 @@ export default function AuditJobsListPage() {
     if (selectedJobIds.length === 0 || !bulkDeleteNote.trim()) return;
     setIsBulkDeleting(true);
     try {
-      await Promise.all(selectedJobIds.map((jobId) => client.delete(`/am-jobs/${jobId}`, { headers: dataConfig().headers, data: { delete_reason: bulkDeleteNote, deleted_by: session.data?.user.UserID } })));
-      toast.success(`ลบ AM & AA Jobs สำเร็จ ${selectedJobIds.length} รายการ`); setSelectedRows({}); fetchJobs();
+      await Promise.all(
+        selectedJobIds.map((jobId) =>
+          client.delete(`${deleteEndpoint}/${jobId}`, {
+            headers: dataConfig().headers,
+            data: { delete_reason: bulkDeleteNote, deleted_by: session.data?.user.UserID },
+          })
+        )
+      );
+      toast.success(`ลบสำเร็จ ${selectedJobIds.length} รายการ`);
+      setSelectedRows({});
+      fetchJobs();
     } catch (error: unknown) {
       const errorMessage = error instanceof Error && "response" in error ? (error as { response?: { data?: { message?: string } } }).response?.data?.message : undefined;
-      toast.error("ไม่สามารถลบ AM & AA Jobs บางรายการได้", { description: errorMessage || "กรุณาลองใหม่อีกครั้ง" });
+      toast.error("ไม่สามารถลบบางรายการได้", { description: errorMessage || "กรุณาลองใหม่อีกครั้ง" });
     } finally { setIsBulkDeleting(false); setShowBulkDeleteDialog(false); setBulkDeleteNote(""); }
   };
 
   const handleDeleteDraft = () => { clearDraft(); setHasDraft(false); setDraftInfo(null); setShowDeleteDraftDialog(false); toast.success("ลบ Draft สำเร็จ"); };
 
-  // ── Stable DataTable callbacks (useCallback prevents new references on every render) ─
+  // ── Stable DataTable callbacks ──────────────────────────────────────────
   const handlePageChange = useCallback((newPage: number) => { setCurrentPage(newPage + 1); }, []);
   const handlePageSizeChange = useCallback((newSize: number) => { setItemsPerPage(newSize); setCurrentPage(1); }, []);
   const handleSearchChange = useCallback((value: string) => { setSearchQuery(value); setCurrentPage(1); }, []);
@@ -393,11 +433,48 @@ export default function AuditJobsListPage() {
                   </Button>
                 )}
                 {canDelete && (
-                  <Button onClick={() => router.push("/areamanage/create")} size="sm" className="sm:size-auto sm:h-10">
+                  <Button onClick={() => router.push(`/areamanage/create?formType=${activeTab}`)} size="sm" className="sm:size-auto sm:h-10">
                     <Plus className="mr-1.5 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
                     <span>Create New Job</span>
                   </Button>
                 )}
+              </div>
+            </div>
+
+            {/* ── AM / AA Tabs ───────────────────────────────────────────── */}
+            <div className="border-b border-border mb-4">
+              <div className="flex">
+                {(["AM", "AA"] as FormTab[]).map((tab) => {
+                  const isActive = activeTab === tab;
+                  const dotColor = tab === "AM" ? "bg-blue-500" : "bg-violet-500";
+                  const label = tab === "AM" ? "Area Manager" : "Area Assistant";
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => handleTabChange(tab)}
+                      className={cn(
+                        "relative flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors focus-visible:outline-none",
+                        isActive
+                          ? "text-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <span className={cn("size-2 rounded-full transition-colors", isActive ? dotColor : "bg-muted-foreground/30")} />
+                      <span>{label}</span>
+                      <span className={cn("text-xs font-normal transition-colors", isActive ? "text-muted-foreground" : "text-muted-foreground/50")}>
+                        ({tab})
+                      </span>
+                      {isActive && pagination && (
+                        <Badge variant="secondary" className="h-5 px-1.5 text-xs leading-none">
+                          {pagination.total}
+                        </Badge>
+                      )}
+                      {isActive && (
+                        <span className={cn("absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full", tab === "AM" ? "bg-blue-500" : "bg-violet-500")} />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -414,7 +491,6 @@ export default function AuditJobsListPage() {
                     <SelectItem value="2">ดำเนินการเสร็จสิ้น</SelectItem>
                   </SelectContent>
                 </Select>
-
 
                 {/* Advanced Filters Toggle */}
                 <Button
@@ -527,9 +603,12 @@ export default function AuditJobsListPage() {
                     </Popover>
                   </div>
 
-                  {/* District Manager */}
+                  {/* District Manager — hidden for restricted roles on AM tab */}
+                  {!(activeTab === "AM" && isRestrictedRole) && (
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">ผู้จัดการเขต</Label>
+                    <Label className="text-xs text-muted-foreground">
+                      {activeTab === "AA" ? "ผู้จัดการเขต (AM)" : "ผู้จัดการเขต"}
+                    </Label>
                     <Select value={districtManagerFilter} onValueChange={(v) => { setDistrictManagerFilter(v); setCurrentPage(1); }}>
                       <SelectTrigger className="w-full sm:w-[200px]"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -540,8 +619,10 @@ export default function AuditJobsListPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  )}
 
-                  {/* Branch Manager */}
+                  {/* Branch Manager — hidden for restricted roles on AM tab */}
+                  {!(activeTab === "AM" && isRestrictedRole) && (
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">ผู้จัดการสาขา</Label>
                     <Popover open={openBranchManager} onOpenChange={setOpenBranchManager}>
@@ -604,6 +685,7 @@ export default function AuditJobsListPage() {
                       </PopoverContent>
                     </Popover>
                   </div>
+                  )}
                 </div>
               )}
             </div>
@@ -621,6 +703,7 @@ export default function AuditJobsListPage() {
                     <CardTitle className="text-base flex flex-wrap items-center gap-2 sm:text-lg">
                       Draft - กำลังสร้างงานตรวจสอบ
                       <Badge variant="outline" className="text-orange-600 border-orange-600">Draft</Badge>
+                      <Badge variant="secondary">{draftFormType}</Badge>
                     </CardTitle>
                     <CardDescription>บันทึกเมื่อ: {format(new Date(draftInfo.timestamp), "dd/MM/yyyy HH:mm", { locale: th })}</CardDescription>
                   </div>
@@ -644,15 +727,13 @@ export default function AuditJobsListPage() {
 
         {/* DataTable */}
         {pagination === null && isLoading ? (
-          /* First load — ยังไม่มีข้อมูลเลย แสดง full-page spinner */
           <div className="flex items-center justify-center py-16">
             <div className="text-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-4" /><p className="text-sm text-muted-foreground">Loading jobs...</p></div>
           </div>
         ) : (
-          /* หลัง load ครั้งแรก — DataTable ค้างไว้เสมอ ใช้ skeleton/overlay ใน DataTable แทน */
           <>
             <DataTable
-              columns={createAuditListColumns(setDeleteJobId)}
+              columns={createAuditListColumns(setDeleteJobId, activeTab)}
               data={jobs}
               searchKey="jobNo"
               searchPlaceholder="ค้นหา Job No, สาขา..."
@@ -673,7 +754,9 @@ export default function AuditJobsListPage() {
                 {hasActiveFilters ? (
                   <Button variant="outline" onClick={clearFilters} size="sm">Clear Filters</Button>
                 ) : (
-                  <Button variant="outline" onClick={() => router.push("/areamanage/create")} size="sm"><Plus className="mr-2 h-4 w-4" />Create First Job</Button>
+                  <Button variant="outline" onClick={() => router.push(`/areamanage/create?formType=${activeTab}`)} size="sm">
+                    <Plus className="mr-2 h-4 w-4" />Create First Job
+                  </Button>
                 )}
               </div>
             )}
@@ -681,10 +764,7 @@ export default function AuditJobsListPage() {
         )}
 
         {/* Delete Draft Confirmation */}
-        <AlertDialog
-          open={showDeleteDraftDialog}
-          onOpenChange={setShowDeleteDraftDialog}
-        >
+        <AlertDialog open={showDeleteDraftDialog} onOpenChange={setShowDeleteDraftDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>ยืนยันการลบ Draft</AlertDialogTitle>
@@ -696,10 +776,7 @@ export default function AuditJobsListPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDeleteDraft}
-                className="bg-destructive hover:bg-destructive/90"
-              >
+              <AlertDialogAction onClick={handleDeleteDraft} className="bg-destructive hover:bg-destructive/90">
                 ลบ Draft
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -709,57 +786,21 @@ export default function AuditJobsListPage() {
         {/* Bulk Delete Confirmation Dialog */}
         <Dialog
           open={showBulkDeleteDialog}
-          onOpenChange={(open) => {
-            if (!open) {
-              setShowBulkDeleteDialog(false);
-              setBulkDeleteNote("");
-            }
-          }}
+          onOpenChange={(open) => { if (!open) { setShowBulkDeleteDialog(false); setBulkDeleteNote(""); } }}
         >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>ยืนยันการลบ {selectedCount} รายการ</DialogTitle>
-              <DialogDescription>
-                การลบนี้ไม่สามารถย้อนกลับได้ กรุณาระบุหมายเหตุก่อนดำเนินการ
-              </DialogDescription>
+              <DialogDescription>การลบนี้ไม่สามารถย้อนกลับได้ กรุณาระบุหมายเหตุก่อนดำเนินการ</DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-2 py-2">
-              <Label htmlFor="bulk-delete-note">
-                หมายเหตุ <span className="text-red-500">*</span>
-              </Label>
-              <Textarea
-                id="bulk-delete-note"
-                placeholder="กรอกหมายเหตุการลบ..."
-                value={bulkDeleteNote}
-                onChange={(e) => setBulkDeleteNote(e.target.value)}
-                rows={3}
-                disabled={isBulkDeleting}
-              />
+              <Label htmlFor="bulk-delete-note">หมายเหตุ <span className="text-red-500">*</span></Label>
+              <Textarea id="bulk-delete-note" placeholder="กรอกหมายเหตุการลบ..." value={bulkDeleteNote} onChange={(e) => setBulkDeleteNote(e.target.value)} rows={3} disabled={isBulkDeleting} />
             </div>
             <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowBulkDeleteDialog(false);
-                  setBulkDeleteNote("");
-                }}
-                disabled={isBulkDeleting}
-              >
-                ยกเลิก
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleBulkDelete}
-                disabled={isBulkDeleting || !bulkDeleteNote.trim()}
-              >
-                {isBulkDeleting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    กำลังลบ...
-                  </>
-                ) : (
-                  `ยืนยันลบ ${selectedCount} รายการ`
-                )}
+              <Button variant="outline" onClick={() => { setShowBulkDeleteDialog(false); setBulkDeleteNote(""); }} disabled={isBulkDeleting}>ยกเลิก</Button>
+              <Button variant="destructive" onClick={handleBulkDelete} disabled={isBulkDeleting || !bulkDeleteNote.trim()}>
+                {isBulkDeleting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />กำลังลบ...</> : `ยืนยันลบ ${selectedCount} รายการ`}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -768,57 +809,21 @@ export default function AuditJobsListPage() {
         {/* Delete Confirmation Dialog */}
         <Dialog
           open={deleteJobId !== null}
-          onOpenChange={(open) => {
-            if (!open) {
-              setDeleteJobId(null);
-              setDeleteNote("");
-            }
-          }}
+          onOpenChange={(open) => { if (!open) { setDeleteJobId(null); setDeleteNote(""); } }}
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>ยืนยันการลบ AM & AA Jobs</DialogTitle>
-              <DialogDescription>
-                การลบนี้ไม่สามารถย้อนกลับได้ กรุณาระบุหมายเหตุก่อนดำเนินการ
-              </DialogDescription>
+              <DialogTitle>ยืนยันการลบ {activeTab} Job</DialogTitle>
+              <DialogDescription>การลบนี้ไม่สามารถย้อนกลับได้ กรุณาระบุหมายเหตุก่อนดำเนินการ</DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-2 py-2">
-              <Label htmlFor="delete-note">
-                หมายเหตุ <span className="text-red-500">*</span>
-              </Label>
-              <Textarea
-                id="delete-note"
-                placeholder="กรอกหมายเหตุการลบ..."
-                value={deleteNote}
-                onChange={(e) => setDeleteNote(e.target.value)}
-                rows={3}
-                disabled={isDeleting}
-              />
+              <Label htmlFor="delete-note">หมายเหตุ <span className="text-red-500">*</span></Label>
+              <Textarea id="delete-note" placeholder="กรอกหมายเหตุการลบ..." value={deleteNote} onChange={(e) => setDeleteNote(e.target.value)} rows={3} disabled={isDeleting} />
             </div>
             <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setDeleteJobId(null);
-                  setDeleteNote("");
-                }}
-                disabled={isDeleting}
-              >
-                ยกเลิก
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDelete}
-                disabled={isDeleting || !deleteNote.trim()}
-              >
-                {isDeleting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    กำลังลบ...
-                  </>
-                ) : (
-                  "ยืนยันการลบ AM & AA Jobs"
-                )}
+              <Button variant="outline" onClick={() => { setDeleteJobId(null); setDeleteNote(""); }} disabled={isDeleting}>ยกเลิก</Button>
+              <Button variant="destructive" onClick={handleDelete} disabled={isDeleting || !deleteNote.trim()}>
+                {isDeleting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />กำลังลบ...</> : "ยืนยันการลบ"}
               </Button>
             </DialogFooter>
           </DialogContent>

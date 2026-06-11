@@ -164,6 +164,8 @@ export default function AddItemModal({
     try {
       setIsSubmitting(true);
 
+      const isAA = (positionType ?? jobData?.positionType) === "AA";
+
       for (const categoryItemId of values.categoryItemIds) {
         const payload = {
           jobId: jobId,
@@ -172,18 +174,22 @@ export default function AddItemModal({
           itemStatus: parseInt(values.itemStatus),
           remarks: null,
           createdBy: session?.user?.UserID,
+          ...(isAA ? { jobSource: "AA" } : {}),
         };
 
         const response = await client.post("/am-items", payload, {
           headers: dataConfig().headers,
         });
 
-        // Post remarks as first audit comment if provided
+        // Post remarks as first comment if provided
         const newItemId = response.data?.data?.itemId ?? response.data?.itemId;
         if (values.remarks?.trim() && newItemId) {
           const approverStatus = values.auditCommentStatus === "0" ? 0 : null;
+          const commentEndpoint = isAA
+            ? `/am-items/${newItemId}/aa-comments`
+            : `/am-items/${newItemId}/audit-comments`;
           await client.post(
-            `/am-items/${newItemId}/audit-comments`,
+            commentEndpoint,
             {
               itemId: newItemId,
               note: values.remarks.trim(),

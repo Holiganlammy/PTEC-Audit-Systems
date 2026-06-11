@@ -247,6 +247,8 @@ export default function AddItemsPage() {
   const handleFinishDraft = async () => {
     if (!draftHeader) return;
 
+    const isAA = formTypeParam === "AA";
+
     try {
       setIsSubmitting(true);
 
@@ -279,8 +281,9 @@ export default function AddItemsPage() {
         createdBy: session?.user?.UserID,
       };
 
-      // 3. สร้าง Job
-      const result = await client.post("/am-jobs/create", headerPayload, {
+      // 3. สร้าง Job (AM หรือ AA ตาม formTypeParam)
+      const jobCreateEndpoint = isAA ? "/aa-jobs/create" : "/am-jobs/create";
+      const result = await client.post(jobCreateEndpoint, headerPayload, {
         headers: dataConfig().headers,
       });
 
@@ -299,6 +302,7 @@ export default function AddItemsPage() {
           inspectionDate: item.inspection_date,
           itemStatus: item.item_status,
           remarks: item.remarks,
+          jobSource: isAA ? "AA" : undefined,
           createdBy: session?.user?.UserID,
         }));
 
@@ -343,16 +347,16 @@ export default function AddItemsPage() {
         });
         formData.append("uploadedBy", String(session?.user?.UserID ?? ""));
 
-        await client.post(
-          `/am-jobs/${createdJobId}/header-attachments`,
-          formData,
-          {
-            headers: {
-              ...dataConfig().headers,
-              "Content-Type": "multipart/form-data",
-            },
-          }
-        );
+        const fileUploadEndpoint = isAA
+          ? `/aa-jobs/${createdJobId}/header-attachments`
+          : `/am-jobs/${createdJobId}/header-attachments`;
+
+        await client.post(fileUploadEndpoint, formData, {
+          headers: {
+            ...dataConfig().headers,
+            "Content-Type": "multipart/form-data",
+          },
+        });
       }
 
       // 6. Clear Draft

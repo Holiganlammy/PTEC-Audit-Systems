@@ -41,6 +41,15 @@ export class BranchAmScores {
   @Column({ name: 'active', type: 'bit', default: 1 })
   active!: boolean;
 
+  @Column({
+    name: 'source',
+    type: 'nvarchar',
+    length: 10,
+    nullable: true,
+    default: 'AM',
+  })
+  source?: string;
+
   // Relations
   @ManyToOne(() => AMItem, (item) => item.branchAmScores)
   @JoinColumn({ name: 'item_id' })

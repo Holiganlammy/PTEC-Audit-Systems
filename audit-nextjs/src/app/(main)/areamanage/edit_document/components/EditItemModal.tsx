@@ -75,6 +75,12 @@ export default function EditItemModal({
 
   const { data: session } = useSession();
 
+  const hasPendingApprovals = [
+    ...(item?.note_1 ?? []),
+    ...(item?.note_2 ?? []),
+    ...(item?.note_3 ?? []),
+  ].some((c) => c.approverStatus === 0);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -121,6 +127,12 @@ export default function EditItemModal({
 
   const onSubmit = async (values: FormValues) => {
     if (!item) return;
+    if (values.itemStatusEdit === "4" && hasPendingApprovals) {
+      toast.error("ไม่สามารถปิดเคสได้", {
+        description: "ยังมีความเห็นที่รออนุมัติ — กรุณาอนุมัติให้ครบก่อน",
+      });
+      return;
+    }
     try {
       setIsSubmitting(true);
       const payload = {
@@ -296,7 +308,7 @@ export default function EditItemModal({
             )}
           />
 
-          {/* Status */}
+          {/* Status Edit */}
           <Controller
             name="itemStatusEdit"
             control={form.control}
@@ -311,12 +323,21 @@ export default function EditItemModal({
                   </SelectTrigger>
                   <SelectContent>
                     {statusEditOptions.map((s) => (
-                      <SelectItem key={s.value} value={s.value}>
+                      <SelectItem
+                        key={s.value}
+                        value={s.value}
+                        disabled={s.value === "4" && hasPendingApprovals}
+                      >
                         {s.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {hasPendingApprovals && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    ยังมีความเห็นที่รออนุมัติ — ต้องอนุมัติให้ครบก่อนจึงจะสามารถปิดเคสได้
+                  </p>
+                )}
                 {fieldState.error && (
                   <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
                 )}

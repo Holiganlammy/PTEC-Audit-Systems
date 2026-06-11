@@ -8,6 +8,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   ParseIntPipe,
   HttpStatus,
   Res,
@@ -72,11 +73,20 @@ export class BranchAmScoresController {
     }
   }
 
-  // GET /branch-audit-scores/list (get all scores)
+  // GET /branch-am-scores/list?jobId=1&branchId=2&source=AA
   @Get('/list')
-  async findAll(@Res() res: express.Response) {
+  async findAll(
+    @Query('jobId') jobId: string | undefined,
+    @Query('branchId') branchId: string | undefined,
+    @Query('source') source: string | undefined,
+    @Res() res: express.Response,
+  ) {
     try {
-      const scores = await this.scoreService.findAll();
+      const scores = await this.scoreService.findAll({
+        jobId: jobId ? parseInt(jobId) : undefined,
+        branchId: branchId ? parseInt(branchId) : undefined,
+        source: source ?? undefined,
+      });
       return res.status(HttpStatus.OK).json({
         success: true,
         data: scores,

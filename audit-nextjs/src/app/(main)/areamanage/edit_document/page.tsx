@@ -105,11 +105,13 @@ function FilePreviewModal({
   onOpenChange,
   file,
   jobId,
+  formType,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   file: { fileId: number; fileName: string } | null;
   jobId: number;
+  formType: "AM" | "AA";
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -125,8 +127,11 @@ function FilePreviewModal({
       setError(false);
       setBlobUrl(null);
       try {
+        const previewEndpoint = formType === "AA"
+          ? `/aa-jobs/${jobId}/header-attachments/${file.fileId}/download`
+          : `/am-jobs/${jobId}/header-attachments/${file.fileId}/download`;
         const response = await client.get(
-          `/am-jobs/${jobId}/header-attachments/${file.fileId}/download`,
+          previewEndpoint,
           { headers: dataConfig().headers, responseType: "blob" }
         );
         const ext = file.fileName.split('.').pop()?.toLowerCase();
@@ -224,6 +229,7 @@ export default function EditAuditJobPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const jobNo = searchParams.get("jobNo") ?? "";
+  const formTypeParam = (searchParams.get("formType") === "AA" ? "AA" : "AM") as "AM" | "AA";
   // Query-param format: ?highlightItemId=334&threadType=1 (sent via mention email)
   const highlightItemId = searchParams.get("highlightItemId") ? parseInt(searchParams.get("highlightItemId")!) : undefined;
   const highlightThreadType = searchParams.get("threadType") ? parseInt(searchParams.get("threadType")!) : undefined;
@@ -265,7 +271,7 @@ export default function EditAuditJobPage() {
   const [openDistrictManager, setOpenDistrictManager] = useState(false);
   const [openPMCode, setOpenPMCode] = useState(false);
   const [pmSearch, setPmSearch] = useState("");
-  const [roleFormTab, setRoleFormTab] = useState<"AM" | "AA">("AM");
+  const [roleFormTab, setRoleFormTab] = useState<"AM" | "AA">(formTypeParam);
 
   // Data from API
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -308,7 +314,8 @@ export default function EditAuditJobPage() {
     try {
       setIsLoadingData(true);
  
-      const response = await client.get('/am-jobs/detail', {
+      const jobDetailEndpoint = formTypeParam === "AA" ? "/aa-jobs/detail" : "/am-jobs/detail";
+      const response = await client.get(jobDetailEndpoint, {
         params: { jobNo: jobNo },
         headers: dataConfig().headers,
       });
@@ -351,8 +358,11 @@ export default function EditAuditJobPage() {
         address: jobData.address || "",
       });
  
+      const filesEndpoint = formTypeParam === "AA"
+        ? `/aa-jobs/${jobData.jobId}/header-attachments`
+        : `/am-jobs/${jobData.jobId}/header-attachments`;
       const filesResponse = await client.get(
-        `/am-jobs/${jobData.jobId}/header-attachments`,
+        filesEndpoint,
         { headers: dataConfig().headers }
       );
  
@@ -410,8 +420,11 @@ export default function EditAuditJobPage() {
     if (!jobData?.jobId) return;
  
     try {
+      const downloadEndpoint = roleFormTab === "AA"
+        ? `/aa-jobs/${jobData.jobId}/header-attachments/${fileId}/download`
+        : `/am-jobs/${jobData.jobId}/header-attachments/${fileId}/download`;
       const response = await client.get(
-        `/audit-jobs/${jobData.jobId}/header-attachments/${fileId}/download`,
+        downloadEndpoint,
         {
           headers: dataConfig().headers,
           responseType: 'blob',
@@ -438,9 +451,12 @@ export default function EditAuditJobPage() {
     if (!jobData?.jobId) return;
  
     try {
+      const deleteFileEndpoint = roleFormTab === "AA"
+        ? `/aa-jobs/${jobData.jobId}/header-attachments/${fileId}`
+        : `/am-jobs/${jobData.jobId}/header-attachments/${fileId}`;
       await client.delete(
-        `/am-jobs/${jobData.jobId}/header-attachments/${fileId}`,
-        { 
+        deleteFileEndpoint,
+        {
           headers: dataConfig().headers,
           data: { deletedBy: session?.user?.UserID || 0 },
         },
@@ -511,8 +527,9 @@ export default function EditAuditJobPage() {
         
         const response = await client.get(`/am-items/job/${jobData.jobId}`, {
           headers: dataConfig().headers,
+          params: roleFormTab === "AA" ? { jobSource: "AA" } : undefined,
         });
- 
+
         if (response.data.success) {
           // Transform data to match frontend structure
           const items = response.data.data.map((item: AuditItemData) => ({
@@ -526,22 +543,39 @@ export default function EditAuditJobPage() {
             remarks: item.remarks || "",
             
             // Comments from different sources (transformed to Comment shape)
-            note_1: (item.amCheckerComments || []).map((c: amCheckerComment) => ({
-              id: c.amCheckerDetailId,
-              itemId: c.itemId,
-              userId: c.createdBy,
-              author: c.OwnerCommentUser?.fullname || "Unknown",
-              authorPosition: c.OwnerCommentUser?.position,
-              text: c.note,
-              approverStatus: c.approverStatus ?? null,
-              approverBy: c.approverBy ?? undefined,
-              approverName: c.approverByUser?.fullname,
-              approverUsername: c.approverByUser?.userCode,
-              approverPosition: c.approverByUser?.position,
-              approverDate: c.approverDate ?? undefined,
-              createdAt: c.createdAt,
-              updatedAt: c.updatedAt,
-            })),
+            note_1: roleFormTab === "AA"
+              ? (item.aaComments || []).map((c: aaComments) => ({
+                  id: c.aaDetailId,
+                  itemId: c.itemId,
+                  userId: c.createdBy,
+                  author: c.OwnerCommentUser?.fullname || "Unknown",
+                  authorPosition: c.OwnerCommentUser?.position,
+                  text: c.note,
+                  approverStatus: c.approverStatus ?? null,
+                  approverBy: c.approverBy ?? undefined,
+                  approverName: c.approverByUser?.fullname,
+                  approverUsername: c.approverByUser?.userCode,
+                  approverPosition: c.approverByUser?.position,
+                  approverDate: c.approverDate ?? undefined,
+                  createdAt: c.createdAt,
+                  updatedAt: c.updatedAt,
+                }))
+              : (item.amCheckerComments || []).map((c: amCheckerComment) => ({
+                  id: c.amCheckerDetailId,
+                  itemId: c.itemId,
+                  userId: c.createdBy,
+                  author: c.OwnerCommentUser?.fullname || "Unknown",
+                  authorPosition: c.OwnerCommentUser?.position,
+                  text: c.note,
+                  approverStatus: c.approverStatus ?? null,
+                  approverBy: c.approverBy ?? undefined,
+                  approverName: c.approverByUser?.fullname,
+                  approverUsername: c.approverByUser?.userCode,
+                  approverPosition: c.approverByUser?.position,
+                  approverDate: c.approverDate ?? undefined,
+                  createdAt: c.createdAt,
+                  updatedAt: c.updatedAt,
+                })),
             note_2: (item.amComments || []).map((c: amComments) => ({
               id: c.amDetailId,
               itemId: c.itemId,
@@ -604,8 +638,9 @@ export default function EditAuditJobPage() {
     try {
       const response = await client.get(`/am-items/job/${jobData.jobId}`, {
         headers: dataConfig().headers,
+        params: roleFormTab === "AA" ? { jobSource: "AA" } : undefined,
       });
- 
+
       if (response.data.success) {
         const items = response.data.data.map((item: AuditItemData) => ({
           item_id: item.itemId,
@@ -616,22 +651,39 @@ export default function EditAuditJobPage() {
           item_status: item.itemStatus,
           item_status_edit: item.itemStatusEdit,
           remarks: item.remarks || "",
-          note_1: (item.amCheckerComments || []).map((c: amCheckerComment) => ({
-            id: c.amCheckerDetailId,
-            itemId: c.itemId,
-            userId: c.createdBy,
-            author: c.OwnerCommentUser?.fullname || "Unknown",
-            authorPosition: c.OwnerCommentUser?.position,
-            text: c.note,
-            approverStatus: c.approverStatus ?? null,
-            approverBy: c.approverBy ?? undefined,
-            approverName: c.approverByUser?.fullname,
-            approverUsername: c.approverByUser?.userCode,
-            approverPosition: c.approverByUser?.position,
-            approverDate: c.approverDate ?? undefined,
-            createdAt: c.createdAt,
-            updatedAt: c.updatedAt,
-          })),
+          note_1: roleFormTab === "AA"
+            ? (item.aaComments || []).map((c: aaComments) => ({
+                id: c.aaDetailId,
+                itemId: c.itemId,
+                userId: c.createdBy,
+                author: c.OwnerCommentUser?.fullname || "Unknown",
+                authorPosition: c.OwnerCommentUser?.position,
+                text: c.note,
+                approverStatus: c.approverStatus ?? null,
+                approverBy: c.approverBy ?? undefined,
+                approverName: c.approverByUser?.fullname,
+                approverUsername: c.approverByUser?.userCode,
+                approverPosition: c.approverByUser?.position,
+                approverDate: c.approverDate ?? undefined,
+                createdAt: c.createdAt,
+                updatedAt: c.updatedAt,
+              }))
+            : (item.amCheckerComments || []).map((c: amCheckerComment) => ({
+                id: c.amCheckerDetailId,
+                itemId: c.itemId,
+                userId: c.createdBy,
+                author: c.OwnerCommentUser?.fullname || "Unknown",
+                authorPosition: c.OwnerCommentUser?.position,
+                text: c.note,
+                approverStatus: c.approverStatus ?? null,
+                approverBy: c.approverBy ?? undefined,
+                approverName: c.approverByUser?.fullname,
+                approverUsername: c.approverByUser?.userCode,
+                approverPosition: c.approverByUser?.position,
+                approverDate: c.approverDate ?? undefined,
+                createdAt: c.createdAt,
+                updatedAt: c.updatedAt,
+              })),
           note_2: (item.amComments || []).map((c: amComments) => ({
             id: c.amDetailId,
             itemId: c.itemId,
@@ -870,7 +922,8 @@ export default function EditAuditJobPage() {
           updatedBy: session?.user?.UserID,
         };
 
-        await client.put(`/am-jobs/${jobData?.jobId}`, payload, {
+        const updateEndpoint = roleFormTab === "AA" ? `/aa-jobs/${jobData?.jobId}` : `/am-jobs/${jobData?.jobId}`;
+        await client.put(updateEndpoint, payload, {
           headers: dataConfig().headers,
         });
       }
@@ -882,8 +935,11 @@ export default function EditAuditJobPage() {
         });
         formData.append("uploadedBy", String(session?.user?.UserID ?? ""));
  
+        const fileUploadEndpoint = roleFormTab === "AA"
+          ? `/aa-jobs/${jobData?.jobId}/header-attachments`
+          : `/am-jobs/${jobData?.jobId}/header-attachments`;
         await client.post(
-          `/am-jobs/${jobData?.jobId}/header-attachments`,
+          fileUploadEndpoint,
           formData,
           {
             headers: {
@@ -984,7 +1040,10 @@ export default function EditAuditJobPage() {
     if (!jobData?.jobId) return;
     setIsConfirming(true);
     try {
-      await client.patch(`/am-jobs/${jobData.jobId}/confirm`, {
+      const confirmEndpoint = roleFormTab === "AA"
+        ? `/aa-jobs/${jobData.jobId}/confirm`
+        : `/am-jobs/${jobData.jobId}/confirm`;
+      await client.patch(confirmEndpoint, {
         confirmedBy: session?.user?.UserID || 0,
       }, { headers: dataConfig().headers });
 
@@ -1909,6 +1968,7 @@ export default function EditAuditJobPage() {
             isLoading={isLoadingItems}
             jobId={jobData?.jobId || 0}
             isLocked={jobData?.status === 2}
+            positionType={roleFormTab}
             onItemsChange={handleItemsChange}
             onCommentsChange={handleCommentsChange}
             onSelectionChange={setSelectedAuditItems}
@@ -1923,6 +1983,7 @@ export default function EditAuditJobPage() {
         onOpenChange={setShowPreview}
         file={previewFile}
         jobId={jobData?.jobId ?? 0}
+        formType={roleFormTab}
       />
     </div>
   );

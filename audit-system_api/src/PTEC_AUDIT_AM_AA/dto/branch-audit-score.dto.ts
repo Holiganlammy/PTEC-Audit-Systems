@@ -24,6 +24,10 @@ export class CreateBranchAuditScoreDto {
   @IsOptional()
   @IsString()
   remarks?: string;
+
+  @IsOptional()
+  @IsString()
+  source?: string;
 }
 
 export class UpdateBranchAuditScoreDto {
@@ -40,6 +44,10 @@ export class UpdateBranchAuditScoreDto {
   @IsInt()
   @Min(1)
   updatedBy?: number;
+
+  @IsOptional()
+  @IsString()
+  source?: string;
 }
 
 export class CreateScoreBatchDto {

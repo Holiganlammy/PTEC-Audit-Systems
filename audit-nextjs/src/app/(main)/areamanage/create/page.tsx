@@ -119,14 +119,9 @@ export default function CreateAMJobPage() {
           setJobHeaderFiles(savedFiles);
         }
       } else {
-        form.reset({
-          Branch: "", Firstname: "", Lastname: "", Date: new Date(),
-          PMCode: "", Address: "", Auditor: "", DistrictManager: "",
-          BranchManager: "", AdditionalNotes: "",
-        });
-        if (isActive) {
-          setJobHeaderFiles([]);
-        }
+        // เปลี่ยน tab แต่ไม่มี draft ของ tab ใหม่ → reset เฉพาะ field ที่ต่างกันระหว่าง tab
+        form.setValue("Auditor", "");
+        form.setValue("DistrictManager", "");
       }
     };
 

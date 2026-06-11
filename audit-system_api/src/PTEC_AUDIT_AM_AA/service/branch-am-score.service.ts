@@ -6,7 +6,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { FindOptionsWhere, Repository } from 'typeorm';
 import { BranchAmScores } from '../domain/model/branch_am_scores.entity';
 import {
   CreateBranchAuditScoreDto,
@@ -23,11 +23,12 @@ export class BranchAmScoresService {
 
   // ==================== CREATE ====================
   async create(createDto: CreateBranchAuditScoreDto): Promise<BranchAmScores> {
-    // Check if score already exists for this job + item
+    const source = (createDto.source as string) || 'AM';
     const existing = await this.scoreRepository.findOne({
       where: {
         jobId: createDto.jobId,
         itemId: createDto.itemId,
+        source,
         active: true,
       },
     });
@@ -40,6 +41,7 @@ export class BranchAmScoresService {
 
     const score = this.scoreRepository.create({
       ...createDto,
+      source,
       active: true,
     });
 
@@ -64,9 +66,17 @@ export class BranchAmScoresService {
   }
 
   // ==================== FIND ALL ====================
-  async findAll(): Promise<BranchAmScores[]> {
+  async findAll(filter?: {
+    jobId?: number;
+    branchId?: number;
+    source?: string;
+  }): Promise<BranchAmScores[]> {
+    const where: FindOptionsWhere<BranchAmScores> = { active: true };
+    if (filter?.jobId) where.jobId = filter.jobId;
+    if (filter?.branchId) where.branchId = filter.branchId;
+    if (filter?.source) where.source = filter.source;
     return await this.scoreRepository.find({
-      where: { active: true },
+      where,
       relations: ['item'],
       order: { createdAt: 'DESC' },
     });

@@ -1,10 +1,10 @@
-// Version: 1.0.0 | Date: 2025-06-05 | Updated: Initial creation - AA Comment entity
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { AMItem } from './am-item.entity';
 
 @Entity('AMItem_AA_Comment')
 export class AMItemAAComment {
   @PrimaryGeneratedColumn({ name: 'aa_detail_id' })
-  aaDetailI!: number;
+  aaDetailId!: number;
 
   @Column({ name: 'item_id', type: 'int' })
   itemId!: number;
@@ -57,4 +57,8 @@ export class AMItemAAComment {
 
   @Column({ name: 'deleted_reason', type: 'nvarchar', nullable: true })
   deletedReason!: string;
+
+  @ManyToOne(() => AMItem, (item) => item.aaComments)
+  @JoinColumn({ name: 'item_id' })
+  item!: AMItem;
 }
