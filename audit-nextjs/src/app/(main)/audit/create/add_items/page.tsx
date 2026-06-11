@@ -133,7 +133,7 @@ export default function AddItemsPage() {
       }
 
       setIsDraftMode(true);
-      setDraftHeader(draft.header);
+      setDraftHeader(draft.header as DraftHeader);
 
       // โหลด Items จาก Draft
       if (draft.items && draft.items.length > 0) {
