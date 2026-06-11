@@ -378,22 +378,23 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
               userId: u.UserID,
               userCode: u.UserCode,
               fullname: u.Fullname,
-              email: u.Email, // ← จำเป็น!
+              email: u.Email,
             })),
             commentText: text,
-            senderName: session?.user?.UserCode || 
-                        `${session?.user?.fristName ?? ""} ${session?.user?.lastName ?? ""}`.trim() || 
+            senderName: session?.user?.UserCode ||
+                        `${session?.user?.fristName ?? ""} ${session?.user?.lastName ?? ""}`.trim() ||
                         "Unknown",
             itemId,
             threadType,
-            jobNo: jobData?.jobNo || item?.job?.jobNo || '-',
-            branchName: jobData?.branchName || item?.job?.branchName || '-',
+            formType: positionType ?? "AM",
+            jobNo: jobData?.jobNo || item?.job?.jobNo || item?.aaJob?.jobNo || '-',
+            branchName: jobData?.branchName || item?.job?.branchName || item?.aaJob?.branchName || '-',
             categoryName: item?.categoryItem?.categoryName || '-',
             itemStatus: item?.itemStatus ?? 0,
             amChecklistStatus: item?.headerChecklistStatus ?? null,
             auditChecked: item?.note_1 && item.note_1.length > 0,
             auditDate: item?.inspectionDate || '-',
-            jobUrl: `${window.location.origin}/audit/edit_document?jobNo=${jobData?.jobNo || item?.job?.jobNo || ''}&highlightItemId=${itemId}&threadType=${threadType}`,
+            jobUrl: `${window.location.origin}/areamanage/edit_document?jobNo=${jobData?.jobNo || item?.job?.jobNo || item?.aaJob?.jobNo || ''}&formType=${positionType ?? "AM"}&highlightItemId=${itemId}&threadType=${threadType}`,
           },
           { headers: dataConfig().headers }
         );

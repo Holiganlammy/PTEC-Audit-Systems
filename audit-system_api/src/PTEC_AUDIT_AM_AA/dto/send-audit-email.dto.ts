@@ -53,6 +53,10 @@ export class SendAuditJobEmailDto {
   @IsOptional()
   @IsString()
   additionalNotes?: string;
+
+  @IsOptional()
+  @IsString()
+  formType?: string; // 'AM' | 'AA' | 'Audit'
 }
 
 export class MentionedUserDto {
@@ -84,7 +88,7 @@ export class SendMentionEmailDto {
   itemId!: number;
 
   @IsNumber()
-  threadType!: number; // 1=Audit, 2=AM, 3=Other
+  threadType!: number; // 1=Audit/AM-Checker/AA, 2=AM&RM/AM, 3=Other
 
   @IsOptional()
   @IsString()
@@ -112,6 +116,10 @@ export class SendMentionEmailDto {
   @IsOptional()
   @IsString()
   auditDate?: string;
+
+  @IsOptional()
+  @IsString()
+  formType?: string; // 'AM' | 'AA' | 'Audit'
 }
 export class SendAuditSummaryEmailDto {
   @IsNumber()
@@ -126,6 +134,10 @@ export class SendAuditSummaryEmailDto {
   @IsArray()
   @IsString({ each: true })
   branchEmails!: string[];
+
+  @IsOptional()
+  @IsString()
+  formType?: string; // 'AM' | 'AA' | 'Audit'
 
   @IsString()
   categoryName!: string;

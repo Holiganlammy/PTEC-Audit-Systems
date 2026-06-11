@@ -336,13 +336,12 @@ export class AMJobsService {
       // เห็นทุก job
     } else if (roleId === 3) {
       // AM: เห็น job ที่ตัวเองเป็น amUser หรือเป็นคนสร้าง job
-      query.andWhere(
-        '(job.amUserId = :userId OR job.createdBy = :userId)',
-        { userId },
-      );
+      query.andWhere('(job.amUserId = :userId OR job.createdBy = :userId)', {
+        userId,
+      });
     } else if (roleId === 4) {
       // RM: เห็นเฉพาะ job ที่ตัวเองเป็น rmUser (หัวหน้า)
-      query.andWhere('job.rmUserId = :userId', { userId });
+      // query.andWhere('job.rmUserId = :userId', { userId });
     } else if (roleId === 5) {
       // User: เห็นเฉพาะ job ที่ถูก tag
       query.andWhere((qb) => {

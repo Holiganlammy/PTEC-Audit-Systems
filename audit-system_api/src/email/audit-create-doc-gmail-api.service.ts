@@ -144,6 +144,7 @@ export class AuditCreateDocGmailApiService {
     branchManagerFullname?: string;
     jobUrl?: string;
     additionalNotes?: string;
+    formType?: string; // 'AM' | 'AA' | 'Audit'
   }) {
     const jobNo = params.jobNo?.trim() || '-';
     const branchName = params.branchName?.trim() || '-';
@@ -154,16 +155,27 @@ export class AuditCreateDocGmailApiService {
       params.districtManagerFullname?.trim() || '-';
     const branchManagerFullname = params.branchManagerFullname?.trim() || '-';
     const additionalNotes = params.additionalNotes?.trim() || '-';
+    const formType = params.formType?.toUpperCase() || 'Audit';
+
+    const formTypeLabel =
+      formType === 'AM'
+        ? 'Area Manager (AM)'
+        : formType === 'AA'
+          ? 'Area Assistant (AA)'
+          : 'Audit';
 
     // Build job URL
     const baseUrl = process.env.FRONTEND_URL || 'https://audit.purethai.co.th';
-    const jobUrl =
-      params.jobUrl || `${baseUrl}/audit/edit_document?jobNo=${jobNo}`;
+    const defaultJobUrl =
+      formType === 'AM' || formType === 'AA'
+        ? `${baseUrl}/areamanage/edit_document?jobNo=${jobNo}&formType=${formType}`
+        : `${baseUrl}/audit/edit_document?jobNo=${jobNo}`;
+    const jobUrl = params.jobUrl || defaultJobUrl;
 
     // Logo path
     const logoPath = path.resolve(process.cwd(), 'src/images/Header_Mail.png');
 
-    const subject = `เอกสารตรวจสอบถูกสร้างใหม่: ${jobNo}`;
+    const subject = `เอกสาร ${formTypeLabel} ถูกสร้างใหม่: ${jobNo}`;
 
     // รวม recipients ทั้งหมด
     const allRecipients = [
@@ -196,7 +208,7 @@ export class AuditCreateDocGmailApiService {
           <!-- Title Bar -->
           <tr>
             <td style="background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%); padding: 24px 32px; text-align: center;">
-              <h1 style="margin: 0; color: #000000; font-size: 22px; font-weight: bold;">แจ้งเตือนสร้างเอกสาร Audit</h1>
+              <h1 style="margin: 0; color: #000000; font-size: 22px; font-weight: bold;">แจ้งเตือนสร้างเอกสาร ${formTypeLabel}</h1>
               <p style="margin: 6px 0 0; color: #000000; font-size: 13px;">PTEC Audit System</p>
             </td>
           </tr>
@@ -204,7 +216,7 @@ export class AuditCreateDocGmailApiService {
           <!-- Content -->
           <tr>
             <td style="padding: 32px;">
-              
+
               <!-- Greeting -->
               <p style="margin: 0 0 24px; font-size: 16px; color: #1F2937;">
                 เรียน <strong>ผู้รับผิดชอบที่เกี่ยวข้อง</strong>
@@ -212,7 +224,7 @@ export class AuditCreateDocGmailApiService {
 
               <!-- Message -->
               <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #374151;">
-                มีเอกสาร Audit ที่ต้องการความร่วมมือจากท่าน<br/>
+                มีเอกสาร ${formTypeLabel} ที่ต้องการความร่วมมือจากท่าน<br/>
                 เอกสารนี้สร้างโดย <strong>${createdBy}</strong> กรุณาตรวจสอบและดำเนินการตามที่ได้รับมอบหมาย
               </p>
 

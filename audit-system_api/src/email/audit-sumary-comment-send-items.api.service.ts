@@ -25,6 +25,7 @@ interface CombinedSummaryEmailParams {
   auditDate: string;
   auditComments: CommentData[];
   otherComments: CommentData[];
+  formType?: string; // 'AM' | 'AA' | 'Audit'
 }
 
 interface GoogleCredentials {
@@ -96,6 +97,14 @@ export class AuditSummaryEmailService {
       auditComments,
       otherComments,
     } = params;
+
+    const formType = params.formType?.toUpperCase() || 'Audit';
+    const formTypeLabel =
+      formType === 'AM'
+        ? 'AM'
+        : formType === 'AA'
+          ? 'AA'
+          : 'Audit';
 
     // ถ้าไม่มี comment เลย ไม่ต้องส่ง
     if (auditComments.length === 0 && otherComments.length === 0) {
@@ -192,10 +201,10 @@ ${comment.text}
           <tr>
             <td style="background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%); padding: 30px; text-align: center;">
               <h1 style="margin: 0; color: #000000; font-size: 24px; font-weight: 600;">
-                สรุปผลการตรวจสอบ
+                สรุปผลการตรวจสอบ ${formTypeLabel}
               </h1>
               <p style="margin: 8px 0 0 0; color: #000000; font-size: 14px;">
-                Audit Summary Report
+                ${formTypeLabel} Summary Report
               </p>
             </td>
           </tr>
@@ -270,7 +279,7 @@ ${comment.text}
 </html>
     `;
 
-    const subject = `สรุปผลการตรวจสอบ - ${jobNo} | ${branchName}`;
+    const subject = `สรุปผลการตรวจสอบ ${formTypeLabel} - ${jobNo} | ${branchName}`;
 
     // Send to all recipients
     for (const email of recipientEmails) {

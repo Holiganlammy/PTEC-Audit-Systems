@@ -70,6 +70,7 @@ export class AuditEmailController {
       branchManagerFullname: body.branchManagerFullname,
       jobUrl: jobUrlWithFileAccess,
       additionalNotes: body.additionalNotes,
+      formType: body.formType,
     });
 
     return {
@@ -124,6 +125,7 @@ export class AuditEmailController {
             commentText: dto.commentText,
             itemId: dto.itemId,
             threadType: dto.threadType,
+            formType: dto.formType,
             ...emailParams,
           });
 
@@ -194,6 +196,7 @@ export class AuditEmailController {
         auditDate: dto.auditDate,
         auditComments,
         otherComments,
+        formType: dto.formType,
       });
 
       console.log(

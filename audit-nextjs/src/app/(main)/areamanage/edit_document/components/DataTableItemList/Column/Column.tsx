@@ -294,7 +294,7 @@ function ActionsCell({
 // SEND EMAIL CELL
 // ══════════════════════════════════════════════════════════════════════════════
 
-function SendEmailCell({ item, isLocked }: { item: AuditItem; isLocked?: boolean }) {
+function SendEmailCell({ item, isLocked, positionType }: { item: AuditItem; isLocked?: boolean; positionType?: string }) {
   const [isSending, setIsSending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { data: session } = useSession();
@@ -305,8 +305,11 @@ function SendEmailCell({ item, isLocked }: { item: AuditItem; isLocked?: boolean
   const handleSendSummary = async () => {
     try {
       setIsSending(true);
+      const isAA = positionType === "AA";
+
+      const thread1Endpoint = isAA ? "aa-comments" : "audit-comments";
       const auditResponse = await client.get(
-        `/am-items/${item.item_id}/audit-comments`,
+        `/am-items/${item.item_id}/${thread1Endpoint}`,
         { headers: dataConfig().headers }
       );
       const auditComments = auditResponse.data.data || [];
@@ -322,10 +325,8 @@ function SendEmailCell({ item, isLocked }: { item: AuditItem; isLocked?: boolean
         return;
       }
 
-      const jobResponse = await client.get(
-        `/audit-jobs/${item.job_id}`,
-        { headers: dataConfig().headers }
-      );
+      const jobEndpoint = isAA ? `/aa-jobs/${item.aa_job_id}` : `/am-jobs/${item.job_id}`;
+      const jobResponse = await client.get(jobEndpoint, { headers: dataConfig().headers });
       const job = jobResponse.data.data;
       const branchEmails = ['npc@rpcthai.com'];
 
@@ -344,6 +345,7 @@ function SendEmailCell({ item, isLocked }: { item: AuditItem; isLocked?: boolean
         amChecklistStatus: item.headerChecklistStatus ?? null,
         auditItemStatus: item.item_status_edit,
         auditDate: item.inspection_date || '-',
+        formType: positionType ?? "AM",
         auditComments: auditComments.map((c: auditCommentsComment) => ({
           author: c.OwnerCommentUser?.fullname || 'Unknown',
           authorUserCode: c.OwnerCommentUser?.userCode || '-',
@@ -358,7 +360,7 @@ function SendEmailCell({ item, isLocked }: { item: AuditItem; isLocked?: boolean
         })),
       };
 
-      await client.post('/audit-email/send-summary', payload, { headers: dataConfig().headers });
+      await client.post('/am-email/send-summary', payload, { headers: dataConfig().headers });
       toast.success(`ส่งเมลสำเร็จ`);
     } catch (error) {
       console.error('❌ Failed to send summary email:', error);
@@ -652,7 +654,7 @@ export const createAuditItemsColumns = (
       id: "send_email",
       header: () => <div className="text-center">ส่งเมลสรุป</div>,
       cell: ({ row }: { row: import("@tanstack/react-table").Row<AuditItem> }) => (
-        <SendEmailCell item={row.original} isLocked={effectiveLocked || row.original.item_status_edit === 4} />
+        <SendEmailCell item={row.original} isLocked={effectiveLocked || row.original.item_status_edit === 4} positionType={positionType} />
       ),
     } satisfies ColumnDef<AuditItem>] : []),
     {

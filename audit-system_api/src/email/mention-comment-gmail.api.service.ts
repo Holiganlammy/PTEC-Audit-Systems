@@ -186,6 +186,7 @@ export class MentionEmailService {
     amChecklistStatus: number | null;
     // auditChecked: boolean;
     auditDate: string;
+    formType?: string; // 'AM' | 'AA' | 'Audit'
   }) {
     const recipientName = params.recipientFullname?.trim() || 'ผู้รับ';
     const senderName = params.senderName?.trim() || 'ผู้ใช้งาน';
@@ -193,13 +194,27 @@ export class MentionEmailService {
     const jobNo = params.jobNo?.trim() || '-';
     const branchName = params.branchName?.trim() || '-';
     const categoryName = params.categoryName?.trim() || '-';
+    const formType = params.formType?.toUpperCase() || 'Audit';
 
-    const threadTypeText =
-      params.threadType === 1
-        ? 'หน่วยงานตรวจสอบ Audit'
-        : params.threadType === 2
-          ? 'หน่วยงาน AM'
-          : 'หน่วยงานอื่นๆ';
+    const threadTypeText = (() => {
+      if (params.threadType === 3) return 'หน่วยงานอื่นๆ';
+      if (params.threadType === 1) {
+        if (formType === 'AM') return 'หน่วยงานตรวจสอบ AM (Checker)';
+        if (formType === 'AA') return 'หน่วยงานตรวจสอบ AA';
+        return 'หน่วยงานตรวจสอบ Audit';
+      }
+      // threadType === 2
+      if (formType === 'AM') return 'หน่วยงาน AM & RM';
+      if (formType === 'AA') return 'หน่วยงาน AM';
+      return 'หน่วยงาน AM';
+    })();
+
+    const systemLabel =
+      formType === 'AM'
+        ? 'PTEC AM System'
+        : formType === 'AA'
+          ? 'PTEC AA System'
+          : 'PTEC Audit System';
 
     const amChecklistInfo = this.getAMChecklistText(params.amChecklistStatus);
 
@@ -248,7 +263,7 @@ export class MentionEmailService {
           <tr>
             <td style="background: linear-gradient(135deg, #3B82F6 0%, #60A5FA 100%); padding: 24px 32px; text-align: center;">
               <h1 style="margin: 0; color: #000000; font-size: 22px; font-weight: bold;">คุณถูกแท็ก (กล่าวถึง)</h1>
-              <p style="margin: 6px 0 0; color: #000000; font-size: 13px;">PTEC Audit System</p>
+              <p style="margin: 6px 0 0; color: #000000; font-size: 13px;">${systemLabel}</p>
             </td>
           </tr>
 

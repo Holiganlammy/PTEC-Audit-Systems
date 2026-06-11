@@ -506,7 +506,9 @@ export default function DataTableItemList({
   const rows = table.getRowModel().rows;
   const noPermission = !isLoading && (accessDenied || (orderedItems.length > 0 && visibleItems.length === 0));
 
-  const canShowAddButton = session?.user?.role_id === 1 || session?.user?.role_id === 2;
+  const canShowAddButton = positionType === "AA"
+    ? [1, 8].includes(session?.user?.role_id ?? -1)
+    : [1, 3].includes(session?.user?.role_id ?? -1);
 
   return (
     <div className="space-y-4">

@@ -666,7 +666,7 @@ export class AuditJobsController implements OnModuleInit {
     }
 
     return {
-      user_id: userId ?? auditRole.userId,
+      user_id: userId ?? (auditRole.userId as number),
       role_id: auditRole.roleId,
       username: userCode,
       is_admin: auditRole.roleId === 1,

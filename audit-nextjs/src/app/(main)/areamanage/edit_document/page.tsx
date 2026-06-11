@@ -479,9 +479,10 @@ export default function EditAuditJobPage() {
     // Permission logic for viewing files:
     useEffect(() => {
     const roleId = session?.user?.role_id;
- 
-    // Role 1, 2 → เห็นไฟล์เสมอ
-    if (roleId === 1 || roleId === 2) {
+
+    // AM: role 1,3,4 | AA: role 1,4,8 → เห็นไฟล์เสมอ
+    const allowedRoles = formTypeParam === "AA" ? [1, 4, 8] : [1, 3, 4];
+    if (allowedRoles.includes(roleId ?? -1)) {
       setCanViewFiles(true);
       return;
     }
@@ -514,7 +515,7 @@ export default function EditAuditJobPage() {
     };
  
     verifyAccess();
-  }, [session?.user?.role_id, fileAccessParam, jobNo]);
+  }, [session?.user?.role_id, fileAccessParam, jobNo, formTypeParam]);
 
    useEffect(() => {
     const fetchAuditItems = async () => {
@@ -1012,9 +1013,10 @@ export default function EditAuditJobPage() {
         auditorFullname: jobData.auditor?.fullname ?? "",
         districtManagerFullname: jobData.districtManager?.fullname ?? "",
         branchManagerFullname: jobData.branchManager?.fullname ?? "",
-        jobUrl: `${window.location.origin}/audit/edit_document?jobNo=${jobData.jobNo}`,
+        jobUrl: `${window.location.origin}/areamanage/edit_document?jobNo=${jobData.jobNo}&formType=${roleFormTab}`,
         userby: session?.user?.UserID || 0,
         additionalNotes: jobData.additionalNotes || "",
+        formType: roleFormTab,
       };
 
       const response = await client.post(
