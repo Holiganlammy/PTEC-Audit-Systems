@@ -19,8 +19,6 @@ export interface AuditDraftHeader {
   BranchManager?: string;
   AdditionalNotes?: string;
   Type: "visit" | "online";
-  PositionType: string;
-  RoleFormType: "AM" | "AA";
 }
 
 export interface AuditDraftItem {
