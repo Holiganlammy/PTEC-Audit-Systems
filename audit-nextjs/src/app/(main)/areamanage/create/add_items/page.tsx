@@ -572,7 +572,6 @@ export default function AddItemsPage() {
             jobId={isDraftMode ? 0 : jobIdParam}
             jobData={jobData ?? undefined}
             isLoading={isLoadingItems}
-            showAddButton
             isDraftMode={isDraftMode}
             inspectionDate={draftHeader?.Date}
             positionType={isDraftMode ? draftHeader?.RoleFormType : undefined}
