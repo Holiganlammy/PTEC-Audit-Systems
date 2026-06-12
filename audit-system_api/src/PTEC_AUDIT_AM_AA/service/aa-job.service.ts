@@ -308,6 +308,8 @@ export class AAJobsService {
 
     if (roleId === 1) {
       // Admin: เห็นทุก job
+    } else if (roleId === 2) {
+      // Admin: เห็นทุก job
     } else if (roleId === 3) {
       // AM: เห็น job ที่ตัวเองเป็น amManager หรือเป็นคนสร้าง
       query.andWhere(

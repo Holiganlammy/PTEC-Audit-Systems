@@ -56,11 +56,11 @@ export class AuditCategoryService {
       );
     }
 
-    // if (filters?.positionType) {
-    //   query.andWhere('cat.positionType = :positionType', {
-    //     positionType: filters.positionType,
-    //   });
-    // }
+    if (filters?.positionType) {
+      query.andWhere('cat.positionType = :positionType', {
+        positionType: filters.positionType,
+      });
+    }
 
     query.orderBy('cat.categoryCode', 'ASC').skip(skip).take(limit);
 

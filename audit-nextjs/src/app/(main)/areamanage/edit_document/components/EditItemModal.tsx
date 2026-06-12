@@ -112,7 +112,7 @@ export default function EditItemModal({
     const fetchCategories = async () => {
       try {
         setIsLoadingCategories(true);
-        const filtered = await amCategoriesApi.getForSelect(jobData?.positionType);
+        const filtered = await amCategoriesApi.getForSelect("visit");
         setCategories(filtered);
       } catch (error) {
         console.error("Error fetching categories:", error);

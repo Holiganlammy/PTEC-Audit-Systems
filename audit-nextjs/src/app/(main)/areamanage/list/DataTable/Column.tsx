@@ -31,7 +31,8 @@ function ActionsCell({
   const isLoadingSession = status === "loading";
 
   const auditList = row.original;
-  const canDelete = session?.user?.role_id === 1 || session?.user?.role_id === 2;
+  const allowedDeleteRoles = formType === "AA" ? [1, 8] : [1, 3];
+  const canDelete = allowedDeleteRoles.includes(Number(session?.user?.role_id ?? -1));
   const editHref = `/areamanage/edit_document?jobNo=${auditList.jobNo}&formType=${formType}`;
 
   return (

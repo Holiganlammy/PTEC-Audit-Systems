@@ -10,7 +10,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -113,9 +112,7 @@ export default function AddItemModal({
     const fetchCategories = async () => {
       try {
         setIsLoadingCategories(true);
-        // ใช้ positionType prop ก่อน (Draft mode), ถ้าไม่มีค่อยใช้ jobData?.positionType
-        const resolvedPositionType = positionType ?? jobData?.positionType;
-        const filtered = await amCategoriesApi.getForSelect(resolvedPositionType);
+        const filtered = await amCategoriesApi.getForSelect("visit");
         setCategories(filtered);
       } catch (error) {
         console.error("Error fetching categories:", error);
@@ -164,7 +161,7 @@ export default function AddItemModal({
     try {
       setIsSubmitting(true);
 
-      const isAA = (positionType ?? jobData?.positionType) === "AA";
+      const isAA = (positionType ?? jobData?.positionType) === "visit";
 
       for (const categoryItemId of values.categoryItemIds) {
         const payload = {
@@ -450,7 +447,7 @@ const statusOptions = [
           />
 
           {/* Remarks + Audit Comment Status */}
-          <Controller
+          {/* <Controller
             name="remarks"
             control={form.control}
             render={({ field }) => (
@@ -464,7 +461,7 @@ const statusOptions = [
                 />
               </Field>
             )}
-          />
+          /> */}
 
           {/* Audit Comment Approval Status - แสดงเฉพาะเมื่อเลือก ผิดปกติ */}
           {watchedItemStatus === "3" && <Controller

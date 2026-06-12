@@ -215,8 +215,8 @@ export class AMItemsService {
     const isAA = filters?.jobSource?.toUpperCase() === 'AA';
     const jobAlias = isAA ? 'item.aaJob' : 'item.job';
 
-    if (roleId === 1) {
-      // Admin: เห็นทุก item
+    if (roleId === 1 || roleId === 2) {
+      // Admin / Audit (read-only): เห็นทุก item
       query.where('item.jobId = :jobId', { jobId: filters?.jobId });
     } else if (isAA) {
       // AA job — แยก permission ตาม role

@@ -480,8 +480,8 @@ export default function EditAuditJobPage() {
     useEffect(() => {
     const roleId = Number(session?.user?.role_id ?? -1);
 
-    // AM: role 1,3,4 | AA: role 1,4,8 → เห็นไฟล์เสมอ
-    const allowedRoles = formTypeParam === "AA" ? [1, 4, 8] : [1, 3, 4];
+    // AM: role 1,2,3,4 | AA: role 1,4,8 → เห็นไฟล์เสมอ
+    const allowedRoles = formTypeParam === "AA" ? [1, 4, 8] : [1, 2, 3, 4];
     if (allowedRoles.includes(roleId)) {
       setCanViewFiles(true);
       return;

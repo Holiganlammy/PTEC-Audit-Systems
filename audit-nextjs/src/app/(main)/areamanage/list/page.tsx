@@ -175,8 +175,9 @@ export default function AuditJobsListPage() {
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [bulkDeleteNote, setBulkDeleteNote] = useState("");
 
-  const roleId = session.data?.user?.role_id;
-  const canDelete = roleId === 1 || roleId === 2;
+  const roleId = Number(session.data?.user?.role_id ?? -1);
+  const allowedActionRoles = activeTab === "AA" ? [1, 8] : [1, 3];
+  const canDelete = allowedActionRoles.includes(roleId);
   // role 1,3,4: unrestricted | role 5: branchManager-only | role 6: own-branch-only
   const isRestrictedRole = roleId === 5 || roleId === 6;
   const selectedJobIds = Object.keys(selectedRows).filter((key) => selectedRows[key]).map((key) => parseInt(key));
@@ -463,7 +464,7 @@ export default function AuditJobsListPage() {
                   const isActive = activeTab === tab;
                   const dotColor = tab === "AM" ? "bg-blue-500" : "bg-violet-500";
                   const label = tab === "AM" ? "Area Manager" : "Area Assistant";
-                  const tabAllowed = tab === "AM" ? [1, 3, 4] : [1, 4, 8];
+                  const tabAllowed = tab === "AM" ? [1 ,2 , 3, 4] : [1 ,2 , 4, 8];
                   const isDisabled = !tabAllowed.includes(roleId ?? -1);
                   return (
                     <button

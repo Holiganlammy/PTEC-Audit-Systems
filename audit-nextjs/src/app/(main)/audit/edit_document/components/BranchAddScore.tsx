@@ -228,7 +228,7 @@ export default function BranchAddScore({
               </FieldContent>
             </Field>
 
-            <Field>
+            {/* <Field>
               <FieldLabel>หมายเหตุ (ถ้ามี)</FieldLabel>
               <FieldContent>
                 <Controller
@@ -244,7 +244,7 @@ export default function BranchAddScore({
                   )}
                 />
               </FieldContent>
-            </Field>
+            </Field> */}
           </div>
 
           <DialogFooter className="gap-2">

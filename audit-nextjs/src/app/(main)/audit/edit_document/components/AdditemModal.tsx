@@ -10,7 +10,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -444,7 +443,7 @@ const statusOptions = [
           />
 
           {/* Remarks + Audit Comment Status */}
-          {isDraftMode === false &&
+          {/* {isDraftMode === false &&
             <Controller
               name="remarks"
               control={form.control}
@@ -460,7 +459,7 @@ const statusOptions = [
                 </Field>
               )}
             />
-          }
+          } */}
 
           {/* Audit Comment Approval Status - แสดงเฉพาะเมื่อเลือก ผิดปกติ */}
           {watchedItemStatus === "3" && <Controller

@@ -376,8 +376,8 @@ export default function DataTableItemList({
     const roleId = Number(session?.user?.role_id ?? -1);
     const userId = session?.user?.UserID;
     if (!userId) return { visibleItems: [], accessDenied: false };
-    // AM: roles 1,3,4 see all items; AA: roles 1,4,8 see all items
-    const fullAccessRoles = positionType === "AA" ? [1, 4, 8] : [1, 3, 4];
+    // AM: roles 1,2,3,4 see all items; AA: roles 1,4,8 see all items
+    const fullAccessRoles = positionType === "AA" ? [1, 4, 8] : [1, 2, 3, 4];
     if (fullAccessRoles.includes(roleId)) {
       return { visibleItems: orderedItems, accessDenied: false };
     }
@@ -442,7 +442,7 @@ export default function DataTableItemList({
   }, [orderedItems, onItemsChange, session]);
 
   const columns = useMemo(
-    () => createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, (positionType === "AA" ? [1, 4, 8] : [1, 3, 4]).includes(Number(session?.user?.role_id ?? -1)), isDraftMode, attachmentCountsMap, viewport, highlightItemId, highlightThreadType, (positionType === "AA" ? "AA" : "AM")),
+    () => createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, (positionType === "AA" ? [1, 4, 8] : [1, 2, 3, 4]).includes(Number(session?.user?.role_id ?? -1)), isDraftMode, attachmentCountsMap, viewport, highlightItemId, highlightThreadType, (positionType === "AA" ? "AA" : "AM")),
     [handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session, isDraftMode, attachmentCountsMap, viewport, highlightItemId, highlightThreadType, positionType]
   );
 
