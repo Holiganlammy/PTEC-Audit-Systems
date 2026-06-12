@@ -150,6 +150,12 @@ export class AuditCommentApprovalGmailApiService {
     const categoryName = params.categoryName?.trim() || '-';
     const itemId = params.itemId || 0;
     const formType = params.formType?.toUpperCase() || 'Audit';
+    const formTypeLabel =
+      formType === 'AM'
+        ? 'Area Manager (AM)'
+        : formType === 'AA'
+          ? 'Area Assistant (AA)'
+          : 'Audit';
 
     // Build comment URL
     const baseUrl = process.env.FRONTEND_URL || 'https://audit.purethai.co.th';
@@ -163,8 +169,8 @@ export class AuditCommentApprovalGmailApiService {
     const logoPath = path.resolve(process.cwd(), 'src/images/Header_Mail.png');
 
     const subject = params.AuditCommentMail
-      ? `รอตรวจสอบ Comment: ${jobNo}`
-      : `รออนุมัติ Comment: ${jobNo}`;
+      ? `รอตรวจสอบ Comment [${formTypeLabel}]: ${jobNo}`
+      : `รออนุมัติ Comment [${formTypeLabel}]: ${jobNo}`;
 
     const html = `
 <!DOCTYPE html>
@@ -190,7 +196,7 @@ export class AuditCommentApprovalGmailApiService {
           <tr>
             <td style="background: linear-gradient(135deg, #DC2626 0%, #EF4444 100%); padding: 24px 32px; text-align: center;">
               <h1 style="margin: 0; color: #000000; font-size: 22px; font-weight: bold;">${params.AuditCommentMail ? 'รอตรวจสอบ Comment' : 'รออนุมัติ Comment'}</h1>
-              <p style="margin: 6px 0 0; color: #000000; font-size: 13px;">PTEC Audit System</p>
+              <p style="margin: 6px 0 0; color: #000000; font-size: 13px;">${formTypeLabel} — PTEC Audit System</p>
             </td>
           </tr>
  

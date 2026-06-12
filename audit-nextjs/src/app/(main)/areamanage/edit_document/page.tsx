@@ -1286,14 +1286,16 @@ export default function EditAuditJobPage() {
         </div>
 
         <form onSubmit={form.handleSubmit(onSubmit, handleFormError)} className="space-y-6">
-          <fieldset disabled={isFormLocked || !canEdit} className="contents">
+          <fieldset disabled className="contents">
           {/* Main Card with all fields */}
           <Card>
             <CardContent className="pt-6">
               <FieldSet>
-                <FieldLegend className="text-sm sm:text-base">แก้ไข Audit Report</FieldLegend>
+                <FieldLegend className="text-sm sm:text-base">
+                  {formTypeParam === "AA" ? "ข้อมูล Area Assistant (AA) Report" : "ข้อมูล Area Manager (AM) Report"}
+                </FieldLegend>
                 <FieldDescription className="text-xs sm:text-sm">
-                  แก้ไขข้อมูลงานตรวจสอบตามต้องการ
+                  ข้อมูลงานตรวจสอบ (ไม่สามารถแก้ไขได้)
                 </FieldDescription>
 
                 <div className="space-y-6 mt-6">

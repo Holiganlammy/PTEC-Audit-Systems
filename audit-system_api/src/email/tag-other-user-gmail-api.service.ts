@@ -146,6 +146,12 @@ export class TagOtherUserGmailApiService {
     const AM_Name_user = params.AM_Name_user?.trim() || '-';
     const Branch_Name_User = params.Branch_Name_User?.trim() || '-';
     const formType = params.formType?.toUpperCase() || 'Audit';
+    const formTypeLabel =
+      formType === 'AM'
+        ? 'Area Manager (AM)'
+        : formType === 'AA'
+          ? 'Area Assistant (AA)'
+          : 'Audit';
 
     // Build audit item URL
     const baseUrl = process.env.FRONTEND_URL || 'https://audit.purethai.co.th';
@@ -160,7 +166,7 @@ export class TagOtherUserGmailApiService {
     // Logo path
     const logoPath = path.resolve(process.cwd(), 'src/images/Header_Mail.png');
 
-    const subject = `คุณถูกแท็กในรายการเอกสาร PTEC Audit JobNo #${params.jobNo}`;
+    const subject = `คุณถูกแท็กในรายการเอกสาร ${formTypeLabel} JobNo #${params.jobNo}`;
     const html = `
 <!DOCTYPE html>
 <html>
@@ -185,7 +191,7 @@ export class TagOtherUserGmailApiService {
           <tr>
             <td style="background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%); padding: 24px 32px; text-align: center;">
               <h1 style="margin: 0; color: #000000; font-size: 22px; font-weight: bold;">แจ้งเตือนการแท็ก</h1>
-              <p style="margin: 6px 0 0; color: #000000; font-size: 13px;">PTEC Audit System</p>
+              <p style="margin: 6px 0 0; color: #000000; font-size: 13px;">${formTypeLabel} — PTEC Audit System</p>
             </td>
           </tr>
 
@@ -214,7 +220,7 @@ export class TagOtherUserGmailApiService {
                         <td style="padding: 8px 0; font-size: 14px; color: #1F2937; font-weight: 600;">${itemName}</td>
                       </tr>
                       <tr>
-                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">เลขเอกสาร Audit:</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">เลขเอกสาร ${formTypeLabel}:</td>
                         <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${jobNo}</td>
                       </tr>
                       <tr>
@@ -248,7 +254,7 @@ export class TagOtherUserGmailApiService {
 
               <!-- Additional Info -->
               <p style="margin: 0; font-size: 14px; color: #6B7280; line-height: 1.5;">
-                หากมีข้อสงสัยหรือต้องการความช่วยเหลือ กรุณาติดต่อทีม Audit หรือผู้ที่แท็กคุณโดยตรง
+                หากมีข้อสงสัยหรือต้องการความช่วยเหลือ กรุณาติดต่อทีม ${formTypeLabel} หรือผู้ที่แท็กคุณโดยตรง
               </p>
 
             </td>

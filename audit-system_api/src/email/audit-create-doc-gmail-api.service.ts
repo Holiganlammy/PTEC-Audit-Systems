@@ -164,6 +164,21 @@ export class AuditCreateDocGmailApiService {
           ? 'Area Assistant (AA)'
           : 'Audit';
 
+    // Labels สำหรับ personnel rows ในตาราง — เปลี่ยนตาม formType
+    const auditorLabel =
+      formType === 'AM'
+        ? 'Area Manager (AM):'
+        : formType === 'AA'
+          ? 'Area Assistant (AA):'
+          : 'ผู้ตรวจสอบ (Auditor):';
+
+    const districtManagerLabel =
+      formType === 'AM'
+        ? 'Regional Manager (RM):'
+        : formType === 'AA'
+          ? 'Area Manager (AM):'
+          : 'ผู้จัดการเขต (AM):';
+
     // Build job URL
     const baseUrl = process.env.FRONTEND_URL || 'https://audit.purethai.co.th';
     const defaultJobUrl =
@@ -246,11 +261,11 @@ export class AuditCreateDocGmailApiService {
                         <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${auditDate}</td>
                       </tr>
                       <tr>
-                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">ผู้ตรวจสอบ (Auditor):</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">${auditorLabel}</td>
                         <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${auditorFullname}</td>
                       </tr>
                       <tr>
-                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">ผู้จัดการเขต (AM):</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">${districtManagerLabel}</td>
                         <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${districtManagerFullname}</td>
                       </tr>
                       <tr>

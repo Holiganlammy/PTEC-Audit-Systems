@@ -125,7 +125,7 @@ export class AuditSummaryEmailService {
         ? `
       <div style="margin-bottom: 24px;">
         <div style="font-size: 14px; font-weight: 600; color: #1E293B; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #3B82F6;">
-          ความคิดเห็นจาก Audit (${auditComments.length} รายการ)
+          ความคิดเห็นจาก ${formTypeLabel} (${auditComments.length} รายการ)
         </div>
         ${auditComments
           .map(
