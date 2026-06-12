@@ -478,11 +478,11 @@ export default function EditAuditJobPage() {
   }, [jobNo, fetchJobData, isLoadingUsers, users.length]);
     // Permission logic for viewing files:
     useEffect(() => {
-    const roleId = session?.user?.role_id;
+    const roleId = Number(session?.user?.role_id ?? -1);
 
     // AM: role 1,3,4 | AA: role 1,4,8 → เห็นไฟล์เสมอ
     const allowedRoles = formTypeParam === "AA" ? [1, 4, 8] : [1, 3, 4];
-    if (allowedRoles.includes(roleId ?? -1)) {
+    if (allowedRoles.includes(roleId)) {
       setCanViewFiles(true);
       return;
     }
@@ -859,8 +859,8 @@ export default function EditAuditJobPage() {
 
   const isFormLocked = jobData?.status === 2;
   const canEdit = roleFormTab === "AA"
-    ? [1, 4, 8].includes(session?.user?.role_id ?? 0)
-    : [1, 3, 4].includes(session?.user?.role_id ?? 0);
+    ? [1, 8].includes(Number(session?.user?.role_id ?? -1))
+    : [1, 3].includes(Number(session?.user?.role_id ?? -1));
 
   const canConfirm =
     !isLoadingItems &&
@@ -1149,7 +1149,6 @@ export default function EditAuditJobPage() {
                 selectedItems={selectedAuditItems}
                 disabled={isLoadingData || isLoadingItems}
               />
-              {canEdit && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1158,7 +1157,7 @@ export default function EditAuditJobPage() {
                         <AlertDialogTrigger asChild>
                           <Button
                             variant="outline"
-                            disabled={isLoadingData || isSendingEmail || !jobData || !!jobData?.jobCreatedEmailSentAt}
+                            disabled={!canEdit || isLoadingData || isSendingEmail || !jobData || !!jobData?.jobCreatedEmailSentAt}
                             className="gap-2 text-xs sm:text-sm"
                           >
                             {isSendingEmail ? (
@@ -1208,7 +1207,6 @@ export default function EditAuditJobPage() {
                   )}
                 </Tooltip>
               </TooltipProvider>
-              )}
               <Button variant="outline" className="text-xs sm:text-sm" onClick={() => router.back()}>
                 Back
               </Button>

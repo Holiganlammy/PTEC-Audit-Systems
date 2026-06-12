@@ -173,6 +173,7 @@ export const authOptions: AuthOptions = {
           user.Email = userData.email;
           user.img_profile = userData.img_profile;
           user.role_id = userData.role;
+          user.role_name = userData.role_name;
           user.branchid = userData.branchid;
           user.depid = userData.depid;
           user.access_token = microsoftToken || '';

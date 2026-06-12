@@ -89,6 +89,7 @@ export class AMItemAMCommentsController {
                   jobNo: job.jobNo,
                   categoryName: item.categoryItem?.categoryName || '-',
                   itemId: itemId,
+                  formType: 'AM',
                 },
               );
 

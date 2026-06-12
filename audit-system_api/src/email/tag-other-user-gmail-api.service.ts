@@ -136,6 +136,7 @@ export class TagOtherUserGmailApiService {
     auditItemUrl?: string;
     AM_Name_user?: string;
     Branch_Name_User?: string;
+    formType?: string; // 'AM' | 'AA' | 'Audit'
   }) {
     const safeName = params.taggedUserFullname?.trim() || 'ผู้ใช้งาน';
     const itemName = params.itemName?.trim() || 'รายการตรวจสอบ';
@@ -144,12 +145,17 @@ export class TagOtherUserGmailApiService {
     const taggedBy = params.taggedByFullname?.trim() || 'ผู้ใช้งานในระบบ';
     const AM_Name_user = params.AM_Name_user?.trim() || '-';
     const Branch_Name_User = params.Branch_Name_User?.trim() || '-';
+    const formType = params.formType?.toUpperCase() || 'Audit';
 
     // Build audit item URL
     const baseUrl = process.env.FRONTEND_URL || 'https://audit.purethai.co.th';
-    const itemUrl =
-      params.auditItemUrl ||
-      (jobNo !== '-' ? `${baseUrl}/audit/edit_document?jobNo=${jobNo}` : '#');
+    const defaultUrl =
+      jobNo !== '-'
+        ? formType === 'AM' || formType === 'AA'
+          ? `${baseUrl}/areamanage/edit_document?jobNo=${jobNo}&formType=${formType}`
+          : `${baseUrl}/audit/edit_document?jobNo=${jobNo}`
+        : '#';
+    const itemUrl = params.auditItemUrl || defaultUrl;
 
     // Logo path
     const logoPath = path.resolve(process.cwd(), 'src/images/Header_Mail.png');

@@ -230,11 +230,8 @@ export class AMItemsService {
             { userId },
           );
       } else if (roleId === 4) {
-        // RM: เห็น item ของ AA job ที่ตัวเองเป็น amManager
-        query
-          .innerJoin(jobAlias, 'job')
-          .where('item.jobId = :jobId', { jobId: filters?.jobId })
-          .andWhere('job.amManagerUserId = :userId', { userId });
+        // RM: เห็นทุก item ของ job นี้ (กรอง job ให้เข้าถึงที่หน้า list)
+        query.where('item.jobId = :jobId', { jobId: filters?.jobId });
       } else if (roleId === 8) {
         // AA: เห็น item ของ AA job ที่ตัวเองเป็น aaUser หรือเป็นคนสร้าง
         query
@@ -276,11 +273,8 @@ export class AMItemsService {
             userId,
           });
       } else if (roleId === 4) {
-        // RM: เห็น item ของ job ที่ตัวเองเป็น RM
-        query
-          .innerJoin(jobAlias, 'job')
-          .where('item.jobId = :jobId', { jobId: filters?.jobId })
-          .andWhere('job.rmUserId = :userId', { userId });
+        // RM: เห็นทุก item ของ job นี้ (กรอง job ให้เข้าถึงที่หน้า list)
+        query.where('item.jobId = :jobId', { jobId: filters?.jobId });
       } else if (roleId === 5) {
         query
           .where('item.jobId = :jobId', { jobId: filters?.jobId })

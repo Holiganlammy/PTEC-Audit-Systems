@@ -87,6 +87,7 @@ export class AMItemAACommentController {
                   jobNo: job.jobNo,
                   categoryName: item.categoryItem?.categoryName || '-',
                   itemId,
+                  formType: 'AA',
                 },
               );
               console.log(`✓ AA approval email sent to ${approverData.email}`);

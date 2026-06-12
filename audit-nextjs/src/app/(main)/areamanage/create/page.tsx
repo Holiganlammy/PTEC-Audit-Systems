@@ -81,6 +81,16 @@ export default function CreateAMJobPage() {
   const [pmSearch, setPmSearch] = useState("");
   const initialFormType = searchParams.get("formType") === "AA" ? "AA" : "AM";
   const [roleFormTab, setRoleFormTab] = useState<"AM" | "AA">(initialFormType);
+  const roleTabApplied = useRef(false);
+
+  // ตั้ง default tab ตาม role เมื่อ session พร้อม (ใช้เฉพาะเมื่อ URL ไม่ได้กำหนด formType)
+  useEffect(() => {
+    if (!session?.user?.role_id) return;
+    if (roleTabApplied.current) return;
+    if (searchParams.get("formType")) return;
+    roleTabApplied.current = true;
+    if (Number(session.user.role_id) === 8) setRoleFormTab("AA");
+  }, [session?.user?.role_id, searchParams]);
 
   const [branches, setBranches] = useState<Branch[]>([]);
   const [users, setUsers] = useState<User[]>([]);

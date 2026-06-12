@@ -118,7 +118,7 @@ export default function NoteCell({
     if (isLocked) return false;
     // Thread Type 1 (Audit/AA): role 1, 3, 4 (AM) / 1, 4, 8 (AA)
     if (threadType === 1) return allowedRoles.includes(roleId ?? -1);
-    // Thread Type 2 (AM & RM): role 1, 3, 4 (AM) / 1, 4, 8 (AA)
+    // Thread Type 2 (RM): role 1, 3, 4 (AM) / 1, 4, 8 (AA)
     if (threadType === 2) return allowedRoles.includes(roleId ?? -1);
     // Thread Type 3 (Other): role 1, 3, 4 (AM) / 1, 4, 8 (AA) หรือคนที่ถูก tag
     return allowedRoles.includes(roleId ?? -1) || taggedUsers.some(
@@ -309,8 +309,7 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
           }
         }
       }
-
-      // Update TagCell UI — ใช้ actuallyTagged (เฉพาะคนที่ tag จริง)
+      
       if (onTagChange && actuallyTagged.size > 0) {
         const newlyTagged = [...actuallyTagged]
           .map(uid => {

@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuthSession } from '../domain/model/auth-session.entity'; // ใช้ entity เดิม
 import { AppService } from './ptec_useright.service';
+import { AuditUserRolesService } from './audit-user-roles.service';
 import axios from 'axios';
 
 interface SessionData {
@@ -11,6 +12,7 @@ interface SessionData {
   userCode: string;
   username: string;
   role: number;
+  role_name: string;
   email: string;
   fristName: string;
   lastName: string;
@@ -27,6 +29,7 @@ export class MicrosoftSessionService {
     @InjectRepository(AuthSession, 'auth')
     private sessionRepo: Repository<AuthSession>,
     private appService: AppService,
+    private auditUserRolesService: AuditUserRolesService,
   ) {}
   async saveSession(data: {
     sessionId: string;
@@ -66,6 +69,11 @@ export class MicrosoftSessionService {
 
       const user = users[0];
 
+      // ดึง role จาก Audit_User_Roles แทน PTEC_Userright
+      const auditRole = await this.auditUserRolesService.getRoleByUserCode(user.UserCode);
+      const roleId = auditRole?.roleId ?? user.role_id;
+      const roleName = auditRole?.roleName ?? '';
+
       // กำหนดเวลาหมดอายุ (4 ชั่วโมง)
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 4);
@@ -74,7 +82,8 @@ export class MicrosoftSessionService {
         userId: user.UserID,
         userCode: user.UserCode,
         username: user.UserCode,
-        role: user.role_id,
+        role: roleId,
+        role_name: roleName,
         email: user.Email,
         fristName: user.fristName,
         lastName: user.lastName,
@@ -205,6 +214,10 @@ export class MicrosoftSessionService {
 
       const user = users[0];
 
+      // ดึง role จาก Audit_User_Roles แทน PTEC_Userright
+      const auditRole2 = await this.auditUserRolesService.getRoleByUserCode(user.UserCode);
+      const roleId2 = auditRole2?.roleId ?? user.role_id;
+
       // 3. บันทึก session ลง database
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 4); // 4 ชั่วโมง
@@ -213,7 +226,8 @@ export class MicrosoftSessionService {
         userId: user.UserID,
         userCode: user.UserCode,
         username: user.UserCode,
-        role: user.role_id,
+        role: roleId2,
+        role_name: auditRole2?.roleName ?? '',
         email: user.Email,
         fristName: user.fristName,
         lastName: user.lastName,

@@ -218,7 +218,6 @@ interface DataTableItemListProps {
   jobData?: AuditJobData;
   isLoading?: boolean;
   isLocked?: boolean;
-  showAddButton?: boolean;
   isDraftMode?: boolean;
   inspectionDate?: string;
   positionType?: string;
@@ -240,7 +239,6 @@ export default function DataTableItemList({
   jobData,
   isLoading = false,
   isLocked = false,
-  showAddButton = false,
   isDraftMode = false,
   inspectionDate,
   positionType,
@@ -368,28 +366,27 @@ export default function DataTableItemList({
 
   // AM: role 1, 4 can check; AA: role 1, 3, 4 can check
   const isAMChecklistAllowed = (() => {
-    const roleId = session?.user?.role_id;
-    if (positionType === "AA") return roleId === 1 || roleId === 3 || roleId === 4;
-    return roleId === 1 || roleId === 4;
+    const roleId = Number(session?.user?.role_id ?? -1);
+    if (positionType === "AA") return [1, 3, 4].includes(roleId);
+    return [1, 4].includes(roleId);
   })();
 
   const { visibleItems, accessDenied } = useMemo(() => {
     if (isDraftMode) return { visibleItems: orderedItems, accessDenied: false };
-    const roleId = session?.user?.role_id;
+    const roleId = Number(session?.user?.role_id ?? -1);
     const userId = session?.user?.UserID;
     if (!userId) return { visibleItems: [], accessDenied: false };
-    if (roleId === 1 || roleId === 4) return { visibleItems: orderedItems, accessDenied: false };
-    if (roleId === 3) {
-      const isAssignedAM = userId == jobData?.auditor?.userId;
-      const isCreator = userId == jobData?.createdByUser?.userId;
-      if (!isAssignedAM && !isCreator) return { visibleItems: [], accessDenied: true };
+    // AM: roles 1,3,4 see all items; AA: roles 1,4,8 see all items
+    const fullAccessRoles = positionType === "AA" ? [1, 4, 8] : [1, 3, 4];
+    if (fullAccessRoles.includes(roleId)) {
       return { visibleItems: orderedItems, accessDenied: false };
     }
+    // Others (tagged users / role 5 etc.): only see items they are tagged in
     return {
       visibleItems: orderedItems.filter((item) => (taggedUsersMap[item.item_id] ?? []).some((t) => t.userId == String(userId))),
       accessDenied: false,
     };
-  }, [isDraftMode, orderedItems, taggedUsersMap, session, jobData]);
+  }, [isDraftMode, orderedItems, taggedUsersMap, session, positionType]);
 
   const handleDelete = useCallback((item: AuditItem) => { setDeleteItem(item); }, []);
 
@@ -445,7 +442,7 @@ export default function DataTableItemList({
   }, [orderedItems, onItemsChange, session]);
 
   const columns = useMemo(
-    () => createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session?.user?.role_id === 1 || session?.user?.role_id === 2, isDraftMode, attachmentCountsMap, viewport, highlightItemId, highlightThreadType, (positionType === "AA" ? "AA" : "AM")),
+    () => createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, (positionType === "AA" ? [1, 4, 8] : [1, 3, 4]).includes(Number(session?.user?.role_id ?? -1)), isDraftMode, attachmentCountsMap, viewport, highlightItemId, highlightThreadType, (positionType === "AA" ? "AA" : "AM")),
     [handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session, isDraftMode, attachmentCountsMap, viewport, highlightItemId, highlightThreadType, positionType]
   );
 
@@ -507,8 +504,8 @@ export default function DataTableItemList({
   const noPermission = !isLoading && (accessDenied || (orderedItems.length > 0 && visibleItems.length === 0));
 
   const canShowAddButton = positionType === "AA"
-    ? [1, 8].includes(session?.user?.role_id ?? -1)
-    : [1, 3].includes(session?.user?.role_id ?? -1);
+    ? [1, 8].includes(Number(session?.user?.role_id ?? -1))
+    : [1, 3].includes(Number(session?.user?.role_id ?? -1));
 
   return (
     <div className="space-y-4">

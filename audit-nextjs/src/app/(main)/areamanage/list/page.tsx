@@ -185,6 +185,8 @@ export default function AuditJobsListPage() {
   // ── URL Params Sync ──────────────────────────────────────────────────────
   const [isReadyToFetch, setIsReadyToFetch] = useState(false);
   const isFirstMount = useRef(true);
+  const tabFromUrl = useRef(false);
+  const roleTabApplied = useRef(false);
 
   // อ่านค่า filter จาก URL เมื่อ mount ครั้งแรก
   useEffect(() => {
@@ -198,7 +200,10 @@ export default function AuditJobsListPage() {
     const dt = params.get("dateTo");
     const dm = params.get("dm");
     const bm = params.get("bm");
-    if (tab === "AA" || tab === "AM") setActiveTab(tab);
+    if (tab === "AA" || tab === "AM") {
+      setActiveTab(tab);
+      tabFromUrl.current = true;
+    }
     if (search) setSearchQuery(search);
     if (status) setStatusFilter(status);
     if (page) setCurrentPage(parseInt(page, 10) || 1);
@@ -209,6 +214,15 @@ export default function AuditJobsListPage() {
     if (bm) setBranchManagerFilter(bm);
     setIsReadyToFetch(true);
   }, []);
+
+  // ตั้ง default tab ตาม role เมื่อ session พร้อม (ใช้เฉพาะเมื่อไม่มี ?tab= ใน URL)
+  useEffect(() => {
+    if (session.status === "loading") return;
+    if (tabFromUrl.current || roleTabApplied.current) return;
+    roleTabApplied.current = true;
+    const roleId = Number(session.data?.user?.role_id ?? -1);
+    if (roleId === 8) setActiveTab("AA");
+  }, [session.status, session.data?.user?.role_id]);
 
   // เขียนค่า filter ลง URL เมื่อ state เปลี่ยน (ข้าม render แรก)
   useEffect(() => {

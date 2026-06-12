@@ -315,14 +315,12 @@ export class AAJobsService {
         { userId },
       );
     } else if (roleId === 4) {
-      // RM: เห็นเฉพาะ job ที่ตัวเองเป็น amManager
-      query.andWhere('job.amManagerUserId = :userId', { userId });
+      // DM : เห็นทุก job ของ AA
     } else if (roleId === 8) {
       // AA: เห็น job ที่ตัวเองเป็น aaUser หรือเป็นคนสร้าง
-      query.andWhere(
-        '(job.aaUserId = :userId OR job.createdBy = :userId)',
-        { userId },
-      );
+      query.andWhere('(job.aaUserId = :userId OR job.createdBy = :userId)', {
+        userId,
+      });
     } else if (roleId === 5) {
       // User: เห็นเฉพาะ job ที่ถูก tag
       query.andWhere((qb) => {

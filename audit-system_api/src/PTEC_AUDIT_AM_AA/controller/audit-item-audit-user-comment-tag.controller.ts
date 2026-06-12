@@ -33,17 +33,20 @@ export class AuditItemOtherUserCommentTagController {
   private async getItemData(itemId: number) {
     try {
       const item = await this.auditItemsService.findOne(itemId);
+      const isAA = item.jobSource === 'AA';
+      const jobData = isAA ? item.aaJob : item.job;
       return {
         itemName: item.categoryItem?.categoryName ?? undefined,
-        jobNo: item.job?.jobNo ?? undefined,
-        branchName: item.job?.branchName ?? undefined,
-        jobId: item.job?.jobId ?? undefined,
+        jobNo: jobData?.jobNo ?? undefined,
+        branchName: jobData?.branchName ?? undefined,
+        jobId: jobData?.jobId ?? undefined,
         AM_Name_user:
-          `${item.job?.branchManagerFirstName ?? ''} ${item.job?.branchManagerLastName ?? ''}`.trim() ||
+          `${jobData?.branchManagerFirstName ?? ''} ${jobData?.branchManagerLastName ?? ''}`.trim() ||
           undefined,
         Branch_Name_User:
-          `${item.job?.branchManagerFirstName ?? ''} ${item.job?.branchManagerLastName ?? ''}`.trim() ||
+          `${jobData?.branchManagerFirstName ?? ''} ${jobData?.branchManagerLastName ?? ''}`.trim() ||
           undefined,
+        jobSource: item.jobSource ?? undefined,
       };
     } catch (error) {
       console.error(`Error fetching item data for itemId ${itemId}:`, error);
@@ -218,6 +221,7 @@ export class AuditItemOtherUserCommentTagController {
             taggedByFullname: taggedByData?.fullname,
             AM_Name_user: itemData?.AM_Name_user,
             Branch_Name_User: itemData?.Branch_Name_User,
+            formType: itemData?.jobSource ?? 'AM',
           });
           emailSent = true;
         } catch (mailError) {

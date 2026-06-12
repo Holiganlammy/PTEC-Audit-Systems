@@ -90,6 +90,7 @@ export class AMItemOtherCommentController {
                   jobNo: job.jobNo,
                   categoryName: item.categoryItem?.categoryName || '-',
                   itemId: itemId,
+                  formType: item.jobSource ?? 'AM',
                 },
               );
 

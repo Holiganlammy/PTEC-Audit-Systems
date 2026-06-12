@@ -140,6 +140,7 @@ export class AuditCommentApprovalGmailApiService {
     itemId: number;
     commentUrl?: string;
     AuditCommentMail?: boolean;
+    formType?: string; // 'AM' | 'AA' | 'Audit'
   }) {
     const approverName = params.approverFullname?.trim() || 'ผู้อนุมัติ';
     const commenterName = params.commenterFullname?.trim() || 'ผู้ใช้งาน';
@@ -148,12 +149,15 @@ export class AuditCommentApprovalGmailApiService {
     const jobNo = params.jobNo?.trim() || '-';
     const categoryName = params.categoryName?.trim() || '-';
     const itemId = params.itemId || 0;
+    const formType = params.formType?.toUpperCase() || 'Audit';
 
     // Build comment URL
     const baseUrl = process.env.FRONTEND_URL || 'https://audit.purethai.co.th';
-    const commentUrl =
-      params.commentUrl ||
-      `${baseUrl}/audit/edit_document?jobNo=${jobNo}#item-${itemId}`;
+    const defaultUrl =
+      formType === 'AM' || formType === 'AA'
+        ? `${baseUrl}/areamanage/edit_document?jobNo=${jobNo}&formType=${formType}#item-${itemId}`
+        : `${baseUrl}/audit/edit_document?jobNo=${jobNo}#item-${itemId}`;
+    const commentUrl = params.commentUrl || defaultUrl;
 
     // Logo path
     const logoPath = path.resolve(process.cwd(), 'src/images/Header_Mail.png');

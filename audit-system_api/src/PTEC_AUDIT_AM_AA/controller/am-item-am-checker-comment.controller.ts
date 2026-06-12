@@ -90,6 +90,7 @@ export class AMItemAMCheckerCommentController {
                   categoryName: item.categoryItem?.categoryName || '-',
                   itemId: itemId,
                   AuditCommentMail: true,
+                  formType: 'AM',
                 },
               );
 

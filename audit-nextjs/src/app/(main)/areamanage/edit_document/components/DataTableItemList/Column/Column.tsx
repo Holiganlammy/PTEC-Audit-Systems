@@ -27,15 +27,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { format } from "date-fns";
-import { th } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import NoteCell from "../NoteCell/NoteCell";
 import TagCell, { TaggedUser } from "../TagCell/TagCell";
 export type { TaggedUser };
 import { useSession } from "next-auth/react";
-import { CheckCircle2, XCircle, Clock, AlertCircle, FileEdit, Calendar, CircleFadingPlus, Loader2, Mail } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, AlertCircle, FileEdit, CircleFadingPlus, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
@@ -89,7 +87,7 @@ function BranchScoreCell({
   const [open, setOpen] = useState(false);
   const { data: session } = useSession();
 
-  const canEditByRole = session?.user?.role_id === 1 || session?.user?.role_id === 2;
+  const canEditByRole = [1, 3].includes(Number(session?.user?.role_id ?? -1));
   const isDisabled = !!disabled || !canEditByRole;
 
   const scoreClassName =
@@ -239,9 +237,9 @@ function ActionsCell({
   positionType?: string;
 }) {
   const session = useSession();
-  const roleId = session.data?.user.role_id;
-  const allowedRoles = positionType === "AA" ? [1, 4, 8] : [1, 3, 4];
-  const canAction = allowedRoles.includes(roleId ?? -1);
+  const roleId = Number(session.data?.user.role_id ?? -1);
+  const allowedRoles = positionType === "AA" ? [1, 8] : [1, 3];
+  const canAction = allowedRoles.includes(roleId);
   return (
     <div className="text-right">
       <DropdownMenu>
@@ -253,8 +251,8 @@ function ActionsCell({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-          {!isDraftMode && canAction && (
-            <DropdownMenuItem onClick={() => onEdit(item)}>
+          {!isDraftMode && (
+            <DropdownMenuItem onClick={canAction ? () => onEdit(item) : undefined} disabled={!canAction}>
               <Pencil className="mr-2 h-4 w-4" />
               แก้ไข
             </DropdownMenuItem>
@@ -265,14 +263,15 @@ function ActionsCell({
               {isRowClosed ? "ดูไฟล์แนบ" : "เก็บไฟล์"}
             </DropdownMenuItem>
           )}
-          {!isRowClosed && (isDraftMode || canAction) && (
-          <DropdownMenuItem
-            onClick={() => onDelete(item)}
-            className="text-red-600 focus:text-red-600"
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            ลบ
-          </DropdownMenuItem>
+          {!isRowClosed && (
+            <DropdownMenuItem
+              onClick={canAction ? () => onDelete(item) : undefined}
+              disabled={!canAction}
+              className="text-red-600 focus:text-red-600"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              ลบ
+            </DropdownMenuItem>
           )}
           {/* {!isDraftMode && <DropdownMenuItem
             onClick={() =>
@@ -296,11 +295,12 @@ function ActionsCell({
 
 function SendEmailCell({ item, isLocked, positionType }: { item: AuditItem; isLocked?: boolean; positionType?: string }) {
   const [isSending, setIsSending] = useState(false);
+  const [hasSent, setHasSent] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { data: session } = useSession();
 
-  const canSendEmail = session?.user?.role_id === 1 || session?.user?.role_id === 2;
-  if (!canSendEmail) return null;
+  const allowedEmailRoles = positionType === "AA" ? [1, 8] : [1, 3];
+  const canSendEmail = allowedEmailRoles.includes(Number(session?.user?.role_id ?? -1));
 
   const handleSendSummary = async () => {
     try {
@@ -325,7 +325,7 @@ function SendEmailCell({ item, isLocked, positionType }: { item: AuditItem; isLo
         return;
       }
 
-      const jobEndpoint = isAA ? `/aa-jobs/${item.aa_job_id}` : `/am-jobs/${item.job_id}`;
+      const jobEndpoint = isAA ? `/aa-jobs/${item.job_id}` : `/am-jobs/${item.job_id}`;
       const jobResponse = await client.get(jobEndpoint, { headers: dataConfig().headers });
       const job = jobResponse.data.data;
       const branchEmails = ['npc@rpcthai.com'];
@@ -362,6 +362,7 @@ function SendEmailCell({ item, isLocked, positionType }: { item: AuditItem; isLo
 
       await client.post('/am-email/send-summary', payload, { headers: dataConfig().headers });
       toast.success(`ส่งเมลสำเร็จ`);
+      setHasSent(true);
     } catch (error) {
       console.error('❌ Failed to send summary email:', error);
       toast.error('ส่งเมลไม่สำเร็จ');
@@ -370,18 +371,27 @@ function SendEmailCell({ item, isLocked, positionType }: { item: AuditItem; isLo
     }
   };
 
+  const isButtonDisabled = isSending || isLocked || hasSent || !canSendEmail;
+  const buttonTitle = !canSendEmail ? "ไม่มีสิทธิ์ส่งเมล" : isLocked ? "รายการถูกล็อก" : hasSent ? "ส่งเมลแล้ว" : "ส่งเมลสรุปไปยังสาขา";
+
   return (
     <div className="flex justify-center">
       <Button
         size="sm"
-        variant="outline"
-        className="h-7 px-2 gap-1.5"
-        onClick={() => setConfirmOpen(true)}
-        disabled={isSending || isLocked}
-        title={isLocked ? "รายการถูกล็อก" : "ส่งเมลสรุปไปยังสาขา"}
+        variant={hasSent ? "default" : "outline"}
+        className={cn("h-7 px-2 gap-1.5", hasSent && "bg-green-600 hover:bg-green-600 text-white border-transparent cursor-not-allowed opacity-70")}
+        onClick={() => !isButtonDisabled && setConfirmOpen(true)}
+        disabled={isButtonDisabled}
+        title={buttonTitle}
       >
-        {isSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
-        <span className="text-xs">ส่งเมล</span>
+        {isSending ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : hasSent ? (
+          <CheckCircle2 className="h-3.5 w-3.5" />
+        ) : (
+          <Mail className="h-3.5 w-3.5" />
+        )}
+        <span className="text-xs">{hasSent ? "ส่งแล้ว" : "ส่งเมล"}</span>
       </Button>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -604,9 +614,9 @@ export const createAuditItemsColumns = (
     },
     {
       id: "note_2",
-      header: positionType === "AA" ? "หน่วยงาน AM" : "หน่วยงาน AM & RM",
+      header: positionType === "AA" ? "หน่วยงาน AM" : "หน่วยงาน RM",
       cell: ({ row }) => (
-        <NoteCell itemId={row.original.item_id} threadType={2} label={positionType === "AA" ? "AM" : "AM & RM"} initialComments={row.original.note_2} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 2} highlighted={highlightItemId === row.original.item_id && (highlightThreadType === 2 || highlightThreadType === undefined) && (row.original.note_2 ?? []).some(c => c.approverStatus === 0)} />
+        <NoteCell itemId={row.original.item_id} threadType={2} label={positionType === "AA" ? "AM" : "RM"} initialComments={row.original.note_2} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 2} highlighted={highlightItemId === row.original.item_id && (highlightThreadType === 2 || highlightThreadType === undefined) && (row.original.note_2 ?? []).some(c => c.approverStatus === 0)} />
       ),
     },
     {
@@ -630,6 +640,13 @@ export const createAuditItemsColumns = (
         <div className="text-center">{getStatusBadge(row.getValue("item_status_edit") as number)}</div>
       ),
     },
+    ...(canSendEmail ? [{
+      id: "send_email",
+      header: () => <div className="text-center">กรณีแจ้งผลสาขา</div>,
+      cell: ({ row }: { row: import("@tanstack/react-table").Row<AuditItem> }) => (
+        <SendEmailCell item={row.original} isLocked={effectiveLocked || row.original.item_status_edit === 4} positionType={positionType} />
+      ),
+    } satisfies ColumnDef<AuditItem>] : []),
     {
       id: "am_checklist",
       header: () => <div className="text-center">Check</div>,
@@ -650,13 +667,6 @@ export const createAuditItemsColumns = (
         );
       },
     },
-    ...(canSendEmail ? [{
-      id: "send_email",
-      header: () => <div className="text-center">ส่งเมลสรุป</div>,
-      cell: ({ row }: { row: import("@tanstack/react-table").Row<AuditItem> }) => (
-        <SendEmailCell item={row.original} isLocked={effectiveLocked || row.original.item_status_edit === 4} positionType={positionType} />
-      ),
-    } satisfies ColumnDef<AuditItem>] : []),
     {
       id: "actions",
       cell: ({ row }) =>

@@ -52,9 +52,9 @@ interface EditItemModalProps {
 
 const statusOptions = [
   { value: "1", label: "ปกติ" },
-  { value: "2", label: "อยู่ระหว่างดำเนินการ" },
+  // { value: "2", label: "อยู่ระหว่างดำเนินการ" },
   { value: "3", label: "ผิดปกติ" },
-  { value: "4", label: "ปิดเคส" },
+  // { value: "4", label: "ปิดเคส" },
 ];
 
 const statusEditOptions = [
