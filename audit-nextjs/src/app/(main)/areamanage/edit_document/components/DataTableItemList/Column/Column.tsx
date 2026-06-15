@@ -633,13 +633,6 @@ export const createAuditItemsColumns = (
         <TagCell itemId={row.original.item_id} users={users} initialTags={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []} onTagChange={(tags) => onTagChange?.(row.original.item_id, tags)} isLocked={effectiveLocked || row.original.item_status_edit === 4} positionType={positionType} />
       ),
     },
-    {
-      accessorKey: "item_status_edit",
-      header: () => <div className="text-center">สถานะอัพเดทและแก้ไข (ล่าสุด)</div>,
-      cell: ({ row }) => (
-        <div className="text-center">{getStatusBadge(row.getValue("item_status_edit") as number)}</div>
-      ),
-    },
     ...(canSendEmail ? [{
       id: "send_email",
       header: () => <div className="text-center">กรณีแจ้งผลสาขา</div>,
@@ -647,6 +640,13 @@ export const createAuditItemsColumns = (
         <SendEmailCell item={row.original} isLocked={effectiveLocked || row.original.item_status_edit === 4} positionType={positionType} />
       ),
     } satisfies ColumnDef<AuditItem>] : []),
+    {
+      accessorKey: "item_status_edit",
+      header: () => <div className="text-center">สถานะอัพเดทและแก้ไข (ล่าสุด)</div>,
+      cell: ({ row }) => (
+        <div className="text-center">{getStatusBadge(row.getValue("item_status_edit") as number)}</div>
+      ),
+    },
     {
       id: "am_checklist",
       header: () => <div className="text-center">Check</div>,

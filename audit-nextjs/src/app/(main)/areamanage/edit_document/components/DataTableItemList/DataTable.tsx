@@ -364,10 +364,10 @@ export default function DataTableItemList({
   const handleAMChecklistClick = useCallback((item: AuditItem) => { setSelectedAMChecklistItem(item); setOpenAMChecklistModal(true); }, []);
   const handleAttachmentClick = useCallback((item: AuditItem) => { setSelectedAttachmentItem(item); setOpenAttachmentModal(true); }, []);
 
-  // AM: role 1, 4 can check; AA: role 1, 3, 4 can check
+  // AM: role 1, 4 can check; AA: role 1, 2, 3, 4 can check
   const isAMChecklistAllowed = (() => {
     const roleId = Number(session?.user?.role_id ?? -1);
-    if (positionType === "AA") return [1, 3, 4].includes(roleId);
+    if (positionType === "AA") return [1, 2, 3, 4].includes(roleId);
     return [1, 4].includes(roleId);
   })();
 
@@ -376,8 +376,8 @@ export default function DataTableItemList({
     const roleId = Number(session?.user?.role_id ?? -1);
     const userId = session?.user?.UserID;
     if (!userId) return { visibleItems: [], accessDenied: false };
-    // AM: roles 1,2,3,4 see all items; AA: roles 1,4,8 see all items
-    const fullAccessRoles = positionType === "AA" ? [1, 4, 8] : [1, 2, 3, 4];
+    // AM: roles 1,2,3,4 see all items; AA: roles 1,2,4,8 see all items
+    const fullAccessRoles = positionType === "AA" ? [1, 2, 4, 8] : [1, 2, 3, 4];
     if (fullAccessRoles.includes(roleId)) {
       return { visibleItems: orderedItems, accessDenied: false };
     }
