@@ -1003,8 +1003,8 @@ export default function EditAuditJobPage() {
       );
 
       const emailPayload = {
-        groupEmails: ["npc@rpcthai.com"],
-        additionalRecipients: [''],
+        groupEmails: ['ptaudit@rpcthai.com', 'groupssd@rpcthai.com'],
+        additionalRecipients: ['swp@rpcthai.com'],
         jobNo: jobData.jobNo,
         jobId: jobData.jobId,
         branchName: jobData.branchName,
@@ -1148,6 +1148,7 @@ export default function EditAuditJobPage() {
                 auditItems={auditItems}
                 selectedItems={selectedAuditItems}
                 disabled={isLoadingData || isLoadingItems}
+                formType={(jobData?.positionType as "AM" | "AA") ?? "AM"}
               />
               <TooltipProvider>
                 <Tooltip>

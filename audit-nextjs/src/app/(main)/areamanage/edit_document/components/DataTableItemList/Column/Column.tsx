@@ -328,7 +328,7 @@ function SendEmailCell({ item, isLocked, positionType }: { item: AuditItem; isLo
       const jobEndpoint = isAA ? `/aa-jobs/${item.job_id}` : `/am-jobs/${item.job_id}`;
       const jobResponse = await client.get(jobEndpoint, { headers: dataConfig().headers });
       const job = jobResponse.data.data;
-      const branchEmails = ['npc@rpcthai.com'];
+      const branchEmails = job?.branchManager.email || [];
 
       if (branchEmails.length === 0) {
         toast.error('ไม่พบอีเมลของสาขา');

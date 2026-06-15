@@ -42,6 +42,7 @@ interface ExportDropdownProps {
   auditItems: AuditItem[];
   selectedItems?: AuditItem[];
   disabled?: boolean;
+  formType?: "AM" | "AA" | "Audit";
 }
 
 function getStatusText(status?: number) {
@@ -64,9 +65,21 @@ export default function ExportDropdown({
   auditItems,
   selectedItems,
   disabled = false,
+  formType = "Audit",
 }: ExportDropdownProps) {
   const itemsToExport = selectedItems && selectedItems.length > 0 ? selectedItems : auditItems;
   const canExport = !!jobData && auditItems.length > 0 && !disabled;
+
+  const isAMorAA = formType === "AM" || formType === "AA";
+  const reportTitle = formType === "AM" ? "รายงาน Area Manager" : formType === "AA" ? "รายงาน Area Assistant" : "รายงานการตรวจสอบ";
+  const filePrefix = formType === "AM" ? "AM" : formType === "AA" ? "AA" : "Audit";
+  const tableHeaderLabel = formType === "AM" ? "ผลการตรวจ AM" : formType === "AA" ? "ผลการตรวจ AA" : "ผลการตรวจ audit";
+  const commentColHeaders =
+    formType === "AM"
+      ? ["หัวข้อ", "สถานะที่ตรวจพบ", "หน่วยงานตรวจสอบ\n(AM Checker)", "หน่วยงาน RM", "หน่วยงานอื่นๆ"]
+      : formType === "AA"
+      ? ["หัวข้อ", "สถานะที่ตรวจพบ", "หน่วยงานตรวจสอบ AA", "หน่วยงาน AM", "หน่วยงานอื่นๆ"]
+      : ["หัวข้อ", "สถานะที่ตรวจพบ", "สิ่งที่ตรวจพบ\n(Audit Comment)", "รายละเอียดจาก\n(AM Comment)", "รายละเอียดจากผู้อื่น\n(Other Comment)"];
 
   // ── PDF state ──────────────────────────────────────────────────
   const [isPdfExporting, setIsPdfExporting] = useState(false);
@@ -107,7 +120,7 @@ export default function ExportDropdown({
       doc.setFontSize(18);
       doc.setFont("Sarabun", "bold");
       doc.setTextColor(PDF_COLORS.primary.r, PDF_COLORS.primary.g, PDF_COLORS.primary.b);
-      doc.text("รายงานการตรวจสอบ", 105, yPos, { align: "center" });
+      doc.text(reportTitle, 105, yPos, { align: "center" });
       yPos += 7;
 
       doc.setFontSize(10);
@@ -129,9 +142,17 @@ export default function ExportDropdown({
           ["ที่อยู่", jobData.address || "-"],
           ["PM Code", jobData.pmCode || "-"],
           ["วันที่ตรวจสอบ", jobData.auditDate ? format(new Date(jobData.auditDate), "dd/MM/yyyy", { locale: th }) : "-"],
-          ["ผู้ตรวจสอบ", jobData.auditor?.fullname || "-"],
-          ["ผู้จัดการเขต", jobData.districtManager?.fullname || "-"],
-          ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
+          ...(isAMorAA
+            ? [
+                ["ผู้สร้างเอกสาร", jobData.createdByUser?.fullname || "-"],
+                ["ผู้จัดการเขต", jobData.districtManager?.fullname || "-"],
+                ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
+              ]
+            : [
+                ["ผู้ตรวจสอบ", jobData.auditor?.fullname || "-"],
+                ["ผู้จัดการเขต", jobData.districtManager?.fullname || "-"],
+                ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
+              ]),
         ],
         theme: "grid",
         styles: { font: "Sarabun", fontSize: 9, cellPadding: 1.5, textColor: [PDF_COLORS.text.r, PDF_COLORS.text.g, PDF_COLORS.text.b], lineColor: PDF_COLORS.border, lineWidth: 0.1 },
@@ -163,11 +184,11 @@ export default function ExportDropdown({
         startY: yPos,
         head: [
           [
-            { content: "ผลการตรวจ audit", colSpan: 1, styles: { fontStyle: "bold" as const, halign: "left" as const } },
+            { content: tableHeaderLabel, colSpan: 1, styles: { fontStyle: "bold" as const, halign: "left" as const } },
             { content: `สถานีน้ำมัน ${jobData.branchName || ""}`, colSpan: 3, styles: { fontStyle: "bold" as const, fontSize: 10, halign: "center" as const } },
             { content: jobData.auditDate ? format(new Date(jobData.auditDate), "dd MMMM yyyy", { locale: th }) : "", colSpan: 1, styles: { fontStyle: "bold" as const, halign: "right" as const } },
           ],
-          ["หัวข้อ", "สถานะที่ตรวจพบ", "สิ่งที่ตรวจพบ\n(Audit Comment)", "รายละเอียดจาก\n(AM Comment)", "รายละเอียดจากผู้อื่น\n(Other Comment)"],
+          commentColHeaders,
         ],
         body: tableData,
         theme: "grid",
@@ -205,11 +226,13 @@ export default function ExportDropdown({
       const sigTitleY = sigNameY;
       doc.setDrawColor(100, 100, 100); doc.setLineWidth(0.3); doc.setFontSize(9);
       doc.setTextColor(PDF_COLORS.text.r, PDF_COLORS.text.g, PDF_COLORS.text.b);
-      // Left: Audit — ชื่ออยู่บนเส้น (เซ็นแล้ว)
-      doc.setFont("Sarabun", "normal"); doc.text(jobData.auditor?.fullname || "-", 52.5, sigLineY - 1, { align: "center" });
+      const leftSignerName = isAMorAA ? (jobData.createdByUser?.fullname || "-") : (jobData.auditor?.fullname || "-");
+      const leftSignerTitle = formType === "AM" ? "Area Manager" : formType === "AA" ? "Area Assistant" : "Audit";
+      // Left signer
+      doc.setFont("Sarabun", "normal"); doc.text(leftSignerName, 52.5, sigLineY - 1, { align: "center" });
       doc.line(20, sigLineY, 85, sigLineY);
-      doc.setFont("Sarabun", "bold"); doc.text("Audit", 52.5, sigTitleY, { align: "center" });
-      // Right: Branch Manager — เส้นว่างไว้เซ็น
+      doc.setFont("Sarabun", "bold"); doc.text(leftSignerTitle, 52.5, sigTitleY, { align: "center" });
+      // Right: Branch Manager
       doc.line(125, sigLineY, 190, sigLineY);
       doc.setFont("Sarabun", "normal"); doc.text(jobData.branchManager?.fullname || "-", 157.5, sigNameY, { align: "center" });
       doc.setFont("Sarabun", "bold"); doc.text("ผู้จัดการสถานีบริการ", 157.5, sigNameY + 5, { align: "center" });
@@ -226,7 +249,7 @@ export default function ExportDropdown({
       }
 
       const timestamp = format(new Date(), "yyyyMMdd_HHmmss");
-      const filename = `Audit_Report_${jobData.jobNo}_${timestamp}.pdf`;
+      const filename = `${filePrefix}_Report_${jobData.jobNo}_${timestamp}.pdf`;
       const blob = doc.output("blob");
       const url = URL.createObjectURL(blob);
       setPdfPreview({ url, filename });
@@ -283,7 +306,7 @@ export default function ExportDropdown({
       let currentRow = 1;
 
       worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
-      Object.assign(worksheet.getCell(`A${currentRow}`), { value: "รายงานการตรวจสอบ", style: headerStyle });
+      Object.assign(worksheet.getCell(`A${currentRow}`), { value: reportTitle, style: headerStyle });
       currentRow++;
 
       worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
@@ -295,9 +318,17 @@ export default function ExportDropdown({
         ["ที่อยู่", jobData.address || "-"],
         ["PM Code", jobData.pmCode || "-"],
         ["วันที่ตรวจสอบ", auditDateShort],
-        ["ผู้ตรวจสอบ", jobData.auditor?.fullname || "-"],
-        ["ผู้จัดการเขต", jobData.districtManager?.fullname || "-"],
-        ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
+        ...(isAMorAA
+          ? [
+              ["ผู้สร้างเอกสาร", jobData.createdByUser?.fullname || "-"],
+              ["ผู้จัดการเขต", jobData.districtManager?.fullname || "-"],
+              ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
+            ]
+          : [
+              ["ผู้ตรวจสอบ", jobData.auditor?.fullname || "-"],
+              ["ผู้จัดการเขต", jobData.districtManager?.fullname || "-"],
+              ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
+            ]),
       ];
       jobInfo.forEach(([label, value]) => {
         Object.assign(worksheet.getCell(`A${currentRow}`), { value: label, style: labelStyle });
@@ -311,13 +342,13 @@ export default function ExportDropdown({
       Object.assign(worksheet.getCell(`A${currentRow}`), { value: "สรุปผลการตรวจ", style: sectionTitleStyle });
       currentRow += 2;
 
-      Object.assign(worksheet.getCell(`A${currentRow}`), { value: "ผลการตรวจ audit", style: tableHeaderStyle });
+      Object.assign(worksheet.getCell(`A${currentRow}`), { value: tableHeaderLabel, style: tableHeaderStyle });
       worksheet.mergeCells(`B${currentRow}:D${currentRow}`);
       Object.assign(worksheet.getCell(`B${currentRow}`), { value: `สถานีน้ำมัน ${jobData.branchName || ""}`, style: { ...tableHeaderStyle, font: { bold: true, size: 10, color: { argb: `FF${COLORS.white}` } } } });
       Object.assign(worksheet.getCell(`E${currentRow}`), { value: auditDateText, style: tableHeaderStyle });
       currentRow++;
 
-      ["หัวข้อ", "สถานะที่ตรวจพบ", "สิ่งที่ตรวจพบ\n(Audit Comment)", "รายละเอียดจาก\n(AM Comment)", "รายละเอียดจากผู้อื่น\n(Other Comment)"].forEach((header, idx) => {
+      commentColHeaders.forEach((header, idx) => {
         Object.assign(worksheet.getCell(`${String.fromCharCode(65 + idx)}${currentRow}`), { value: header, style: tableHeaderStyle });
       });
       currentRow++;
@@ -337,17 +368,17 @@ export default function ExportDropdown({
       Object.assign(worksheet.getCell(`B${currentRow}`), { value: "____________________", alignment: { horizontal: "center" } });
       Object.assign(worksheet.getCell(`D${currentRow}`), { value: "____________________", alignment: { horizontal: "center" } });
       currentRow++;
-      Object.assign(worksheet.getCell(`B${currentRow}`), { value: jobData.auditor?.fullname || "-", alignment: { horizontal: "center" } });
+      Object.assign(worksheet.getCell(`B${currentRow}`), { value: isAMorAA ? (jobData.createdByUser?.fullname || "-") : (jobData.auditor?.fullname || "-"), alignment: { horizontal: "center" } });
       Object.assign(worksheet.getCell(`D${currentRow}`), { value: jobData.branchManager?.fullname || "-", alignment: { horizontal: "center" } });
       currentRow++;
-      Object.assign(worksheet.getCell(`B${currentRow}`), { value: "Audit", font: { bold: true }, alignment: { horizontal: "center" } });
+      Object.assign(worksheet.getCell(`B${currentRow}`), { value: formType === "AM" ? "Area Manager" : formType === "AA" ? "Area Assistant" : "Audit", font: { bold: true }, alignment: { horizontal: "center" } });
       Object.assign(worksheet.getCell(`D${currentRow}`), { value: "ผู้จัดการสถานีบริการ", font: { bold: true }, alignment: { horizontal: "center" } });
 
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const timestamp = format(new Date(), "yyyyMMdd_HHmmss");
       const safeJobNo = String(jobData.jobNo || "AUDIT").replace(/[\\/:*?"<>|]/g, "-");
-      const filename = `Audit_Report_${safeJobNo}_${timestamp}.xlsx`;
+      const filename = `${filePrefix}_Report_${safeJobNo}_${timestamp}.xlsx`;
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url; link.download = filename;

@@ -322,8 +322,8 @@ function SendEmailCell({ item, isLocked }: { item: AuditItem; isLocked?: boolean
         { headers: dataConfig().headers }
       );
       const job = jobResponse.data.data;
-      // const branchEmails = job?.branchManager.email || [];
-      const branchEmails = ['npc@rpcthai.com'];
+      const branchEmails = job?.branchManager.email || [];
+      // const branchEmails = ['npc@rpcthai.com'];
 
       if (branchEmails.length === 0) {
         toast.error('ไม่พบอีเมลของสาขา');
@@ -609,6 +609,13 @@ export const createAuditItemsColumns = (
         <NoteCell itemId={row.original.item_id} threadType={3} label="Other Agencies" initialComments={row.original.note_3} jobData={jobData} users={users} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} taggedUsers={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 3} highlighted={highlightItemId === row.original.item_id && (highlightThreadType === 3 || highlightThreadType === undefined) && (row.original.note_3 ?? []).some(c => c.approverStatus === 0)} />
       ),
     },
+    ...(canSendEmail ? [{
+      id: "send_email",
+      header: () => <div className="text-center">กรณีแจ้งผลสาขา</div>,
+      cell: ({ row }: { row: import("@tanstack/react-table").Row<AuditItem> }) => (
+        <SendEmailCell item={row.original} isLocked={effectiveLocked || row.original.item_status_edit === 4} />
+      ),
+    } satisfies ColumnDef<AuditItem>] : []),
     {
       id: "tagged_users",
       header: "แท็กผู้ใช้",
@@ -643,13 +650,6 @@ export const createAuditItemsColumns = (
         );
       },
     },
-    ...(canSendEmail ? [{
-      id: "send_email",
-      header: () => <div className="text-center">ส่งเมลสรุป</div>,
-      cell: ({ row }: { row: import("@tanstack/react-table").Row<AuditItem> }) => (
-        <SendEmailCell item={row.original} isLocked={effectiveLocked || row.original.item_status_edit === 4} />
-      ),
-    } satisfies ColumnDef<AuditItem>] : []),
     {
       id: "actions",
       cell: ({ row }) =>

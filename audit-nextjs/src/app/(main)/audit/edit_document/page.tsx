@@ -928,8 +928,8 @@ export default function EditAuditJobPage() {
       );
 
       const emailPayload = {
-        groupEmails: ["npc@rpcthai.com"],
-        additionalRecipients: [''],
+        groupEmails: ['ptaudit@rpcthai.com', 'groupssd@rpcthai.com'],
+        additionalRecipients: ['swp@rpcthai.com'],
         jobNo: jobData.jobNo,
         jobId: jobData.jobId,
         branchName: jobData.branchName,
