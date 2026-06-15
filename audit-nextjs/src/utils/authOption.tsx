@@ -139,14 +139,16 @@ export const authOptions: AuthOptions = {
           console.log('[Microsoft]  Login successful');
           console.log('[Microsoft] Email:', email);
 
-          const sessionId = randomUUID();
-          
+          // sessionToken is a small UUID stored in the cookie instead of the large Microsoft token
+          const sessionToken = randomUUID();
+
           // เรียก backend เพื่อเก็บ Microsoft token และดึงข้อมูล user
           const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/microsoft-session/save`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              sessionId,
+              sessionId: sessionToken,
+              sessionToken,
               microsoftToken,
               email,
               name,
@@ -176,7 +178,7 @@ export const authOptions: AuthOptions = {
           user.role_name = userData.role_name;
           user.branchid = userData.branchid;
           user.depid = userData.depid;
-          user.access_token = microsoftToken || '';
+          user.access_token = sessionToken;
           user.loginMethod = 'microsoft';
           user.accessTokenExpires = Date.now() + (SESSION_MAX_AGE * 60 * 1000);
 

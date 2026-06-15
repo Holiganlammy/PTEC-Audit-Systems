@@ -33,6 +33,7 @@ export class MicrosoftSessionService {
   ) {}
   async saveSession(data: {
     sessionId: string;
+    sessionToken: string;
     microsoftToken: string;
     email: string;
     name: string;
@@ -44,7 +45,7 @@ export class MicrosoftSessionService {
     userData: string;
   }> {
     try {
-      const { microsoftToken, email, source, ipAddress = 'unknown' } = data;
+      const { sessionToken, microsoftToken, email, source, ipAddress = 'unknown' } = data;
 
       // Validate token กับ Microsoft ก่อน
       const isValid = await this.validateMicrosoftToken(microsoftToken);
@@ -114,9 +115,9 @@ export class MicrosoftSessionService {
         );
       }
 
-      // สร้าง session ใหม่
+      // สร้าง session ใหม่ โดยใช้ sessionToken (UUID) แทน Microsoft token เพื่อหลีกเลี่ยง cookie too large
       const session = this.sessionRepo.create({
-        accessToken: microsoftToken,
+        accessToken: sessionToken,
         userId: user.UserID,
         userCode: user.UserCode,
         userData: JSON.stringify(sessionData),

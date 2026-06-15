@@ -30,6 +30,7 @@ export class MicrosoftSessionController {
     @Body()
     body: {
       sessionId: string;
+      sessionToken: string;
       microsoftToken: string;
       email: string;
       name: string;
@@ -40,12 +41,13 @@ export class MicrosoftSessionController {
   ) {
     try {
       const {
-        sessionId,
+        sessionToken,
         microsoftToken,
         email,
         name,
         source = 'AuditSystem',
       } = body;
+      const sessionId = sessionToken;
 
       if (!sessionId || !microsoftToken || !email) {
         return res.status(HttpStatus.BAD_REQUEST).json({
@@ -61,6 +63,7 @@ export class MicrosoftSessionController {
 
       const result = await this.microsoftSessionService.saveSession({
         sessionId,
+        sessionToken,
         microsoftToken,
         email,
         name,
