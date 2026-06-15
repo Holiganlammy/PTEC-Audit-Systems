@@ -100,7 +100,7 @@ export default function NoteCell({
   // Permission logic: - Delete/Edit allowed for role 1, 2 if not locked;
   const canDelete = (roleId === 1 || roleId === 2) && !isLocked;
   const canEdit = (roleId === 1 || roleId === 2) && !isLocked;
-  const canMention = roleId === 1 || roleId === 2 || roleId === 3;
+  const canMention = false;
   
   // Permission logic for commenting:
   const canComment = (() => {

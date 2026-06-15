@@ -55,8 +55,12 @@ export class FileAccessService {
     baseUrl: string,
     jobNo: string,
     jobId: number,
+    formType?: string,
   ): string {
     const token = this.generateFileAccessToken(jobId);
-    return `${baseUrl}/audit/edit_document?jobNo=${jobNo}&fileAccess=${token}`;
+    const section =
+      formType === 'AM' || formType === 'AA' ? 'areamanage' : 'audit';
+    const formTypeParam = formType ? `&formType=${formType}` : '';
+    return `${baseUrl}/${section}/edit_document?jobNo=${jobNo}${formTypeParam}&fileAccess=${token}`;
   }
 }

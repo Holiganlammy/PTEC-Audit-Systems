@@ -231,8 +231,12 @@ export class MentionEmailService {
     }
 
     // Build comment URL
-    // const baseUrl = process.env.FRONTEND_URL || 'https://audit.purethai.co.th';
-    // const commentUrl = `${baseUrl}/audit/edit_document?jobNo=${jobNo}#item-${params.itemId}`;
+    const baseUrl = process.env.FRONTEND_URL || 'https://audit.purethai.co.th';
+    const section =
+      formType === 'AM' || formType === 'AA' ? 'areamanage' : 'audit';
+    const formTypeParam =
+      formType === 'AM' || formType === 'AA' ? `&formType=${formType}` : '';
+    const commentUrl = `${baseUrl}/${section}/edit_document?jobNo=${jobNo}${formTypeParam}#item-${params.itemId}`;
 
     // Logo path
     const logoPath = path.resolve(process.cwd(), 'src/images/Header_Mail.png');
@@ -307,6 +311,18 @@ export class MentionEmailService {
                         <td style="padding: 8px 0; font-size: 14px; color: #1F2937; white-space: pre-wrap;">${commentText}</td>
                       </tr>
                     </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA Button -->
+              <table role="presentation" style="width: 100%; margin-bottom: 24px;">
+                <tr>
+                  <td align="center">
+                    <a href="${commentUrl}"
+                       style="display: inline-block; padding: 12px 32px; background-color: #3B82F6; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px;">
+                      ไปยังรายการที่ถูกกล่าวถึง
+                    </a>
                   </td>
                 </tr>
               </table>

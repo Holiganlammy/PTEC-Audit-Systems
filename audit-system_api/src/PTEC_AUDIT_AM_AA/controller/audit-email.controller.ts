@@ -56,6 +56,7 @@ export class AuditEmailController {
         baseUrl,
         body.jobNo,
         body.jobId,
+        body.formType,
       );
 
     await this.auditCreateDocGmailService.sendAuditJobCreatedEmail({
