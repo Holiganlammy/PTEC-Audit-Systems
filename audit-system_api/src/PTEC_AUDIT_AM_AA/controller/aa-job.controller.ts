@@ -634,6 +634,9 @@ export class AAJobsController implements OnModuleInit {
     } catch {
       // userId is optional — ignore decode errors
     }
+    if (req.userId !== undefined && req.userId !== null) {
+      userId = req.userId;
+    }
 
     const auditRole =
       await this.auditUserRolesService.getRoleByUserCode(userCode);

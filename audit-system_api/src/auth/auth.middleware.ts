@@ -13,6 +13,7 @@ declare module 'express-serve-static-core' {
   interface Request {
     user?: string;
     token?: string;
+    userId?: number;
   }
 }
 
@@ -86,6 +87,7 @@ export class AuthMiddleware implements NestMiddleware {
         };
 
         req.user = userData.userCode || userData.username || session.userCode;
+        req.userId = session.userId;
         req.token = token;
 
         // อัพเดท lastAccessAt

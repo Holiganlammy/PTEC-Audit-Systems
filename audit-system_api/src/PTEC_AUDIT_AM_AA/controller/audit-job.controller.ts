@@ -650,6 +650,9 @@ export class AuditJobsController implements OnModuleInit {
     } catch {
       // userId is optional — ignore decode errors
     }
+    if (req.userId !== undefined && req.userId !== null) {
+      userId = req.userId;
+    }
 
     const auditRole =
       await this.auditUserRolesService.getRoleByUserCode(userCode);
@@ -666,7 +669,7 @@ export class AuditJobsController implements OnModuleInit {
     }
 
     return {
-      user_id: userId ?? (auditRole.userId as number),
+      user_id: userId ?? auditRole.userId,
       role_id: auditRole.roleId,
       username: userCode,
       is_admin: auditRole.roleId === 1,

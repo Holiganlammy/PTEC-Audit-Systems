@@ -136,9 +136,9 @@ export class AuditJobsController implements OnModuleInit {
       search: search || undefined,
       active: active ? active === 'true' : undefined,
     };
-
+    console.log(req);
     const user = req ? await this.getUserFromJWT(req) : undefined;
-
+    // console.log('🔍 Fetching audit jobs with params:', params, 'User:', user);
     if (!user) {
       throw new HttpException(
         {
@@ -659,6 +659,9 @@ export class AuditJobsController implements OnModuleInit {
       }
     } catch {
       // userId is optional — ignore decode errors
+    }
+    if (req.userId !== undefined && req.userId !== null) {
+      userId = req.userId;
     }
 
     const auditRole =

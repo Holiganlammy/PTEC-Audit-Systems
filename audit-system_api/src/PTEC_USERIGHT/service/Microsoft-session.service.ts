@@ -45,7 +45,13 @@ export class MicrosoftSessionService {
     userData: string;
   }> {
     try {
-      const { sessionToken, microsoftToken, email, source, ipAddress = 'unknown' } = data;
+      const {
+        sessionToken,
+        microsoftToken,
+        email,
+        source,
+        ipAddress = 'unknown',
+      } = data;
 
       // Validate token กับ Microsoft ก่อน
       const isValid = await this.validateMicrosoftToken(microsoftToken);
@@ -71,7 +77,9 @@ export class MicrosoftSessionService {
       const user = users[0];
 
       // ดึง role จาก Audit_User_Roles แทน PTEC_Userright
-      const auditRole = await this.auditUserRolesService.getRoleByUserCode(user.UserCode);
+      const auditRole = await this.auditUserRolesService.getRoleByUserCode(
+        user.UserCode,
+      );
       const roleId = auditRole?.roleId ?? user.role_id;
       const roleName = auditRole?.roleName ?? '';
 
@@ -216,7 +224,9 @@ export class MicrosoftSessionService {
       const user = users[0];
 
       // ดึง role จาก Audit_User_Roles แทน PTEC_Userright
-      const auditRole2 = await this.auditUserRolesService.getRoleByUserCode(user.UserCode);
+      const auditRole2 = await this.auditUserRolesService.getRoleByUserCode(
+        user.UserCode,
+      );
       const roleId2 = auditRole2?.roleId ?? user.role_id;
 
       // 3. บันทึก session ลง database
