@@ -1,0 +1,37 @@
+services:
+  frontend-dev:
+    build:
+      context: .
+      target: development
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    env_file:
+      - .env.local
+    environment:
+      # ชี้ไปที่ชื่อ service ของ backend แทน localhost
+      - INTERNAL_API_URL=http://backend-dev:8888/api
+    networks:
+      - audit-network
+
+  frontend-prod:
+    build:
+      context: .
+      target: production
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.local
+    environment:
+      - INTERNAL_API_URL=http://backend-prod:8888/api
+    networks:
+      - audit-network
+
+networks:
+  audit-network:
+    external: true

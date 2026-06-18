@@ -1,0 +1,32 @@
+services:
+  backend:
+    build:
+      context: ./audit-system_api
+      target: development
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./audit-system_api:/app
+      - /app/node_modules
+    env_file:
+      - ./audit-system_api/.env.local
+
+  frontend:
+    build:
+      context: ./audit-nextjs
+      target: development
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./audit-nextjs:/app
+      - /app/node_modules
+      - /app/.next
+    env_file:
+      - ./audit-nextjs/.env.local
+    environment:
+      # Override URL สำหรับ server-side ให้ชี้ไปที่ backend service name แทน localhost
+      - INTERNAL_API_URL=http://backend:8888/api
+    depends_on:
+      - backend
