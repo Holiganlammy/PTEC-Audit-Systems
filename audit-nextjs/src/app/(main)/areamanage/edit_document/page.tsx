@@ -1114,7 +1114,7 @@ export default function EditAuditJobPage() {
   //   );
   // }
   return (
-    <div className="mb-10">
+    <div className="pb-10">
       <div className="max-w-[1400px] mx-auto px-4">
         {/* Header */}
         <div className="mb-6">
@@ -1964,23 +1964,24 @@ export default function EditAuditJobPage() {
           )}
         </form>
 
-        {/* Audit Items */}
-        <div className="mt-6">
-          <DataTableItemList
-            items={auditItems}
-            jobNo={jobNo}
-            jobData={jobData ?? undefined}
-            isLoading={isLoadingItems}
-            jobId={jobData?.jobId || 0}
-            isLocked={jobData?.status === 2}
-            positionType={roleFormTab}
-            onItemsChange={handleItemsChange}
-            onCommentsChange={handleCommentsChange}
-            onSelectionChange={setSelectedAuditItems}
-            highlightItemId={effectiveHighlightItemId}
-            highlightThreadType={highlightThreadType}
-          />
-        </div>
+      </div>
+
+      {/* Audit Items — full width */}
+      <div className="mt-6 px-4">
+        <DataTableItemList
+          items={auditItems}
+          jobNo={jobNo}
+          jobData={jobData ?? undefined}
+          isLoading={isLoadingItems}
+          jobId={jobData?.jobId || 0}
+          isLocked={jobData?.status === 2}
+          positionType={roleFormTab}
+          onItemsChange={handleItemsChange}
+          onCommentsChange={handleCommentsChange}
+          onSelectionChange={setSelectedAuditItems}
+          highlightItemId={effectiveHighlightItemId}
+          highlightThreadType={highlightThreadType}
+        />
       </div>
 
       <FilePreviewModal

@@ -2,7 +2,6 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { X } from "lucide-react";
 import client from "@/lib/axios/interceptors";
@@ -172,19 +171,17 @@ export default function TagCell({
   );
 
   return (
-    <div className="min-w-[160px] max-w-[260px]">
+    <div className="min-w-27.5 max-w-35">
       {/* Pills */}
       {tags.length > 0 ? (
-        <div className="flex flex-wrap gap-1 mb-1.5">
+        <div className="grid grid-cols-2 gap-1 mb-1.5">
           {tags.map((t) => (
-            <Badge
+            <div
               key={t.userId}
-              variant="secondary"
-              className={`rounded-full text-[11px] font-medium ${
-                canTag ? "gap-0.5 pr-0.5 pl-2" : "px-2.5 py-0.5"
-              }`}
+              title={`${t.userCode} — ${t.fullname}`}
+              className="flex items-center gap-0.5 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-medium min-w-0"
             >
-              {t.userCode}
+              <span className="truncate flex-1">{t.userCode}</span>
               {canTag && (
                 <button
                   type="button"
@@ -192,13 +189,12 @@ export default function TagCell({
                     e.preventDefault();
                     setPendingRemoveTag(t);
                   }}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20 transition-colors"
-                  aria-label={`ลบ ${t.userCode}`}
+                  className="shrink-0 rounded-full p-0.5 hover:bg-muted-foreground/20 transition-colors"
                 >
-                  <X className="h-2.5 w-2.5" />
+                  <X className="h-2 w-2" />
                 </button>
               )}
-            </Badge>
+            </div>
           ))}
         </div>
       ) : (

@@ -1035,8 +1035,8 @@ export default function EditAuditJobPage() {
   //   );
   // }
   return (
-    <div className="mb-10">
-      <div className="max-w-[1400px] mx-auto px-4">
+    <div className="pb-10">
+      <div className="max-w-[1400px] mx-auto px-4 w-full">
         {/* Header */}
         <div className="mb-6">
           <Button variant="ghost" onClick={() => router.back()} className="mb-4">
@@ -1902,23 +1902,23 @@ export default function EditAuditJobPage() {
             </div>
           )}
         </form>
+      </div>
 
-        {/* Audit Items */}
-        <div className="mt-6">
-          <DataTableItemList
-            items={auditItems}
-            jobNo={jobNo}
-            jobData={jobData ?? undefined}
-            isLoading={isLoadingItems}
-            jobId={jobData?.jobId || 0}
-            isLocked={jobData?.status === 2}
-            onItemsChange={handleItemsChange}
-            onCommentsChange={handleCommentsChange}
-            onSelectionChange={setSelectedAuditItems}
-            highlightItemId={effectiveHighlightItemId}
-            highlightThreadType={highlightThreadType}
-          />
-        </div>
+      {/* Audit Items */}
+      <div className="mt-6 px-4">
+        <DataTableItemList
+          items={auditItems}
+          jobNo={jobNo}
+          jobData={jobData ?? undefined}
+          isLoading={isLoadingItems}
+          jobId={jobData?.jobId || 0}
+          isLocked={jobData?.status === 2}
+          onItemsChange={handleItemsChange}
+          onCommentsChange={handleCommentsChange}
+          onSelectionChange={setSelectedAuditItems}
+          highlightItemId={effectiveHighlightItemId}
+          highlightThreadType={highlightThreadType}
+        />
       </div>
 
       <FilePreviewModal

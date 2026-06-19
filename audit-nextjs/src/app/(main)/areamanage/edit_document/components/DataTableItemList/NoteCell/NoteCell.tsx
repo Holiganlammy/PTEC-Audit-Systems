@@ -561,7 +561,7 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
   const isHighlighted = highlighted && hasPendingApproval;
 
   return (
-    <div className="flex flex-col gap-1.5 w-[220px] max-w-[220px]">
+    <div className="flex flex-col gap-1.5 w-35 max-w-35">
       {/* Highlight badge — shown when this cell has a pending-approval comment */}
       {isHighlighted && (
         <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 w-fit">
@@ -574,7 +574,7 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
       {/* Latest comment preview */}
       <div
         className={cn(
-          "min-h-[52px] rounded-md border border-border bg-muted/30 px-2.5 py-2 text-sm cursor-pointer hover:bg-muted/50 transition-colors",
+          "min-h-9.5 rounded-md border border-border bg-muted/30 px-2 py-1.5 text-sm cursor-pointer hover:bg-muted/50 transition-colors",
           isHighlighted && "ring-2 ring-amber-400 border-amber-400 bg-amber-50/20 dark:bg-amber-900/10"
         )}
         onClick={() => {

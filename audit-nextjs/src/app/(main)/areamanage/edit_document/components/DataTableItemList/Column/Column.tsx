@@ -564,10 +564,10 @@ export const createAuditItemsColumns = (
           <div className={cn(
             "font-medium overflow-hidden",
             viewport === 'mobile'
-              ? "min-w-[140px]"
+              ? "min-w-30"
               : viewport === 'tablet'
-              ? "w-[160px] max-w-[160px]"
-              : "w-[220px] max-w-[220px]"
+              ? "w-35 max-w-35"
+              : "w-40 max-w-40"
           )}>
             <div className="break-words whitespace-normal leading-snug" title={name}>
               {name}
@@ -584,21 +584,21 @@ export const createAuditItemsColumns = (
       meta: {
         sticky: "left" as const,
         stickyOffset: 80,
-        stickyWidth: 220,
+        stickyWidth: 160,
         isLastSticky: true,
       },
     },
     // ── Normal columns ───────────────────────────────────────────────────
     {
       accessorKey: "item_status",
-      header: () => <div className="text-center">สถานะที่ตรวจพบ</div>,
+      header: () => <div className="text-center">สถานะ</div>,
       cell: ({ row }) => (
         <div className="text-center">{getStatusBadge(row.getValue("item_status") as number)}</div>
       ),
     },
     {
       id: "branch_score",
-      header: () => <div className="text-center">คะแนนสาขา</div>,
+      header: () => <div className="text-center">คะแนน</div>,
       cell: ({ row }) => {
         const entry = branchScoresMap[row.original.item_id];
         const isRowClosed = row.original.item_status_edit === 4;
@@ -607,42 +607,42 @@ export const createAuditItemsColumns = (
     },
     {
       id: "note_1",
-      header: positionType === "AA" ? "หน่วยงานตรวจสอบ AA" : "หน่วยงานตรวจสอบ (AM Checker)",
+      header: positionType === "AA" ? "Audit" : "AM",
       cell: ({ row }) => (
         <NoteCell itemId={row.original.item_id} threadType={1} positionType={positionType} label={positionType === "AA" ? "AA" : "AM (Checker)"} initialComments={row.original.note_1} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 1} highlighted={highlightItemId === row.original.item_id && (highlightThreadType === 1 || highlightThreadType === undefined) && (row.original.note_1 ?? []).some(c => c.approverStatus === 0)} />
       ),
     },
     {
       id: "note_2",
-      header: positionType === "AA" ? "หน่วยงาน AM" : "หน่วยงาน RM",
+      header: positionType === "AA" ? "AM" : "RM",
       cell: ({ row }) => (
         <NoteCell itemId={row.original.item_id} threadType={2} label={positionType === "AA" ? "AM" : "RM"} initialComments={row.original.note_2} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 2} highlighted={highlightItemId === row.original.item_id && (highlightThreadType === 2 || highlightThreadType === undefined) && (row.original.note_2 ?? []).some(c => c.approverStatus === 0)} />
       ),
     },
     {
       id: "note_3",
-      header: "หน่วยงานอื่นๆ",
+      header: "อื่นๆ",
       cell: ({ row }) => (
         <NoteCell itemId={row.original.item_id} threadType={3} label="Other Agencies" initialComments={row.original.note_3} jobData={jobData} users={users} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} taggedUsers={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 3} highlighted={highlightItemId === row.original.item_id && (highlightThreadType === 3 || highlightThreadType === undefined) && (row.original.note_3 ?? []).some(c => c.approverStatus === 0)} />
       ),
     },
     {
       id: "tagged_users",
-      header: "แท็กผู้ใช้",
+      header: "แท็ก",
       cell: ({ row }) => (
         <TagCell itemId={row.original.item_id} users={users} initialTags={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []} onTagChange={(tags) => onTagChange?.(row.original.item_id, tags)} isLocked={effectiveLocked || row.original.item_status_edit === 4} positionType={positionType} />
       ),
     },
     ...(canSendEmail ? [{
       id: "send_email",
-      header: () => <div className="text-center">กรณีแจ้งผลสาขา</div>,
+      header: () => <div className="text-center">อีเมล</div>,
       cell: ({ row }: { row: import("@tanstack/react-table").Row<AuditItem> }) => (
         <SendEmailCell item={row.original} isLocked={effectiveLocked || row.original.item_status_edit === 4} positionType={positionType} />
       ),
     } satisfies ColumnDef<AuditItem>] : []),
     {
       accessorKey: "item_status_edit",
-      header: () => <div className="text-center">สถานะอัพเดทและแก้ไข (ล่าสุด)</div>,
+      header: () => <div className="text-center">สถานะแก้ไข</div>,
       cell: ({ row }) => (
         <div className="text-center">{getStatusBadge(row.getValue("item_status_edit") as number)}</div>
       ),

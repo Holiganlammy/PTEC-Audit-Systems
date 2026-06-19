@@ -346,7 +346,7 @@ export function DataTable<TData, TValue>({
             </div>
          </div>
 
-         <div className="relative overflow-x-auto">
+         <div className="relative overflow-auto bg-background text-xs xl:text-sm" style={{ maxHeight: 'calc(100vh - 200px)' }}>
             <Table>
                <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (

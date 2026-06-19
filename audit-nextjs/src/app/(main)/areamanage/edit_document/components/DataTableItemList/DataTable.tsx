@@ -508,7 +508,7 @@ export default function DataTableItemList({
     : [1, 3].includes(Number(session?.user?.role_id ?? -1));
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4">
         <Input placeholder="ค้นหารายการ..." value={search} onChange={(e) => { setSearch(e.target.value); setPageIndex(0); }} className="max-w-sm" disabled={isLoading} />
@@ -536,10 +536,10 @@ export default function DataTableItemList({
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={visibleItems.map((item) => item.item_id)} strategy={verticalListSortingStrategy}>
           <div
-            className="rounded-md border overflow-auto"
+            className="rounded-md border overflow-auto bg-background"
             style={{ maxHeight: 'calc(100vh - 200px)' }}
           >
-            <table className="w-full caption-bottom text-sm">
+            <table className="w-full caption-bottom text-xs xl:text-sm">
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>

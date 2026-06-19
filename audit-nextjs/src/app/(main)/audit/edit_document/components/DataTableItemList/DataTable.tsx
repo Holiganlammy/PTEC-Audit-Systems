@@ -511,7 +511,7 @@ export default function DataTableItemList({
   const noPermission = !isLoading && (accessDenied || (orderedItems.length > 0 && visibleItems.length === 0));
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-1 flex-col gap-4 min-h-0">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4">
         <Input placeholder="ค้นหารายการ..." value={search} onChange={(e) => { setSearch(e.target.value); setPageIndex(0); }} className="max-w-sm" disabled={isLoading} />
@@ -540,10 +540,10 @@ export default function DataTableItemList({
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={visibleItems.map((item) => item.item_id)} strategy={verticalListSortingStrategy}>
           <div
-            className="rounded-md border overflow-auto"
+            className="rounded-md border overflow-auto bg-background"
             style={{ maxHeight: 'calc(100vh - 200px)' }}
           >
-            <table className="w-full caption-bottom text-sm">
+            <table className="w-full caption-bottom text-xs xl:text-sm">
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>
@@ -611,10 +611,10 @@ export default function DataTableItemList({
 
       {/* Modals */}
       <AddItemModal open={openAddModal} onOpenChange={setOpenAddModal} jobNo={jobNo} jobId={jobId} jobData={jobData || undefined} isDraftMode={isDraftMode} inspectionDate={inspectionDate} positionType={positionType} onDraftItemAdd={isDraftMode ? handleDraftItemAdd : undefined} onItemAdded={() => { setOpenAddModal(false); onItemsChange(); }} />
-      <EditItemModal open={openEditModal} onOpenChange={setOpenEditModal} item={selectedItem} jobData={jobData} onItemUpdated={() => { setOpenEditModal(false); onItemsChange(); }} />
+     <EditItemModal open={openEditModal} onOpenChange={setOpenEditModal} item={selectedItem} jobData={jobData} onItemUpdated={() => { setOpenEditModal(false); onItemsChange(); }} />
       <AMChecklistModal open={openAMChecklistModal} onOpenChange={setOpenAMChecklistModal} item={selectedAMChecklistItem} onUpdated={() => { setOpenAMChecklistModal(false); onItemsChange(); }} />
       <ItemAttachmentModal open={openAttachmentModal} onOpenChange={setOpenAttachmentModal} item={selectedAttachmentItem} readOnly={selectedAttachmentItem?.item_status_edit === 4} onUpdated={() => { onItemsChange(); fetchAttachmentCounts().catch(() => {}); }} />
-
+ 
       <AlertDialog open={!!deleteItem} onOpenChange={(open) => { if (!open) setDeleteItem(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
