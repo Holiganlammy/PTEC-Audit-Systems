@@ -531,6 +531,20 @@ export class AMJobsService {
     await this.amJobsRepository.save(amJob);
   }
 
+  // Admin: update status directly
+  async updateStatus(
+    id: number,
+    status: number,
+    updatedBy: number,
+  ): Promise<AuditJobWithUsers> {
+    const amJob = await this.amJobsRepository.findOne({ where: { jobId: id } });
+    if (!amJob) throw new NotFoundException(`AM Job with ID ${id} not found`);
+    amJob.status = status;
+    amJob.updatedBy = updatedBy;
+    const savedJob = await this.amJobsRepository.save(amJob);
+    return await this.transformAMJobWithUsers(savedJob);
+  }
+
   // Confirm (lock)
   async confirm(id: number, confirmedBy: number): Promise<AuditJobWithUsers> {
     const amJob = await this.amJobsRepository.findOne({ where: { jobId: id } });

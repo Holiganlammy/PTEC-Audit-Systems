@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { AuditItem } from '../domain/model/audit-item.entity';
 import { CreateAuditItemDto } from '../dto/create-audit-item.dto';
 import { UpdateAuditItemDto } from '../dto/update-audit-item.dto';
@@ -54,8 +54,13 @@ export class AuditItemsService {
   async createMany(
     createAuditItemDtos: CreateAuditItemDto[],
   ): Promise<AuditItem[]> {
-    const auditItems = this.auditItemsRepository.create(createAuditItemDtos);
-    return await this.auditItemsRepository.save(auditItems);
+    const insertResult = await this.auditItemsRepository.insert(
+      createAuditItemDtos.map((dto) => this.auditItemsRepository.create(dto)),
+    );
+    const insertedIds: number[] = insertResult.identifiers.map(
+      (id) => (id as { itemId: number }).itemId,
+    );
+    return await this.auditItemsRepository.findBy({ itemId: In(insertedIds) });
   }
 
   // Get all audit items with filters

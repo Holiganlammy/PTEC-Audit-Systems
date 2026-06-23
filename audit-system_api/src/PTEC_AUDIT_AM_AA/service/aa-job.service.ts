@@ -505,6 +505,20 @@ export class AAJobsService {
     await this.aaJobsRepository.save(aaJob);
   }
 
+  // Admin: update status directly
+  async updateStatus(
+    id: number,
+    status: number,
+    updatedBy: number,
+  ): Promise<AuditJobWithUsers> {
+    const aaJob = await this.aaJobsRepository.findOne({ where: { jobId: id } });
+    if (!aaJob) throw new NotFoundException(`AA Job with ID ${id} not found`);
+    aaJob.status = status;
+    aaJob.updatedBy = updatedBy;
+    const savedJob = await this.aaJobsRepository.save(aaJob);
+    return await this.transformAAJobWithUsers(savedJob);
+  }
+
   async confirm(id: number, confirmedBy: number): Promise<AuditJobWithUsers> {
     const aaJob = await this.aaJobsRepository.findOne({ where: { jobId: id } });
     if (!aaJob) throw new NotFoundException(`AA Job with ID ${id} not found`);

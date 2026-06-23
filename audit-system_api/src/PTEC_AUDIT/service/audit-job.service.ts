@@ -574,6 +574,24 @@ export class AuditJobsService {
     await this.auditJobsRepository.save(auditJob);
   }
 
+  // Admin: update status directly
+  async updateStatus(
+    id: number,
+    status: number,
+    updatedBy: number,
+  ): Promise<AuditJobWithUsers> {
+    const auditJob = await this.auditJobsRepository.findOne({
+      where: { jobId: id },
+    });
+    if (!auditJob) {
+      throw new NotFoundException(`Audit Job with ID ${id} not found`);
+    }
+    auditJob.status = status;
+    auditJob.updatedBy = updatedBy;
+    const savedJob = await this.auditJobsRepository.save(auditJob);
+    return await this.transformAuditJobWithUsers(savedJob);
+  }
+
   // Confirm (lock) audit job
   async confirm(id: number, confirmedBy: number): Promise<AuditJobWithUsers> {
     const auditJob = await this.auditJobsRepository.findOne({

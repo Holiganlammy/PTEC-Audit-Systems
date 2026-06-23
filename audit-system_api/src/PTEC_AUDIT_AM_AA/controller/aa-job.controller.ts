@@ -346,6 +346,39 @@ export class AAJobsController implements OnModuleInit {
     }
   }
 
+  @Patch(':id/status')
+  async updateStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('status', ParseIntPipe) status: number,
+    @Body('updatedBy') updatedBy: number,
+    @Res() res: express.Response,
+  ) {
+    try {
+      const aaJob = await this.aaJobsService.updateStatus(
+        id,
+        status,
+        updatedBy || 0,
+      );
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        data: aaJob,
+        message: `AA job status updated to ${status} successfully`,
+      });
+    } catch (error) {
+      console.error('Error updating AA job status:', error);
+      if (error instanceof NotFoundException) {
+        return res.status(HttpStatus.NOT_FOUND).json({
+          success: false,
+          message: error.message,
+        });
+      }
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Error updating AA job status',
+      });
+    }
+  }
+
   @Patch(':id/confirm')
   async confirm(
     @Param('id', ParseIntPipe) id: number,

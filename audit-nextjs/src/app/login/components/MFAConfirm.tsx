@@ -40,7 +40,7 @@ interface MFADialogProps {
 
 const formSchema = z.object({
   otp: z.string().min(6, "กรุณากรอกรหัส OTP ให้ครบ 6 หลัก").max(6, "กรุณากรอกรหัส OTP ให้ครบ 6 หลัก"),
-  trustDevice: z.boolean().optional(),
+  trustDevice: z.boolean().default(false),
 });
 
 export function MFADialog({
@@ -56,7 +56,7 @@ export function MFADialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       otp: "",
-      trustDevice: true,
+      trustDevice: false,
     },
   });
 
@@ -94,7 +94,7 @@ export function MFADialog({
         {
           usercode: userCode,
           otpCode: value.otp,
-          trustDevice: value.trustDevice,
+          trustDevice: value.trustDevice ?? false,
         },
         {
           headers: dataConfig().headers,
@@ -315,7 +315,7 @@ export function MFADialog({
               </Button>
             </div>
             <FieldGroup>
-              <Controller
+              {/* <Controller
                   name="trustDevice"
                   control={form.control}
                   defaultValue={false}
@@ -339,7 +339,7 @@ export function MFADialog({
                     </FieldLabel>
                   </Field>
                 )}
-              />
+              /> */}
             </FieldGroup>
           </form>
 

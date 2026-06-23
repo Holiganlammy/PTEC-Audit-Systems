@@ -353,6 +353,39 @@ export class AuditJobsController implements OnModuleInit {
     }
   }
 
+  @Patch(':id/status')
+  async updateStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('status', ParseIntPipe) status: number,
+    @Body('updatedBy') updatedBy: number,
+    @Res() res: express.Response,
+  ) {
+    try {
+      const auditJob = await this.auditJobsService.updateStatus(
+        id,
+        status,
+        updatedBy || 0,
+      );
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        data: auditJob,
+        message: `Audit job status updated to ${status} successfully`,
+      });
+    } catch (error: unknown) {
+      console.error('Error updating audit job status:', error);
+      if (error instanceof NotFoundException) {
+        return res.status(HttpStatus.NOT_FOUND).json({
+          success: false,
+          message: error.message,
+        });
+      }
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Error updating audit job status',
+      });
+    }
+  }
+
   @Patch(':id/confirm')
   async confirm(
     @Param('id', ParseIntPipe) id: number,

@@ -241,6 +241,7 @@ export default function EditAuditJobPage() {
   const fileAccessParam = searchParams.get("fileAccess");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingBranches, setIsLoadingBranches] = useState(true);
@@ -986,6 +987,28 @@ export default function EditAuditJobPage() {
     }
   };
 
+  const handleResetStatus = async () => {
+    if (!jobData?.jobId) return;
+    setIsResetting(true);
+    try {
+      await client.patch(`/audit-jobs/${jobData.jobId}/status`, {
+        status: 1,
+        updatedBy: session?.user?.UserID || 0,
+      }, { headers: dataConfig().headers });
+      setJobData((prev) => prev ? { ...prev, status: 1 } : prev);
+      toast.success("Reset status สำเร็จ", {
+        description: "เอกสารถูก unlock กลับเป็น status 1 แล้ว",
+      });
+    } catch (error) {
+      console.error("Error resetting status:", error);
+      toast.error("เกิดข้อผิดพลาด", {
+        description: "ไม่สามารถ reset status ได้",
+      });
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   // Show loading state
   // if (isLoadingData) {
   //   return (
@@ -1052,6 +1075,48 @@ export default function EditAuditJobPage() {
                     <Lock className="h-3 w-3" />
                     Confirmed / Locked
                   </Badge>
+                )}
+                {!isLoadingData && jobData?.status === 2 && session?.user?.role_id === 1 && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isResetting}
+                        className="gap-1 text-xs border-orange-300 text-orange-600 hover:bg-orange-50"
+                      >
+                        {isResetting ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Lock className="h-3 w-3" />
+                        )}
+                        Unlock
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Unlock เอกสาร</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          การ Unlock จะเปลี่ยน status กลับเป็น <strong>1</strong> และเปิดให้แก้ไขเอกสารได้อีกครั้ง
+                          คุณต้องการดำเนินการต่อหรือไม่?
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleResetStatus}
+                          className="bg-orange-600 hover:bg-orange-700"
+                        >
+                          {isResetting ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Lock className="mr-2 h-4 w-4" />
+                          )}
+                          ยืนยัน Unlock
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
               </div>
               {isLoadingData ? (
