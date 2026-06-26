@@ -120,4 +120,19 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Responsive root font size — mobile/notebook smaller, desktop normal */
+  html {
+    font-size: 13px;        /* mobile (< 768px) */
+  }
+  @media (min-width: 768px) {
+    html {
+      font-size: 14px;      /* notebook (768px – 1279px) */
+    }
+  }
+  @media (min-width: 1280px) {
+    html {
+      font-size: 16px;      /* desktop (1280px+) */
+    }
+  }
 }

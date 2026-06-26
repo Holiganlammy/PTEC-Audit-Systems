@@ -581,7 +581,7 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
         <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 w-fit">
           <Clock className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0" />
           <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 whitespace-nowrap">
-            รออนุมัติ — คลิกเพื่อดู
+            {threadType === 1 ? "รอรับทราบ" : "รออนุมัติ"} — คลิกเพื่อดู
           </span>
         </div>
       )}

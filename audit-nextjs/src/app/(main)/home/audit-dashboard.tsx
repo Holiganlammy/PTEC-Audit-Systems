@@ -118,14 +118,14 @@ export function AuditDashboard() {
           iconClassName="text-green-600 dark:text-green-400"
         />
         <KPICard
-          title="รอ AM ตรวจ"
+          title="รอ Checker Item"
           value={stats.waitingAM}
           icon={Clock}
           description="Waiting AM"
           iconClassName="text-yellow-600 dark:text-yellow-400"
         />
         <KPICard
-          title="AM ไม่ผ่าน"
+          title="Checker ไม่ผ่าน"
           value={stats.amRejected}
           icon={XCircle}
           description="AM Rejected"
@@ -163,7 +163,7 @@ export function AuditDashboard() {
         />
 
         <ActionItemsDialog
-          title="รอ AM ตรวจสอบ"
+          title="รอ Checker Item"
           items={dashboardData?.waitingAMItems?.items || []}
           totalCount={dashboardData?.waitingAMItems?.totalCount || 0}
           triggerIcon={<Clock className="h-4 w-4 mr-2" />}
@@ -171,7 +171,7 @@ export function AuditDashboard() {
         />
 
         <ActionItemsDialog
-          title="AM ไม่ผ่าน - ต้องแก้ไข"
+          title="Checker ไม่ผ่าน - ต้องแก้ไข"
           items={dashboardData?.amRejectedItems?.items || []}
           totalCount={dashboardData?.amRejectedItems?.totalCount || 0}
           triggerIcon={<AlertTriangle className="h-4 w-4 mr-2" />}

@@ -212,7 +212,9 @@ export class AuditJobsService {
           ? 'IAO-VS'
           : createAuditJobDto.positionType === 'online'
             ? 'IAO-OL'
-            : 'IAO';
+            : createAuditJobDto.positionType === 'cctv'
+              ? 'IAO-CT'
+              : 'IAO';
       const jobNo = await this.running_number(runningType);
       console.log('Generated Job Number:', jobNo);
 
@@ -377,8 +379,8 @@ export class AuditJobsService {
     const roleId = user.role_id;
     const userId = user.user_id;
 
-    if (roleId === 1 || roleId === 2) {
-      // Role 1, 2: เห็นทุก job
+    if (roleId === 1 || roleId === 2 || roleId === 9) {
+      // Role 1, 2: เห็นทุก job | Role 9 (SSD): read-only ดูได้ทุก job
       // ไม่ต้อง filter
     } else if (roleId === 3) {
       // Role 3 (District Manager): เห็นเฉพาะ job ที่ตัวเองเป็น district_manager

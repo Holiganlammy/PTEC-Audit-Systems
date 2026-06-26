@@ -20,7 +20,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { Check, ChevronsUpDown, Loader2, X } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2, Minus, X } from "lucide-react";
 import {
   Command,
   CommandEmpty,
@@ -28,6 +28,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
@@ -291,6 +292,42 @@ const statusOptions = [
                             <CommandList className="max-h-[240px]">
                               <CommandEmpty>ไม่พบหมวดหมู่</CommandEmpty>
                               <CommandGroup>
+                                {filteredCategories.length > 0 && (() => {
+                                  const allFilteredIds = filteredCategories.map((c) => c.categoryItemId.toString());
+                                  const isAllSelected = allFilteredIds.every((id) => selected.includes(id));
+                                  const isPartial = !isAllSelected && allFilteredIds.some((id) => selected.includes(id));
+                                  return (
+                                    <>
+                                      <CommandItem
+                                        key="__select_all__"
+                                        value="__select_all__"
+                                        onSelect={() => {
+                                          if (isAllSelected) {
+                                            field.onChange(selected.filter((id) => !allFilteredIds.includes(id)));
+                                          } else {
+                                            const toAdd = allFilteredIds.filter((id) => !selected.includes(id));
+                                            field.onChange([...selected, ...toAdd].slice(0, 20));
+                                          }
+                                        }}
+                                      >
+                                        <div className={cn(
+                                          "mr-2 h-4 w-4 shrink-0 rounded-sm border flex items-center justify-center",
+                                          isAllSelected
+                                            ? "bg-primary border-primary text-primary-foreground"
+                                            : isPartial
+                                            ? "bg-primary/20 border-primary/60"
+                                            : "border-input"
+                                        )}>
+                                          {isAllSelected && <Check className="h-3 w-3" />}
+                                          {isPartial && <Minus className="h-3 w-3 text-primary" />}
+                                        </div>
+                                        <span className="font-medium text-sm">เลือกทั้งหมด</span>
+                                        <span className="ml-auto text-xs text-muted-foreground">{allFilteredIds.filter((id) => selected.includes(id)).length}/{allFilteredIds.length}</span>
+                                      </CommandItem>
+                                      <CommandSeparator />
+                                    </>
+                                  );
+                                })()}
                                 {filteredCategories.map((cat) => {
                                   const idStr = cat.categoryItemId.toString();
                                   const isSelected = selected.includes(idStr);

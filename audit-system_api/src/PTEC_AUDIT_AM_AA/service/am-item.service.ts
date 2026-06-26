@@ -128,8 +128,8 @@ export class AMItemsService {
       const roleId = user.role_id;
       const userId = user.user_id;
 
-      if (roleId === 1) {
-        // Role 1 (Admin): เห็นทุก item
+      if (roleId === 1 || roleId === 9) {
+        // Role 1 (Admin): เห็นทุก item | Role 9 (SSD): read-only ดูได้ทุก item
       } else if (roleId === 3) {
         // Role 3 (AM): เห็น item ของ job ที่ตัวเองเป็น AM หรือเป็นคนสร้าง
         query.andWhere('(job.amUserId = :userId OR job.createdBy = :userId)', {
@@ -215,8 +215,8 @@ export class AMItemsService {
     const isAA = filters?.jobSource?.toUpperCase() === 'AA';
     const jobAlias = isAA ? 'item.aaJob' : 'item.job';
 
-    if (roleId === 1 || roleId === 2) {
-      // Admin / Audit (read-only): เห็นทุก item
+    if (roleId === 1 || roleId === 2 || roleId === 9) {
+      // Admin / Audit / SSD (read-only): เห็นทุก item
       query.where('item.jobId = :jobId', { jobId: filters?.jobId });
     } else if (isAA) {
       // AA job — แยก permission ตาม role

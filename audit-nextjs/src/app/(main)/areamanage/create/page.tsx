@@ -19,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
+import { TimePickerScroll } from "@/components/ui/time-picker-scroll";
 import {
   CalendarIcon, Upload, ArrowLeft, Loader2, Check, ChevronsUpDown,
   Paperclip, ImageIcon, FileText, FileSpreadsheet, X, FileWarning,
@@ -374,10 +375,25 @@ export default function CreateAMJobPage() {
                           <PopoverTrigger asChild>
                             <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground", fieldState.error && "border-red-500")}>
                               <CalendarIcon className="mr-2 h-4 w-4" />
-                              {field.value ? format(field.value, "dd/MM/yyyy", { locale: th }) : <span>เลือกวันที่</span>}
+                              {field.value ? format(field.value, "dd/MM/yyyy HH:mm", { locale: th }) : <span>เลือกวันที่และเวลา</span>}
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={(day) => {
+                                if (!day) return;
+                                const prev = field.value ?? new Date();
+                                day.setHours(prev.getHours(), prev.getMinutes(), 0, 0);
+                                field.onChange(day);
+                              }}
+                              initialFocus
+                            />
+                            <div className="px-3 pb-3">
+                              <TimePickerScroll date={field.value} onTimeChange={field.onChange} />
+                            </div>
+                          </PopoverContent>
                         </Popover>
                         {fieldState.error && <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>}
                       </Field>

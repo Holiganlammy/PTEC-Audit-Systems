@@ -267,7 +267,7 @@ export default function AddItemsPage() {
       const headerPayload = {
         branchId: parseInt(draftHeader.Branch),
         branchName: selectedBranch?.name || "",
-        auditDate: format(new Date(draftHeader.Date), "yyyy-MM-dd"),
+        auditDate: format(new Date(draftHeader.Date), "yyyy-MM-dd'T'HH:mm:ss"),
         address: draftHeader.Address || "",
         pmCode: draftHeader.PMCode || "",
         auditorUserId: parseInt(draftHeader.Auditor),

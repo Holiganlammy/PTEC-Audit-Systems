@@ -91,7 +91,8 @@ async function fetchUserAccessiblePaths(
   try {
     // console.log(`[RBAC] Fetching menu for user ${userId}...`);
 
-    const res = await fetch(`${process.env.INTERNAL_API_URL}/menu_audit/check-permission`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu_audit/check-permission`, {
+    // const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu_audit/check-permission`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

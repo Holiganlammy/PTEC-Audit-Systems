@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/command";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
+import { TimePickerScroll } from "@/components/ui/time-picker-scroll";
 import {
   CalendarIcon,
   Upload,
@@ -482,7 +483,7 @@ export default function EditAuditJobPage() {
     const roleId = Number(session?.user?.role_id ?? -1);
 
     // AM: role 1,2,3,4 | AA: role 1,2,4,8 → เห็นไฟล์เสมอ
-    const allowedRoles = formTypeParam === "AA" ? [1, 2, 4, 8] : [1, 2, 3, 4];
+    const allowedRoles = formTypeParam === "AA" ? [1, 2, 4, 8, 9] : [1, 2, 3, 4, 9];
     if (allowedRoles.includes(roleId)) {
       setCanViewFiles(true);
       return;
@@ -915,7 +916,7 @@ export default function EditAuditJobPage() {
         const payload = {
           branchId: parseInt(values.Branch),
           branchName: formData.branchName,
-          auditDate: format(values.Date, "yyyy-MM-dd"),
+          auditDate: format(values.Date, "yyyy-MM-dd'T'HH:mm:ss"),
           address: values.Address || "",
           pmCode: values.PMCode || "",
           auditorUserId: parseInt(values.Auditor),
@@ -1590,11 +1591,11 @@ export default function EditAuditJobPage() {
                               >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
                                 {field.value ? (
-                                  format(field.value, "dd/MM/yyyy", {
+                                  format(field.value, "dd/MM/yyyy HH:mm", {
                                     locale: th,
                                   })
                                 ) : (
-                                  <span>เลือกวันที่</span>
+                                  <span>เลือกวันที่และเวลา</span>
                                 )}
                               </Button>
                             </PopoverTrigger>
@@ -1602,9 +1603,20 @@ export default function EditAuditJobPage() {
                               <Calendar
                                 mode="single"
                                 selected={field.value}
-                                onSelect={field.onChange}
+                                onSelect={(day) => {
+                                  if (!day) return;
+                                  const prev = field.value ?? new Date();
+                                  day.setHours(prev.getHours(), prev.getMinutes(), 0, 0);
+                                  field.onChange(day);
+                                }}
                                 initialFocus
                               />
+                              <div className="px-3 pb-3">
+                                <TimePickerScroll
+                                  date={field.value}
+                                  onTimeChange={field.onChange}
+                                />
+                              </div>
                             </PopoverContent>
                           </Popover>
                           {fieldState.error && (

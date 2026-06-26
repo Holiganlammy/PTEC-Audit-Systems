@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/command";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
+import { TimePickerScroll } from "@/components/ui/time-picker-scroll";
 import {
   CalendarIcon,
   Upload,
@@ -90,7 +91,7 @@ const formSchema = z.object({
   DistrictManager: z.string().nonempty("กรุณาเลือกผู้จัดการเขต"),
   BranchManager: z.string().optional(),
   AdditionalNotes: z.string().optional(),
-  Type: z.enum(["visit", "online"]).refine((val) => val !== undefined, { message: "กรุณาเลือกประเภทการตรวจ" }),
+  Type: z.enum(["visit", "online", "cctv"]).refine((val) => val !== undefined, { message: "กรุณาเลือกประเภทการตรวจ" }),
 });
 
 const getFileIcon = (fileName: string) => {
@@ -322,11 +323,6 @@ export default function CreateAuditJobPage() {
     setJobHeaderFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const branchManagers = users.filter(
-    (u) =>
-      u.Position?.toLowerCase().includes("ผู้จัดการสาขา") ||
-      u.PositionCode === "BM"
-  );
 
   // Handle branch selection
   const handleBranchChange = (value: string) => {
@@ -515,6 +511,18 @@ export default function CreateAuditJobPage() {
                               Online
                             </Label>
                           </div>
+                          <div className="flex items-center gap-2">
+                            <RadioGroupItem
+                              value="cctv"
+                              id="create-type-cctv"
+                            />
+                            <Label
+                              htmlFor="create-type-cctv"
+                              className="cursor-pointer font-normal"
+                            >
+                              CCTV
+                            </Label>
+                          </div>
                         </RadioGroup>
                         {fieldState.error && (
                           <p className="text-sm text-red-500 mt-1">
@@ -700,11 +708,11 @@ export default function CreateAuditJobPage() {
                               >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
                                 {field.value ? (
-                                  format(field.value, "dd/MM/yyyy", {
+                                  format(field.value, "dd/MM/yyyy HH:mm", {
                                     locale: th,
                                   })
                                 ) : (
-                                  <span>เลือกวันที่</span>
+                                  <span>เลือกวันที่และเวลา</span>
                                 )}
                               </Button>
                             </PopoverTrigger>
@@ -715,9 +723,20 @@ export default function CreateAuditJobPage() {
                               <Calendar
                                 mode="single"
                                 selected={field.value}
-                                onSelect={field.onChange}
+                                onSelect={(day) => {
+                                  if (!day) return;
+                                  const prev = field.value ?? new Date();
+                                  day.setHours(prev.getHours(), prev.getMinutes(), 0, 0);
+                                  field.onChange(day);
+                                }}
                                 initialFocus
                               />
+                              <div className="px-3 pb-3">
+                                <TimePickerScroll
+                                  date={field.value}
+                                  onTimeChange={field.onChange}
+                                />
+                              </div>
                             </PopoverContent>
                           </Popover>
                           {fieldState.error && (

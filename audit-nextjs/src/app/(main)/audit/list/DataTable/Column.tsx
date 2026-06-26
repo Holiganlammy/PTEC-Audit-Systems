@@ -139,7 +139,7 @@ export const createAuditListColumns = (onDelete: (jobId: number) => void): Colum
       const date = row.getValue("auditDate") as string;
       return (
         <div className="text-sm">
-          {date ? format(new Date(date), "dd/MM/yyyy", { locale: th }) : "-"}
+          {date ? format(new Date(date), "dd/MM/yyyy HH:mm", { locale: th }) : "-"}
         </div>
       );
     },

@@ -29,7 +29,7 @@ export class AuditJobsHeader {
   @Column({ name: 'branch_name', type: 'nvarchar', nullable: true })
   branchName!: string;
 
-  @Column({ name: 'audit_date', type: 'date', nullable: true })
+  @Column({ name: 'audit_date', type: 'datetime', nullable: true })
   auditDate!: Date;
 
   @Column({ name: 'address', type: 'nvarchar', nullable: true })

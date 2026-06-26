@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/command";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
+import { TimePickerScroll } from "@/components/ui/time-picker-scroll";
 import {
   CalendarIcon,
   Upload,
@@ -219,7 +220,7 @@ const formSchema = z.object({
   DistrictManager: z.string().nonempty("กรุณาเลือกผู้จัดการเขต"),
   BranchManager: z.string().optional(),
   AdditionalNotes: z.string().optional(),
-  Type: z.enum(["visit", "online"]),
+  Type: z.enum(["visit", "online", "cctv"]),
 });
 
 export default function EditAuditJobPage() {
@@ -346,7 +347,7 @@ export default function EditAuditJobPage() {
       }
       
       form.setValue("AdditionalNotes", jobData.additionalNotes || "");
-      form.setValue("Type", jobData.positionType === "online" ? "online" : "visit");
+      form.setValue("Type", (["visit", "online", "cctv"].includes(jobData.positionType) ? jobData.positionType : "visit") as "visit" | "online" | "cctv");
  
       setFormData({
         branchId: jobData.branchId?.toString() || "",
@@ -844,7 +845,7 @@ export default function EditAuditJobPage() {
         const payload = {
           branchId: parseInt(values.Branch),
           branchName: formData.branchName,
-          auditDate: format(values.Date, "yyyy-MM-dd"),
+          auditDate: format(values.Date, "yyyy-MM-dd'T'HH:mm:ss"),
           address: values.Address || "",
           pmCode: values.PMCode || "",
           auditorUserId: parseInt(values.Auditor),
@@ -1322,6 +1323,10 @@ export default function EditAuditJobPage() {
                               <RadioGroupItem value="online" id="type-online" />
                               <Label htmlFor="type-online" className="cursor-pointer">Online</Label>
                             </div>
+                            <div className="flex items-center gap-3">
+                              <RadioGroupItem value="cctv" id="type-cctv" />
+                              <Label htmlFor="type-cctv" className="cursor-pointer">CCTV</Label>
+                            </div>
                           </RadioGroup>
                         </Field>
                       )}
@@ -1531,11 +1536,11 @@ export default function EditAuditJobPage() {
                               >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
                                 {field.value ? (
-                                  format(field.value, "dd/MM/yyyy", {
+                                  format(field.value, "dd/MM/yyyy HH:mm", {
                                     locale: th,
                                   })
                                 ) : (
-                                  <span>เลือกวันที่</span>
+                                  <span>เลือกวันที่และเวลา</span>
                                 )}
                               </Button>
                             </PopoverTrigger>
@@ -1543,9 +1548,20 @@ export default function EditAuditJobPage() {
                               <Calendar
                                 mode="single"
                                 selected={field.value}
-                                onSelect={field.onChange}
+                                onSelect={(day) => {
+                                  if (!day) return;
+                                  const prev = field.value ?? new Date();
+                                  day.setHours(prev.getHours(), prev.getMinutes(), 0, 0);
+                                  field.onChange(day);
+                                }}
                                 initialFocus
                               />
+                              <div className="px-3 pb-3">
+                                <TimePickerScroll
+                                  date={field.value}
+                                  onTimeChange={field.onChange}
+                                />
+                              </div>
                             </PopoverContent>
                           </Popover>
                           {fieldState.error && (

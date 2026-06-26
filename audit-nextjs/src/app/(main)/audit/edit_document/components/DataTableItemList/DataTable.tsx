@@ -365,23 +365,19 @@ export default function DataTableItemList({
   const handleAMChecklistClick = useCallback((item: AuditItem) => { setSelectedAMChecklistItem(item); setOpenAMChecklistModal(true); }, []);
   const handleAttachmentClick = useCallback((item: AuditItem) => { setSelectedAttachmentItem(item); setOpenAttachmentModal(true); }, []);
 
-  // Permission logic for AM Checklist: role 1, 2, 4 หรือ role 3 ที่เป็น District Manager ของงานนี้
+  // role 1, 2, 4 สามารถ check AM Checklist ได้
   const isAMChecklistAllowed = (() => {
-    const roleId = session?.user?.role_id;
-    const userId = String(session?.user?.UserID ?? "");
-    if (roleId === 1 || roleId === 2 || roleId === 4) return true;
-    return userId !== "" && userId === String(jobData?.districtManager?.userId ?? "");
+    const roleId = Number(session?.user?.role_id ?? -1);
+    return [1, 2, 4].includes(roleId);
   })();
 
-  // Permission logic for visible Audit items:
-  // - role 1, 2, 4: เห็นทุก item
-  // - role 3: เห็นทุก item ถ้าเป็น District Manager ของงานนี้, ถ้าไม่ใช่จะเห็นเฉพาะ item ที่ถูก tag
-  // - อื่นๆ: เห็นเฉพาะ item ที่ถูก tag
   const { visibleItems, accessDenied } = useMemo(() => {
-    const roleId = session?.user?.role_id;
+    if (isDraftMode) return { visibleItems: orderedItems, accessDenied: false };
+    const roleId = Number(session?.user?.role_id ?? -1);
     const userId = session?.user?.UserID;
     if (!userId) return { visibleItems: [], accessDenied: false };
-    if (roleId === 1 || roleId === 2 || roleId === 4) return { visibleItems: orderedItems, accessDenied: false };
+    const fullAccessRoles = [1, 2, 4, 9];
+    if (fullAccessRoles.includes(roleId)) return { visibleItems: orderedItems, accessDenied: false };
     if (roleId === 3) {
       const isJobMember = userId == jobData?.districtManager?.userId;
       if (!isJobMember) return { visibleItems: [], accessDenied: true };
@@ -391,7 +387,7 @@ export default function DataTableItemList({
       visibleItems: orderedItems.filter((item) => (taggedUsersMap[item.item_id] ?? []).some((t) => t.userId == String(userId))),
       accessDenied: false,
     };
-  }, [orderedItems, taggedUsersMap, session, jobData]);
+  }, [isDraftMode, orderedItems, taggedUsersMap, session, jobData]);
 
   const handleDelete = useCallback((item: AuditItem) => { setDeleteItem(item); }, []);
 
@@ -419,7 +415,7 @@ export default function DataTableItemList({
     return { plus, zero, minus, total, scored, unscored: Math.max(0, visibleItems.length - scored) };
   }, [visibleItems, branchScoresMap]);
 
-  const canShowAddButton = session?.user?.role_id === 1 || session?.user?.role_id === 2;
+  const canShowAddButton = [1, 2].includes(Number(session?.user?.role_id ?? -1));
 
   const confirmDelete = async () => {
     if (!deleteItem) return;
@@ -449,7 +445,7 @@ export default function DataTableItemList({
   }, [orderedItems, onItemsChange, session]);
 
   const columns = useMemo(
-    () => createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session?.user?.role_id === 1 || session?.user?.role_id === 2, isDraftMode, attachmentCountsMap, viewport, highlightItemId, highlightThreadType),
+    () => createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, [1, 2].includes(Number(session?.user?.role_id ?? -1)), isDraftMode, attachmentCountsMap, viewport, highlightItemId, highlightThreadType),
     [handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session, isDraftMode, attachmentCountsMap, viewport, highlightItemId, highlightThreadType]
   );
 
@@ -511,7 +507,7 @@ export default function DataTableItemList({
   const noPermission = !isLoading && (accessDenied || (orderedItems.length > 0 && visibleItems.length === 0));
 
   return (
-    <div className="flex flex-1 flex-col gap-4 min-h-0">
+    <div className="flex flex-col gap-4">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4">
         <Input placeholder="ค้นหารายการ..." value={search} onChange={(e) => { setSearch(e.target.value); setPageIndex(0); }} className="max-w-sm" disabled={isLoading} />

@@ -592,21 +592,21 @@ export const createAuditItemsColumns = (
       id: "note_1",
       header: "Audit",
       cell: ({ row }) => (
-        <NoteCell itemId={row.original.item_id} threadType={1} label="Audit Unit" initialComments={row.original.note_1} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 1} highlighted={highlightItemId === row.original.item_id && (highlightThreadType === 1 || highlightThreadType === undefined) && (row.original.note_1 ?? []).some(c => c.approverStatus === 0)} />
+        <NoteCell itemId={row.original.item_id} threadType={1} label="Audit Unit" initialComments={row.original.note_1} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 1} highlighted={(row.original.note_1 ?? []).some(c => c.approverStatus === 0)} />
       ),
     },
     {
       id: "note_2",
       header: "AM",
       cell: ({ row }) => (
-        <NoteCell itemId={row.original.item_id} threadType={2} label="AM Unit" initialComments={row.original.note_2} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 2} highlighted={highlightItemId === row.original.item_id && (highlightThreadType === 2 || highlightThreadType === undefined) && (row.original.note_2 ?? []).some(c => c.approverStatus === 0)} />
+        <NoteCell itemId={row.original.item_id} threadType={2} label="AM Unit" initialComments={row.original.note_2} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 2} highlighted={(row.original.note_2 ?? []).some(c => c.approverStatus === 0)} />
       ),
     },
     {
       id: "note_3",
       header: "อื่นๆ",
       cell: ({ row }) => (
-        <NoteCell itemId={row.original.item_id} threadType={3} label="Other Agencies" initialComments={row.original.note_3} jobData={jobData} users={users} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} taggedUsers={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 3} highlighted={highlightItemId === row.original.item_id && (highlightThreadType === 3 || highlightThreadType === undefined) && (row.original.note_3 ?? []).some(c => c.approverStatus === 0)} />
+        <NoteCell itemId={row.original.item_id} threadType={3} label="Other Agencies" initialComments={row.original.note_3} jobData={jobData} users={users} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} taggedUsers={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 3} highlighted={(row.original.note_3 ?? []).some(c => c.approverStatus === 0)} />
       ),
     },
     ...(canSendEmail ? [{

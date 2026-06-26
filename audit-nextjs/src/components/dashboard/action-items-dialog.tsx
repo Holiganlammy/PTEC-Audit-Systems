@@ -61,11 +61,9 @@ export function ActionItemsDialog({
             {titleHeader && <p>{titleHeader}</p>}
             <span className="flex items-center gap-1.5">
               {triggerIcon}
-              {triggerLabel && (
-                <span className="font-semibold text-sm">{triggerLabel}</span>
-              )}
+              <span className="font-semibold text-[11px] sm:text-xs md:text-sm leading-tight">{triggerLabel ?? title}</span>
             </span>
-            <span className="text-xs font-normal opacity-75">ดูทั้งหมด ({totalCount})</span>
+            <span className="text-[10px] sm:text-xs font-normal opacity-75">ดูทั้งหมด ({totalCount})</span>
           </span>
         </Button>
       </DialogTrigger>

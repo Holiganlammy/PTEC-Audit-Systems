@@ -95,8 +95,8 @@ export class AuditItemsService {
       const roleId = user.role_id;
       const userId = user.user_id;
 
-      if (roleId === 1 || roleId === 2) {
-        // Role 1, 2: เห็นทุก item
+      if (roleId === 1 || roleId === 2 || roleId === 9) {
+        // Role 1, 2: เห็นทุก item | Role 9 (SSD): read-only ดูได้ทุก item
       } else if (roleId === 3) {
         // Role 3: เห็น item ของ job ที่เป็น district_manager
         query.andWhere('job.districtManagerUserId = :userId', { userId });
@@ -175,8 +175,8 @@ export class AuditItemsService {
 
     // console.log('🔒 Filtering items:', { roleId, userId, filters });
 
-    if (roleId === 1 || roleId === 2) {
-      // เห็นทุก item
+    if (roleId === 1 || roleId === 2 || roleId === 9) {
+      // เห็นทุก item | Role 9 (SSD): read-only ดูได้ทุก item
       query.where('item.jobId = :jobId', { jobId: filters?.jobId });
     } else if (roleId === 3) {
       // เห็น item ถ้าเป็น district_manager ของ job

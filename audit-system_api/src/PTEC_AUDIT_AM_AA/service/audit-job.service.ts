@@ -336,6 +336,8 @@ export class AMJobsService {
       // เห็นทุก job
     } else if (roleId === 2) {
       // Admin: เห็นทุก job
+    } else if (roleId === 9) {
+      // SSD: read-only ดูได้ทุก job
     } else if (roleId === 3) {
       // AM: เห็น job ที่ตัวเองเป็น amUser หรือเป็นคนสร้าง job
       query.andWhere('(job.amUserId = :userId OR job.createdBy = :userId)', {

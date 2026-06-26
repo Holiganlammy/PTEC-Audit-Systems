@@ -376,8 +376,8 @@ export default function DataTableItemList({
     const roleId = Number(session?.user?.role_id ?? -1);
     const userId = session?.user?.UserID;
     if (!userId) return { visibleItems: [], accessDenied: false };
-    // AM: roles 1,2,3,4 see all items; AA: roles 1,2,4,8 see all items
-    const fullAccessRoles = positionType === "AA" ? [1, 2, 4, 8] : [1, 2, 3, 4];
+    // AM: roles 1,2,3,4 see all items; AA: roles 1,2,4,8,9 see all items
+    const fullAccessRoles = positionType === "AA" ? [1, 2, 4, 8, 9] : [1, 2, 3, 4, 9];
     if (fullAccessRoles.includes(roleId)) {
       return { visibleItems: orderedItems, accessDenied: false };
     }
