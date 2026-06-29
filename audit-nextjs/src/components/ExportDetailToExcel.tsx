@@ -227,6 +227,7 @@ export default function ExportAuditDetailToExcel({
         ["ผู้ตรวจสอบ", jobData.auditor?.fullname || "-"],
         ["ผู้จัดการเขต", jobData.districtManager?.fullname || "-"],
         ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
+        ["ผู้ทำรายการ", jobData.createdByUser?.fullname || "-"],
       ];
 
       jobInfo.forEach(([label, value]) => {

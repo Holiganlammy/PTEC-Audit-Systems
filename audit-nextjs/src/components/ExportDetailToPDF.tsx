@@ -121,10 +121,11 @@ export default function ExportAuditDetailToPDF({
         ["สาขา", jobData.branchName || "-"],
         ["ที่อยู่", jobData.address || "-"],
         ["PM Code", jobData.pmCode || "-"],
-        ["วันที่ตรวจสอบ", jobData.auditDate ? format(new Date(jobData.auditDate), "dd/MM/yyyy", { locale: th }) : "-"],
+        ["วันที่ตรวจสอบ", jobData.auditDate ? format(new Date(jobData.auditDate), "dd/MM/yyyy HH:mm", { locale: th }) : "-"],
         ["ผู้ตรวจสอบ", jobData.auditor?.fullname || "-"],
         ["ผู้จัดการเขต", jobData.districtManager?.fullname || "-"],
         ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
+        ["ผู้ทำรายการ", jobData.createdByUser?.fullname || "-"],
       ];
 
       autoTable(doc, {

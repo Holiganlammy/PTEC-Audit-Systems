@@ -136,7 +136,7 @@ export class AuditJobsController implements OnModuleInit {
       search: search || undefined,
       active: active ? active === 'true' : undefined,
     };
-    console.log(req);
+    // console.log(req);
     const user = req ? await this.getUserFromJWT(req) : undefined;
     // console.log('🔍 Fetching audit jobs with params:', params, 'User:', user);
     if (!user) {

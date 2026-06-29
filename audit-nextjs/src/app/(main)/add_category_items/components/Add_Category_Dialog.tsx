@@ -197,8 +197,9 @@ export default function AddCategoryItemsPage({
                         </SelectTrigger>
                         <SelectContent>
                             <SelectGroup>
-                            <SelectItem value="visit">visit</SelectItem>
-                            <SelectItem value="online">online</SelectItem>
+                              <SelectItem value="visit">visit</SelectItem>
+                              <SelectItem value="online">online</SelectItem>
+                              <SelectItem value="cctv">cctv</SelectItem>
                             </SelectGroup>
                         </SelectContent>
                     </Select>

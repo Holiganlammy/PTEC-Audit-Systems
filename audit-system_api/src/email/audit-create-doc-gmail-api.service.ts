@@ -154,7 +154,7 @@ export class AuditCreateDocGmailApiService {
     const districtManagerFullname =
       params.districtManagerFullname?.trim() || '-';
     const branchManagerFullname = params.branchManagerFullname?.trim() || '-';
-    const additionalNotes = params.additionalNotes?.trim() || '-';
+    const additionalNotes = params.additionalNotes?.trim() || '';
     const formType = params.formType?.toUpperCase() || 'Audit';
 
     const formTypeLabel =
@@ -272,10 +272,14 @@ export class AuditCreateDocGmailApiService {
                         <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">ผู้จัดการสาขา:</td>
                         <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${branchManagerFullname}</td>
                       </tr>
-                                            <tr>
+                      ${
+                        additionalNotes
+                          ? `<tr>
                         <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">รายละเอียดเพิ่มเติม:</td>
                         <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${additionalNotes}</td>
-                      </tr>
+                      </tr>`
+                          : ''
+                      }
                     </table>
                   </td>
                 </tr>

@@ -1275,7 +1275,7 @@ export default function EditAuditJobPage() {
         </div>
 
         <form onSubmit={form.handleSubmit(onSubmit, handleFormError)} className="space-y-6">
-          <fieldset disabled={isFormLocked || !canEdit} className="contents">
+          <fieldset disabled className="contents">
           {/* Main Card with all fields */}
           <Card>
             <CardContent className="pt-6">
@@ -1791,35 +1791,37 @@ export default function EditAuditJobPage() {
                   </div>
                   )}
 
-                  {/* Row 4: Additional Notes (Full Width) */}
-                  <div className="grid grid-cols-1">
-                    <Controller
-                      name="AdditionalNotes"
-                      control={form.control}
-                      render={({ field }) => (
-                        <Field>
-                          <FieldLabel>รายละเอียดเพิ่มเติม</FieldLabel>
-                          {isLoadingData ? (
-                            <Skeleton className="h-24 w-full" />
-                          ) : (
-                          <Textarea
-                            {...field}
-                            placeholder="กรอกรายละเอียดเพิ่มเติม..."
-                            rows={4}
-                            className="resize-none w-full"
-                          />
-                          )}
-                        </Field>
-                      )}
-                    />
-                  </div>
-
                 </div>
               </FieldSet>
             </CardContent>
           </Card>
 
           </fieldset>
+
+          {/* Additional Notes - editable regardless of header lock */}
+          <Card>
+            <CardContent className="pt-6">
+              <Controller
+                name="AdditionalNotes"
+                control={form.control}
+                render={({ field }) => (
+                  <Field>
+                    <FieldLabel>รายละเอียดเพิ่มเติม</FieldLabel>
+                    {isLoadingData ? (
+                      <Skeleton className="h-24 w-full" />
+                    ) : (
+                      <Textarea
+                        {...field}
+                        placeholder="กรอกรายละเอียดเพิ่มเติม..."
+                        rows={4}
+                        className="resize-none w-full"
+                      />
+                    )}
+                  </Field>
+                )}
+              />
+            </CardContent>
+          </Card>
 
           {/* File Attachment - ทุก role สามารถแนบไฟล์ได้ */}
           <Card>
