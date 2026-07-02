@@ -463,7 +463,7 @@ export class AAJobsController implements OnModuleInit {
           cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
         },
       }),
-      limits: { fileSize: 30 * 1024 * 1024 },
+      limits: { fileSize: 100 * 1024 * 1024 },
       fileFilter: (req, file, cb) => {
         const allowedMimes = [
           'image/jpeg',

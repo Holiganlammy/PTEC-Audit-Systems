@@ -29,7 +29,11 @@ export class AuditUserRolesService {
     const userRole = await this.auditUserRolesRepo
       .createQueryBuilder('ur')
       .innerJoin(RoleSystemAudit, 'r', 'r.role_id = ur.role_id')
-      .select(['ur.role_id AS roleId', 'r.role_name AS roleName', 'ur.user_id AS userId'])
+      .select([
+        'ur.role_id AS roleId',
+        'r.role_name AS roleName',
+        'ur.user_id AS userId',
+      ])
       .where('ur.user_code = :userCode', { userCode: userCode.toUpperCase() })
       .andWhere('ur.active = :active', { active: 1 })
       .getRawOne<{ roleId: number; roleName: string; userId: number }>();
