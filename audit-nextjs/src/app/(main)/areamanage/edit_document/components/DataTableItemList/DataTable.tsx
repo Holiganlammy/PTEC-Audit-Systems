@@ -505,7 +505,7 @@ export default function DataTableItemList({
 
   const canShowAddButton = positionType === "AA"
     ? [1, 8].includes(Number(session?.user?.role_id ?? -1))
-    : [1, 3].includes(Number(session?.user?.role_id ?? -1));
+    : [1, 3, 4].includes(Number(session?.user?.role_id ?? -1));
 
   return (
     <div className="flex flex-col gap-4">
