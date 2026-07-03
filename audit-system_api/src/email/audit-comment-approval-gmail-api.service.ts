@@ -322,4 +322,209 @@ export class AuditCommentApprovalGmailApiService {
       throw error;
     }
   }
+
+  /**
+   * ส่งเมลแจ้งผลอนุมัติ/ไม่อนุมัติกลับไปหาผู้ร้องขอ (เจ้าของ Comment)
+   * @param params - ข้อมูลสำหรับส่งเมล
+   */
+  async sendCommentApprovalResultEmail(params: {
+    requesterEmail: string;
+    requesterFullname: string;
+    approverFullname: string;
+    approverPosition?: string;
+    resultStatus: number; // 1 = อนุมัติ, 2 = ไม่อนุมัติ
+    commentText: string;
+    approverNote?: string;
+    jobNo: string;
+    categoryName: string;
+    itemId: number;
+    commentUrl?: string;
+    formType?: string; // 'AM' | 'AA' | 'Audit' | 'Other'
+  }) {
+    const isApproved = params.resultStatus === 1;
+    const requesterName = params.requesterFullname?.trim() || 'ผู้ใช้งาน';
+    const approverName = params.approverFullname?.trim() || 'ผู้อนุมัติ';
+    const approverPosition = params.approverPosition?.trim() || '';
+    const commentText = params.commentText?.trim() || '-';
+    const approverNote = params.approverNote?.trim() || '';
+    const jobNo = params.jobNo?.trim() || '-';
+    const categoryName = params.categoryName?.trim() || '-';
+    const itemId = params.itemId || 0;
+    const formType = params.formType?.toUpperCase() || 'AUDIT';
+    const formTypeLabel =
+      formType === 'AM'
+        ? 'Area Manager (AM)'
+        : formType === 'AA'
+          ? 'Area Assistant (AA)'
+          : formType === 'OTHER'
+            ? 'หน่วยงานอื่น'
+            : 'Audit';
+
+    const baseUrl = process.env.FRONTEND_URL || 'https://audit.purethai.co.th';
+    const defaultUrl =
+      formType === 'AM' || formType === 'AA'
+        ? `${baseUrl}/areamanage/edit_document?jobNo=${jobNo}&formType=${formType}#item-${itemId}`
+        : `${baseUrl}/audit/edit_document?jobNo=${jobNo}#item-${itemId}`;
+    const commentUrl = params.commentUrl || defaultUrl;
+
+    const logoPath = path.resolve(process.cwd(), 'src/images/Header_Mail.png');
+
+    const themeColor = isApproved ? '#16A34A' : '#6B7280';
+    const themeColorLight = isApproved ? '#DCFCE7' : '#F3F4F6';
+    const statusText = isApproved ? 'อนุมัติแล้ว' : 'ไม่อนุมัติ';
+    const subject = `${statusText} Comment [${formTypeLabel}]: ${jobNo}`;
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: 'Sarabun', Arial, sans-serif;">
+  <table role="presentation" style="width: 100%; border-collapse: collapse;">
+    <tr>
+      <td align="center" style="padding: 40px 0;">
+        <table role="presentation" style="width: 600px; max-width: 90%; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+
+          <!-- Header with Logo -->
+          <tr>
+            <td style="padding: 0; text-align: center; border-radius: 8px 8px 0 0; overflow: hidden;">
+              <img src="cid:header_logo" alt="PTEC Audit System" style="width: 100%; max-width: 600px; height: auto; display: block; border: none;" />
+            </td>
+          </tr>
+
+          <!-- Title Bar -->
+          <tr>
+            <td style="background: ${themeColor}; padding: 24px 32px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: bold;">${statusText} Comment</h1>
+              <p style="margin: 6px 0 0; color: #ffffff; font-size: 13px;">${formTypeLabel} — PTEC Audit System</p>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 32px;">
+
+              <!-- Greeting -->
+              <p style="margin: 0 0 24px; font-size: 16px; color: #1F2937;">
+                เรียน <strong>${requesterName}</strong>
+              </p>
+
+              <!-- Message -->
+              <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #374151;">
+                Comment ที่ท่านส่งขออนุมัติ ได้รับการ<strong>${statusText}</strong>จาก<br/>
+                <strong>${approverName}</strong>${approverPosition ? ` (${approverPosition})` : ''} แล้ว
+              </p>
+
+              <!-- Comment Box -->
+              <div style="background-color: #F9FAFB; border-left: 4px solid ${themeColor}; padding: 16px; margin-bottom: 16px; border-radius: 4px;">
+                <p style="margin: 0; font-size: 14px; color: #6B7280; font-weight: 600; margin-bottom: 8px;">Comment ของท่าน:</p>
+                <p style="margin: 0; font-size: 14px; color: #1F2937; line-height: 1.5;">"${commentText}"</p>
+              </div>
+
+              ${
+                approverNote
+                  ? `<div style="background-color: ${themeColorLight}; padding: 16px; margin-bottom: 24px; border-radius: 4px;">
+                <p style="margin: 0; font-size: 14px; color: #6B7280; font-weight: 600; margin-bottom: 8px;">หมายเหตุจากผู้อนุมัติ:</p>
+                <p style="margin: 0; font-size: 14px; color: #1F2937; line-height: 1.5;">"${approverNote}"</p>
+              </div>`
+                  : ''
+              }
+
+              <!-- Details Card -->
+              <table role="presentation" style="width: 100%; border: 1px solid #E5E7EB; border-radius: 6px; margin-bottom: 24px;">
+                <tr>
+                  <td style="padding: 16px; background-color: #F9FAFB;">
+                    <table role="presentation" style="width: 100%;">
+                      <tr>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280; width: 140px;">เลขที่เอกสาร:</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937; font-weight: 600;">${jobNo}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">รายการ:</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${categoryName}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">${statusText}โดย:</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${approverName}${approverPosition ? ` (${approverPosition})` : ''}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA Button -->
+              <table role="presentation" style="width: 100%; margin-bottom: 24px;">
+                <tr>
+                  <td align="center">
+                    <a href="${commentUrl}"
+                       style="display: inline-block; padding: 12px 32px; background-color: ${themeColor}; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px;">
+                      ดูรายละเอียด
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 32px; background-color: #F9FAFB; border-top: 1px solid #E5E7EB; border-radius: 0 0 8px 8px;">
+              <p style="margin: 0 0 8px; font-size: 12px; color: #9CA3AF; text-align: center;">
+                อีเมลฉบับนี้ถูกส่งโดยอัตโนมัติจากระบบ PTEC Audit System
+              </p>
+              <p style="margin: 0; font-size: 12px; color: #9CA3AF; text-align: center;">
+                กรุณาอย่าตอบกลับอีเมลนี้
+              </p>
+              <p style="margin: 16px 0 0; font-size: 12px; color: #9CA3AF; text-align: center;">
+                © ${new Date().getFullYear()} PURE THAI ENERGY. All rights reserved.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
+
+    const attachments: Array<{
+      filename: string;
+      path: string;
+      cid: string;
+    }> = [];
+    try {
+      if (fs.existsSync(logoPath)) {
+        attachments.push({
+          filename: 'Header_Mail.png',
+          path: logoPath,
+          cid: 'header_logo',
+        });
+      } else {
+        console.warn(`Logo not found at: ${logoPath}`);
+      }
+    } catch (error) {
+      console.error('Error checking logo file:', error);
+    }
+
+    try {
+      await this.sendHtmlMail({
+        to: params.requesterEmail,
+        subject,
+        html,
+        attachments: attachments.length > 0 ? attachments : undefined,
+      });
+      console.log(`✓ Approval result email sent to ${params.requesterEmail}`);
+    } catch (error) {
+      console.error(
+        `✗ Failed to send approval result email to ${params.requesterEmail}:`,
+        error,
+      );
+      throw error;
+    }
+  }
 }

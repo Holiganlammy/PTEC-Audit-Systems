@@ -189,6 +189,38 @@ export class AMItemAACommentController {
   ) {
     try {
       const comment = await this.aaCommentService.approve(id, approveDto);
+
+      try {
+        const requesterData = await this.getUserData(comment.userId);
+        if (requesterData?.email) {
+          const approverData = await this.getUserData(approveDto.approverBy);
+          const item = await this.auditItemsService.findOne(comment.itemId);
+          const job = await this.aaJobsService.findOne(item.jobId);
+
+          await this.auditCommentApprovalGmailService.sendCommentApprovalResultEmail(
+            {
+              requesterEmail: requesterData.email,
+              requesterFullname: requesterData.fullname,
+              approverFullname: approverData?.fullname || '-',
+              approverPosition: approverData?.position,
+              resultStatus: approveDto.approverStatus,
+              commentText: comment.note,
+              approverNote: approveDto.approverNote,
+              jobNo: job.jobNo,
+              categoryName: item.categoryItem?.categoryName || '-',
+              itemId: comment.itemId,
+              formType: 'AA',
+            },
+          );
+
+          console.log(
+            `✓ AA approval result email sent to ${requesterData.email}`,
+          );
+        }
+      } catch (emailError) {
+        console.error('Error sending AA approval result email:', emailError);
+      }
+
       return res.status(HttpStatus.OK).json({
         success: true,
         data: comment,

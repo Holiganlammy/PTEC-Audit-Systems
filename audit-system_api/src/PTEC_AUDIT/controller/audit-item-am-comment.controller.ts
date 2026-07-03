@@ -220,6 +220,38 @@ export class AuditItemAMCommentsController {
   ) {
     try {
       const amComment = await this.amCommentsService.approve(id, approveDto);
+
+      try {
+        const requesterData = await this.getUserData(amComment.userId);
+        if (requesterData?.email) {
+          const approverData = await this.getUserData(approveDto.approverBy);
+          const item = await this.auditItemsService.findOne(amComment.itemId);
+          const job = await this.auditJobsService.findOne(item.jobId);
+
+          await this.auditCommentApprovalGmailService.sendCommentApprovalResultEmail(
+            {
+              requesterEmail: requesterData.email,
+              requesterFullname: requesterData.fullname,
+              approverFullname: approverData?.fullname || '-',
+              approverPosition: approverData?.position,
+              resultStatus: approveDto.approverStatus,
+              commentText: amComment.note,
+              approverNote: approveDto.approverNote,
+              jobNo: job.jobNo,
+              categoryName: item.categoryItem?.categoryName || '-',
+              itemId: amComment.itemId,
+              formType: 'AM',
+            },
+          );
+
+          console.log(
+            `✓ AM approval result email sent to ${requesterData.email}`,
+          );
+        }
+      } catch (emailError) {
+        console.error('Error sending AM approval result email:', emailError);
+      }
+
       return res.status(HttpStatus.OK).json({
         success: true,
         data: amComment,

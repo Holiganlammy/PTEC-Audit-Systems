@@ -202,6 +202,40 @@ export class AuditItemOtherCommentController {
         id,
         approveDto,
       );
+
+      try {
+        const requesterData = await this.getUserData(otherComment.userId);
+        if (requesterData?.email) {
+          const approverData = await this.getUserData(approveDto.approverBy);
+          const item = await this.auditItemsService.findOne(
+            otherComment.itemId,
+          );
+          const job = await this.auditJobsService.findOne(item.jobId);
+
+          await this.auditCommentApprovalGmailService.sendCommentApprovalResultEmail(
+            {
+              requesterEmail: requesterData.email,
+              requesterFullname: requesterData.fullname,
+              approverFullname: approverData?.fullname || '-',
+              approverPosition: approverData?.position,
+              resultStatus: approveDto.approverStatus,
+              commentText: otherComment.note,
+              approverNote: approveDto.approverNote,
+              jobNo: job.jobNo,
+              categoryName: item.categoryItem?.categoryName || '-',
+              itemId: otherComment.itemId,
+              formType: 'Other',
+            },
+          );
+
+          console.log(
+            `✓ Other approval result email sent to ${requesterData.email}`,
+          );
+        }
+      } catch (emailError) {
+        console.error('Error sending Other approval result email:', emailError);
+      }
+
       return res.status(HttpStatus.OK).json({
         success: true,
         data: otherComment,
