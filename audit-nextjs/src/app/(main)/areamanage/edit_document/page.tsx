@@ -862,7 +862,7 @@ export default function EditAuditJobPage() {
   const isFormLocked = jobData?.status === 2;
   const canEdit = roleFormTab === "AA"
     ? [1, 8].includes(Number(session?.user?.role_id ?? -1))
-    : [1, 3].includes(Number(session?.user?.role_id ?? -1));
+    : [1, 3, 4].includes(Number(session?.user?.role_id ?? -1));
 
   const canConfirm =
     !isLoadingItems &&

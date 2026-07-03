@@ -126,6 +126,7 @@ export default function ExportAuditDetailToPDF({
         ["ผู้จัดการเขต", jobData.districtManager?.fullname || "-"],
         ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
         ["ผู้ทำรายการ", jobData.createdByUser?.fullname || "-"],
+        ["หมายเหตุเพิ่มเติม", jobData.additionalNotes || "-"],
       ];
 
       autoTable(doc, {

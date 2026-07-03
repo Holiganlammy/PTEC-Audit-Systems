@@ -147,12 +147,14 @@ export default function ExportDropdown({
                 ["ผู้สร้างเอกสาร", jobData.createdByUser?.fullname || "-"],
                 ["ผู้จัดการเขต", jobData.districtManager?.fullname || "-"],
                 ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
+                ["หมายเหตุเพิ่มเติม", jobData.additionalNotes || "-"],
               ]
             : [
                 ["ผู้ตรวจสอบ", jobData.auditor?.fullname || "-"],
                 ["ผู้จัดการเขต", jobData.districtManager?.fullname || "-"],
                 ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
                 ["ผู้ทำรายการ", jobData.createdByUser?.fullname || "-"],
+                ["หมายเหตุเพิ่มเติม", jobData.additionalNotes || "-"],
               ]),
         ],
         theme: "grid",
@@ -324,12 +326,14 @@ export default function ExportDropdown({
               ["ผู้สร้างเอกสาร", jobData.createdByUser?.fullname || "-"],
               ["ผู้จัดการเขต", jobData.districtManager?.fullname || "-"],
               ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
+              ["หมายเหตุเพิ่มเติม", jobData.additionalNotes || "-"],
             ]
           : [
               ["ผู้ตรวจสอบ", jobData.auditor?.fullname || "-"],
               ["ผู้จัดการเขต", jobData.districtManager?.fullname || "-"],
               ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
               ["ผู้ทำรายการ", jobData.createdByUser?.fullname || "-"],
+              ["หมายเหตุเพิ่มเติม", jobData.additionalNotes || "-"],
             ]),
       ];
       jobInfo.forEach(([label, value]) => {

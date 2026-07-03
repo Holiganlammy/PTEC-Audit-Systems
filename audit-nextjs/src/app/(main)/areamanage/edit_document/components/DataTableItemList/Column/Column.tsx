@@ -87,7 +87,7 @@ function BranchScoreCell({
   const [open, setOpen] = useState(false);
   const { data: session } = useSession();
 
-  const canEditByRole = [1, 3].includes(Number(session?.user?.role_id ?? -1));
+  const canEditByRole = [1, 3, 4].includes(Number(session?.user?.role_id ?? -1));
   const isDisabled = !!disabled || !canEditByRole;
 
   const scoreClassName =
@@ -163,11 +163,16 @@ function BranchScoreCell({
                 </span>
               </Badge>
               {!isDisabled && (
-                <Pencil className="h-3.5 w-3.5 text-muted-foreground transition-colors group-hover:text-foreground" />
+                <Pencil className="h-3.5 w-3.5 text-primary transition-colors group-hover:text-primary" />
               )}
             </span>
-          ) : (
+          ) : isDisabled ? (
             <Badge variant="outline" className="text-muted-foreground">
+              <CircleFadingPlus className="mr-1 h-3 w-3" />
+              {label}
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="border-primary/60 bg-primary/5 font-medium text-primary">
               <CircleFadingPlus className="mr-1 h-3 w-3" />
               {label}
             </Badge>
@@ -238,7 +243,7 @@ function ActionsCell({
 }) {
   const session = useSession();
   const roleId = Number(session.data?.user.role_id ?? -1);
-  const allowedRoles = positionType === "AA" ? [1, 8] : [1, 3];
+  const allowedRoles = positionType === "AA" ? [1, 8] : [1, 3, 4];
   const canAction = allowedRoles.includes(roleId);
   return (
     <div className="text-right">
@@ -299,7 +304,7 @@ function SendEmailCell({ item, isLocked, positionType }: { item: AuditItem; isLo
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { data: session } = useSession();
 
-  const allowedEmailRoles = positionType === "AA" ? [1, 8] : [1, 3];
+  const allowedEmailRoles = positionType === "AA" ? [1, 8] : [1, 3, 4];
   const canSendEmail = allowedEmailRoles.includes(Number(session?.user?.role_id ?? -1));
 
   const handleSendSummary = async () => {

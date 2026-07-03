@@ -165,11 +165,16 @@ function BranchScoreCell({
                 </span>
               </Badge>
               {!isDisabled && (
-                <Pencil className="h-3.5 w-3.5 text-muted-foreground transition-colors group-hover:text-foreground" />
+                <Pencil className="h-3.5 w-3.5 text-primary transition-colors group-hover:text-primary" />
               )}
             </span>
-          ) : (
+          ) : isDisabled ? (
             <Badge variant="outline" className="text-muted-foreground">
+              <CircleFadingPlus className="mr-1 h-3 w-3" />
+              {label}
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="border-primary/60 bg-primary/5 font-medium text-primary">
               <CircleFadingPlus className="mr-1 h-3 w-3" />
               {label}
             </Badge>
