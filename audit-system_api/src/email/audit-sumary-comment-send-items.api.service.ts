@@ -100,11 +100,7 @@ export class AuditSummaryEmailService {
 
     const formType = params.formType?.toUpperCase() || 'Audit';
     const formTypeLabel =
-      formType === 'AM'
-        ? 'AM'
-        : formType === 'AA'
-          ? 'AA'
-          : 'Audit';
+      formType === 'AM' ? 'AM' : formType === 'AA' ? 'AA' : 'Audit';
 
     // ถ้าไม่มี comment เลย ไม่ต้องส่ง
     if (auditComments.length === 0 && otherComments.length === 0) {
