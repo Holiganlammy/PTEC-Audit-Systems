@@ -8,6 +8,7 @@ import { AMJobHeader } from '../domain/model/am.jobs-header.entity';
 import { AMItemAMCheckerComment } from '../domain/model/am-item-am-checker-comment.entity';
 import { AMItemAMComment } from '../domain/model/am-item-am-comment.entity';
 import { AMItemOtherComment } from '../domain/model/am-item-other-comment.entity';
+import { AMItemOtherCommentUsersTag } from '../domain/model/am-item-other-comment-users-tag.entity';
 import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec_useright.service';
 import {
   // AMChartData,
@@ -156,6 +157,9 @@ export class DashboardService {
     @InjectRepository(AMItemOtherComment)
     private readonly otherCommentRepo: Repository<AMItemOtherComment>,
 
+    @InjectRepository(AMItemOtherCommentUsersTag)
+    private readonly tagRepo: Repository<AMItemOtherCommentUsersTag>,
+
     private readonly userRightService: UserRightService,
   ) {}
 
@@ -167,17 +171,35 @@ export class DashboardService {
    *  Get AM Dashboard Data
    */
   async getAMDashboardData(userId: string, dateRange: number) {
-    const stats = await this.getAMStats(dateRange);
+    const stats = await this.getAMStats(dateRange, userId);
     const recentActivities = await this.getRecentActivities(dateRange);
-    const branchIssues = await this.getAMBranchIssues(dateRange);
+    const branchIssues = await this.getAMBranchIssues(dateRange, userId);
 
-    const notCheckedItems = await this.getAMItemsByStatus(dateRange, [0]);
-    const failedItems = await this.getAMItemsByStatus(dateRange, [3]);
-    const needFixItems = await this.getAMItemsByStatus(dateRange, [4]);
+    const notCheckedItems = await this.getAMItemsByStatus(
+      dateRange,
+      'NOT_CHECKED',
+      userId,
+    );
+    const pendingItems = await this.getAMItemsByStatus(
+      dateRange,
+      'PENDING',
+      userId,
+    );
+    const failedItems = await this.getAMItemsByStatus(
+      dateRange,
+      'FAILED',
+      userId,
+    );
+    const needFixItems = await this.getAMItemsByStatus(
+      dateRange,
+      'NEED_FIX',
+      userId,
+    );
 
     return {
       stats: { am: stats },
       notCheckedItems,
+      pendingItems,
       failedItems,
       needFixItems,
       recentActivities,
@@ -189,21 +211,31 @@ export class DashboardService {
    *  Get Audit Dashboard Data
    */
   async getAuditDashboardData(userId: string, dateRange: number) {
-    const stats = await this.getAuditStats(dateRange);
+    const userData = await this.getUserDataByCode(userId);
+    const userIdNum = userData?.userId ?? 0;
+
+    const stats = await this.getAuditStats(dateRange, userIdNum);
     const recentActivities = await this.getRecentActivities(dateRange);
 
     const notCheckedItems = await this.getAuditItemsByStatus(
       dateRange,
       'NOT_CHECKED',
+      userIdNum,
     );
-    const activeItems = await this.getAuditItemsByStatus(dateRange, 'ACTIVE');
+    const activeItems = await this.getAuditItemsByStatus(
+      dateRange,
+      'ACTIVE',
+      userIdNum,
+    );
     const waitingAMItems = await this.getAuditItemsByStatus(
       dateRange,
       'WAITING_AM',
+      userIdNum,
     );
     const amRejectedItems = await this.getAuditItemsByStatus(
       dateRange,
       'AM_REJECTED',
+      userIdNum,
     );
 
     return {
@@ -273,22 +305,31 @@ export class DashboardService {
   // AM Stats & Items
   // ==========================================
 
-  private async getAMStats(dateRange: number): Promise<AMStats> {
+  private async getAMStats(
+    dateRange: number,
+    userCode: string,
+  ): Promise<AMStats> {
     const startDate = this.getStartDate(dateRange);
 
     const result = await this.amItemRepo
       .createQueryBuilder('ai')
       .select([
-        'COUNT(CASE WHEN ai.amChecklistStatus IS NULL OR ai.amChecklistStatus = 0 THEN 1 END) AS notCheckedCount',
-        'COUNT(CASE WHEN ai.amChecklistStatus = 1 THEN 1 END) AS pendingCount',
-        'COUNT(CASE WHEN ai.amChecklistStatus = 2 THEN 1 END) AS passedCount',
-        'COUNT(CASE WHEN ai.amChecklistStatus = 3 THEN 1 END) AS failedCount',
-        'COUNT(CASE WHEN ai.amChecklistStatus = 4 THEN 1 END) AS needFixCount',
+        'COUNT(CASE WHEN ai.itemStatusEdit IS NULL THEN 1 END) AS notCheckedCount',
+        'COUNT(CASE WHEN ai.itemStatusEdit = 2 THEN 1 END) AS pendingCount',
+        `COUNT(CASE WHEN EXISTS (SELECT 1 FROM Branch_Am_Scores s WHERE s.item_id = ai.item_id AND s.score = 1 AND s.active = 1) THEN 1 END) AS passedCount`,
+        `COUNT(CASE WHEN EXISTS (SELECT 1 FROM Branch_Am_Scores s WHERE s.item_id = ai.item_id AND s.score = 0 AND s.active = 1) THEN 1 END) AS failedCount`,
+        `COUNT(CASE WHEN EXISTS (SELECT 1 FROM Branch_Am_Scores s WHERE s.item_id = ai.item_id AND s.score = -1 AND s.active = 1) THEN 1 END) AS needFixCount`,
       ])
       .innerJoin('ai.job', 'aj')
       .where('ai.updatedAt >= :startDate', { startDate })
       .andWhere('ai.active = :active', { active: true })
       .andWhere('aj.active = :active', { active: true })
+      .andWhere('aj.positionType IN (:...positionTypes)', {
+        positionTypes: ['AM', 'AA'],
+      })
+      .andWhere('(aj.amUserCode = :userCode OR aj.rmUserCode = :userCode)', {
+        userCode,
+      })
       .getRawOne<AMStatsResult>();
 
     const failed = parseInt(result?.failedCount || '0', 10);
@@ -306,37 +347,58 @@ export class DashboardService {
 
   private async getAMItemsByStatus(
     dateRange: number,
-    statuses: number[],
+    statusType: 'NOT_CHECKED' | 'PENDING' | 'FAILED' | 'NEED_FIX',
+    userCode: string,
   ): Promise<ItemList> {
     const startDate = this.getStartDate(dateRange);
+
+    let whereClause = '';
+    switch (statusType) {
+      case 'NOT_CHECKED':
+        whereClause = 'ai.itemStatusEdit IS NULL';
+        break;
+      case 'PENDING':
+        whereClause = 'ai.itemStatusEdit = 2';
+        break;
+      case 'FAILED':
+        whereClause =
+          'EXISTS (SELECT 1 FROM Branch_Am_Scores s WHERE s.item_id = ai.item_id AND s.score = 0 AND s.active = 1)';
+        break;
+      case 'NEED_FIX':
+        whereClause =
+          'EXISTS (SELECT 1 FROM Branch_Am_Scores s WHERE s.item_id = ai.item_id AND s.score = -1 AND s.active = 1)';
+        break;
+    }
 
     const totalCount = await this.amItemRepo
       .createQueryBuilder('ai')
       .innerJoin('ai.job', 'aj')
-      .where(
-        statuses.includes(0)
-          ? '(ai.amChecklistStatus IS NULL OR ai.amChecklistStatus IN (:...statuses))'
-          : 'ai.amChecklistStatus IN (:...statuses)',
-        { statuses: statuses.includes(0) ? [0] : statuses },
-      )
+      .where(whereClause)
       .andWhere('ai.updatedAt >= :startDate', { startDate })
       .andWhere('ai.active = :active', { active: true })
       .andWhere('aj.active = :active', { active: true })
+      .andWhere('aj.positionType IN (:...positionTypes)', {
+        positionTypes: ['AM', 'AA'],
+      })
+      .andWhere('(aj.amUserCode = :userCode OR aj.rmUserCode = :userCode)', {
+        userCode,
+      })
       .getCount();
 
     const items = await this.amItemRepo
       .createQueryBuilder('ai')
       .leftJoinAndSelect('ai.job', 'aj')
       .leftJoinAndSelect('ai.categoryItem', 'cat')
-      .where(
-        statuses.includes(0)
-          ? '(ai.amChecklistStatus IS NULL OR ai.amChecklistStatus IN (:...statuses))'
-          : 'ai.amChecklistStatus IN (:...statuses)',
-        { statuses: statuses.includes(0) ? [0] : statuses },
-      )
+      .where(whereClause)
       .andWhere('ai.updatedAt >= :startDate', { startDate })
       .andWhere('ai.active = :active', { active: true })
       .andWhere('aj.active = :active', { active: true })
+      .andWhere('aj.positionType IN (:...positionTypes)', {
+        positionTypes: ['AM', 'AA'],
+      })
+      .andWhere('(aj.amUserCode = :userCode OR aj.rmUserCode = :userCode)', {
+        userCode,
+      })
       .orderBy('ai.updatedAt', 'DESC')
       .take(50)
       .getMany();
@@ -356,7 +418,10 @@ export class DashboardService {
     };
   }
 
-  private async getAMBranchIssues(dateRange: number): Promise<BranchIssue[]> {
+  private async getAMBranchIssues(
+    dateRange: number,
+    userCode: string,
+  ): Promise<BranchIssue[]> {
     const startDate = this.getStartDate(dateRange);
 
     const result = await this.amItemRepo
@@ -364,7 +429,7 @@ export class DashboardService {
       .select('aj.branchId', 'branchId')
       .addSelect('aj.branchName', 'branchName')
       .addSelect(
-        'COUNT(CASE WHEN ai.amChecklistStatus IN (3, 4) THEN 1 END)',
+        `COUNT(CASE WHEN EXISTS (SELECT 1 FROM Branch_Am_Scores s WHERE s.item_id = ai.item_id AND s.score IN (0, -1) AND s.active = 1) THEN 1 END)`,
         'issueCount',
       )
       .addSelect('COUNT(*)', 'totalCount')
@@ -372,9 +437,17 @@ export class DashboardService {
       .where('ai.updatedAt >= :startDate', { startDate })
       .andWhere('ai.active = :active', { active: true })
       .andWhere('aj.active = :active', { active: true })
+      .andWhere('aj.positionType IN (:...positionTypes)', {
+        positionTypes: ['AM', 'AA'],
+      })
+      .andWhere('(aj.amUserCode = :userCode OR aj.rmUserCode = :userCode)', {
+        userCode,
+      })
       .groupBy('aj.branchId')
       .addGroupBy('aj.branchName')
-      .having('COUNT(CASE WHEN ai.amChecklistStatus IN (3, 4) THEN 1 END) > 0')
+      .having(
+        'COUNT(CASE WHEN EXISTS (SELECT 1 FROM Branch_Am_Scores s WHERE s.item_id = ai.item_id AND s.score IN (0, -1) AND s.active = 1) THEN 1 END) > 0',
+      )
       .orderBy('issueCount', 'DESC')
       .limit(5)
       .getRawMany<BranchIssueResult>();
@@ -393,7 +466,10 @@ export class DashboardService {
   // Audit Stats & Items
   // ==========================================
 
-  private async getAuditStats(dateRange: number): Promise<AuditStats> {
+  private async getAuditStats(
+    dateRange: number,
+    userIdNum: number,
+  ): Promise<AuditStats> {
     const startDate = this.getStartDate(dateRange);
 
     const result = await this.amItemRepo
@@ -409,6 +485,9 @@ export class DashboardService {
       .where('ai.updatedAt >= :startDate', { startDate })
       .andWhere('ai.active = :active', { active: true })
       .andWhere('aj.active = :active', { active: true })
+      .andWhere('(aj.amUserId = :userIdNum OR aj.rmUserId = :userIdNum)', {
+        userIdNum,
+      })
       .getRawOne<AuditStatsResult>();
 
     return {
@@ -423,6 +502,7 @@ export class DashboardService {
   private async getAuditItemsByStatus(
     dateRange: number,
     statusType: 'NOT_CHECKED' | 'ACTIVE' | 'WAITING_AM' | 'AM_REJECTED',
+    userIdNum: number,
   ): Promise<ItemList> {
     const startDate = this.getStartDate(dateRange);
     let whereClause = '';
@@ -451,6 +531,9 @@ export class DashboardService {
       .andWhere('ai.updatedAt >= :startDate', { startDate })
       .andWhere('ai.active = :active', { active: true })
       .andWhere('aj.active = :active', { active: true })
+      .andWhere('(aj.amUserId = :userIdNum OR aj.rmUserId = :userIdNum)', {
+        userIdNum,
+      })
       .getCount();
 
     const items = await this.amItemRepo
@@ -461,6 +544,9 @@ export class DashboardService {
       .andWhere('ai.updatedAt >= :startDate', { startDate })
       .andWhere('ai.active = :active', { active: true })
       .andWhere('aj.active = :active', { active: true })
+      .andWhere('(aj.amUserId = :userIdNum OR aj.rmUserId = :userIdNum)', {
+        userIdNum,
+      })
       .orderBy('ai.updatedAt', 'DESC')
       .take(50)
       .getMany();
@@ -971,7 +1057,13 @@ export class DashboardService {
     const startDate = this.getStartDate(dateRange);
     const activities: Activity[] = [];
 
-    const [auditComments, amComments] = await Promise.all([
+    const [
+      auditComments,
+      amComments,
+      otherComments,
+      tagEvents,
+      checklistUpdates,
+    ] = await Promise.all([
       this.auditCommentRepo
         .createQueryBuilder('c')
         .leftJoinAndSelect('c.item', 'ai')
@@ -990,6 +1082,32 @@ export class DashboardService {
         .orderBy('c.createdAt', 'DESC')
         .take(5)
         .getMany(),
+      this.otherCommentRepo
+        .createQueryBuilder('c')
+        .leftJoinAndSelect('c.item', 'ai')
+        .leftJoinAndSelect('ai.job', 'aj')
+        .where('c.createdAt >= :startDate', { startDate })
+        .andWhere('c.active = :active', { active: true })
+        .orderBy('c.createdAt', 'DESC')
+        .take(5)
+        .getMany(),
+      this.tagRepo
+        .createQueryBuilder('t')
+        .leftJoinAndSelect('t.item', 'ai')
+        .leftJoinAndSelect('ai.job', 'aj')
+        .where('t.createdAt >= :startDate', { startDate })
+        .andWhere('t.active = :active', { active: true })
+        .orderBy('t.createdAt', 'DESC')
+        .take(5)
+        .getMany(),
+      this.amItemRepo
+        .createQueryBuilder('ai')
+        .leftJoinAndSelect('ai.job', 'aj')
+        .where('ai.headerChecklistAt >= :startDate', { startDate })
+        .andWhere('ai.active = :active', { active: true })
+        .orderBy('ai.headerChecklistAt', 'DESC')
+        .take(5)
+        .getMany(),
     ]);
 
     const uniqueUserIds = [
@@ -997,6 +1115,9 @@ export class DashboardService {
         [
           ...auditComments.map((c) => c.userId),
           ...amComments.map((c) => c.userId),
+          ...otherComments.map((c) => c.userId),
+          ...tagEvents.map((t) => t.createdBy),
+          ...checklistUpdates.map((i) => i.headerChecklistBy),
         ].filter((id): id is number => id !== null && id !== undefined),
       ),
     ];
@@ -1014,7 +1135,7 @@ export class DashboardService {
         id: `audit-${comment.amCheckerDetailId}`,
         user: userData?.userCode || 'Unknown',
         userCode: userData?.userCode || '',
-        action: 'Comment ใน',
+        action: 'Comment ใน Checker Unit',
         jobNo: comment.item?.job?.jobNo || '',
         timestamp: new Date(comment.createdAt),
         type: 'comment',
@@ -1027,9 +1148,59 @@ export class DashboardService {
         id: `am-${comment.amDetailId}`,
         user: userData?.userCode || 'Unknown',
         userCode: userData?.userCode || '',
-        action: 'AM Check ใน',
+        action: 'Comment ใน AM Unit',
         jobNo: comment.item?.job?.jobNo || '',
         timestamp: new Date(comment.createdAt),
+        type: 'comment',
+      });
+    });
+
+    otherComments.forEach((comment) => {
+      const userData = comment.userId ? userMap.get(comment.userId) : null;
+      activities.push({
+        id: `other-${comment.otherDetailId}`,
+        user: userData?.userCode || 'Unknown',
+        userCode: userData?.userCode || '',
+        action: 'Comment ใน หน่วยงานที่เกี่ยวข้อง',
+        jobNo: comment.item?.job?.jobNo || '',
+        timestamp: new Date(comment.createdAt),
+        type: 'comment',
+      });
+    });
+
+    tagEvents.forEach((tag) => {
+      const userData = tag.createdBy ? userMap.get(tag.createdBy) : null;
+      activities.push({
+        id: `tag-${tag.taggedUserId}`,
+        user: userData?.userCode || 'Unknown',
+        userCode: userData?.userCode || '',
+        action: 'แท็กผู้ใช้ในรายการ',
+        jobNo: tag.item?.job?.jobNo || '',
+        timestamp: new Date(tag.createdAt),
+        type: 'create',
+      });
+    });
+
+    checklistUpdates.forEach((item) => {
+      if (!item.headerChecklistAt) return;
+      const userData = item.headerChecklistBy
+        ? userMap.get(item.headerChecklistBy)
+        : null;
+      const verdict =
+        item.headerChecklistStatus === 2
+          ? 'ตรวจผ่าน'
+          : item.headerChecklistStatus === 3
+            ? 'ตรวจไม่ผ่าน'
+            : item.headerChecklistStatus === 4
+              ? 'ให้แก้ไข'
+              : 'ตรวจสอบ';
+      activities.push({
+        id: `checklist-${item.itemId}`,
+        user: userData?.userCode || 'Unknown',
+        userCode: userData?.userCode || '',
+        action: `Checker ${verdict}ใน`,
+        jobNo: item.job?.jobNo || '',
+        timestamp: new Date(item.headerChecklistAt),
         type: 'approve',
       });
     });
@@ -1331,7 +1502,7 @@ export class DashboardService {
     if (amChecklistStatus === 2) return 'AM: ผ่าน';
 
     if (itemStatusEdit === 2) return 'กำลังดำเนินการ';
-    if (itemStatusEdit === 4) return 'ปิดเคส - รอ AM';
+    if (itemStatusEdit === 4) return 'ปิดเคส - รอ Checker';
 
     return 'ยังไม่ตรวจ';
   }

@@ -6,10 +6,9 @@ import {
   Briefcase,
   Activity,
   Clock,
-  AlertTriangle,
   CheckCircle2,
   FileQuestion,
-  XCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import { ActionItemsDialog } from "@/components/dashboard/action-items-dialog";
@@ -77,14 +76,14 @@ export function AuditDashboard() {
     totalJobs: 0,
     activeJobs: 0,
     closedJobs: 0,
-    waitingAM: 0,
-    amRejected: 0,
+    pendingCloseCase: 0,
+    overdueItems: 0,
   };
 
   return (
     <div className="space-y-6">
       <DashboardHeader
-        notificationCount={stats.amRejected}
+        notificationCount={stats.pendingCloseCase}
         onRefresh={() => {
           fetchData();
           fetchChartData();
@@ -104,31 +103,31 @@ export function AuditDashboard() {
           iconClassName="text-blue-600 dark:text-blue-400"
         />
         <KPICard
-          title="กำลังดำเนินการ"
+          title="เอกสารที่กำลังดำเนินการ"
           value={stats.activeJobs}
           icon={Activity}
-          description="Active"
+          description="Active Documents"
           iconClassName="text-orange-600 dark:text-orange-400"
         />
         <KPICard
-          title="ปิดเคสแล้ว"
+          title="รายการที่ปิดเคสแล้ว"
           value={stats.closedJobs}
           icon={CheckCircle2}
           description="Closed"
           iconClassName="text-green-600 dark:text-green-400"
         />
         <KPICard
-          title="รอ Checker Item"
-          value={stats.waitingAM}
+          title="รายการที่รอปิดเคส"
+          value={stats.pendingCloseCase}
           icon={Clock}
-          description="Waiting AM"
+          description="Pending Items"
           iconClassName="text-yellow-600 dark:text-yellow-400"
         />
         <KPICard
-          title="Checker ไม่ผ่าน"
-          value={stats.amRejected}
-          icon={XCircle}
-          description="AM Rejected"
+          title="ค้างเกิน 7 วัน"
+          value={stats.overdueItems}
+          icon={AlertTriangle}
+          description="Overdue (7+ days)"
           iconClassName="text-red-600 dark:text-red-400"
         />
       </div>
@@ -155,7 +154,7 @@ export function AuditDashboard() {
         />
 
         <ActionItemsDialog
-          title="งานที่กำลังดำเนินการ"
+          title="เอกสารที่กำลังดำเนินการ"
           items={dashboardData?.activeItems?.items || []}
           totalCount={dashboardData?.activeItems?.totalCount || 0}
           triggerIcon={<Activity className="h-4 w-4 mr-2" />}
@@ -163,17 +162,17 @@ export function AuditDashboard() {
         />
 
         <ActionItemsDialog
-          title="รอ Checker Item"
-          items={dashboardData?.waitingAMItems?.items || []}
-          totalCount={dashboardData?.waitingAMItems?.totalCount || 0}
+          title="รายการที่รอปิดเคส"
+          items={dashboardData?.pendingCloseCaseItems?.items || []}
+          totalCount={dashboardData?.pendingCloseCaseItems?.totalCount || 0}
           triggerIcon={<Clock className="h-4 w-4 mr-2" />}
           triggerClassName="w-full h-20 text-yellow-600 dark:text-yellow-400 border-yellow-300 dark:border-yellow-700"
         />
 
         <ActionItemsDialog
-          title="Checker ไม่ผ่าน - ต้องแก้ไข"
-          items={dashboardData?.amRejectedItems?.items || []}
-          totalCount={dashboardData?.amRejectedItems?.totalCount || 0}
+          title="รายการค้างเกิน 7 วัน"
+          items={dashboardData?.overdueItems?.items || []}
+          totalCount={dashboardData?.overdueItems?.totalCount || 0}
           triggerIcon={<AlertTriangle className="h-4 w-4 mr-2" />}
           triggerClassName="w-full h-20 text-red-600 dark:text-red-400 border-red-300 dark:border-red-700"
         />

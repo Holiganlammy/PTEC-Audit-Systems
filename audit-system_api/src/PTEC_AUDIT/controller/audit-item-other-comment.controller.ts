@@ -22,6 +22,8 @@ import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec
 import { AuditJobsService } from '../service/audit-job.service';
 import { AuditItemsService } from '../service/audit-item.service';
 import { AuditCommentApprovalGmailApiService } from '../../email/audit-comment-approval-gmail-api.service';
+import { AuditItemOtherUserCommentTagService } from '../service/audit-item-other-user-comment-tag.service';
+import { TagOtherUserGmailApiService } from '../../email/tag-other-user-gmail-api.service';
 
 @Controller('audit-items')
 export class AuditItemOtherCommentController {
@@ -31,6 +33,8 @@ export class AuditItemOtherCommentController {
     private readonly auditCommentApprovalGmailService: AuditCommentApprovalGmailApiService,
     private readonly auditItemsService: AuditItemsService,
     private readonly auditJobsService: AuditJobsService,
+    private readonly auditItemOtherUserCommentTagService: AuditItemOtherUserCommentTagService,
+    private readonly tagOtherUserGmailApiService: TagOtherUserGmailApiService,
   ) {}
 
   private async getUserData(userId: number | null) {
@@ -102,6 +106,63 @@ export class AuditItemOtherCommentController {
           console.error('Error sending approval email:', emailError);
         }
       }
+
+      // ==================== ส่งเมลแจ้งผู้แท็ก เมื่อหน่วยงานที่เกี่ยวข้องตอบกลับคอมเมนต์ ====================
+      try {
+        const tags = await this.auditItemOtherUserCommentTagService.findByItemId(
+          itemId,
+        );
+        const tagForCommenter = tags.find(
+          (tag) => tag.userId === createDto.userId,
+        );
+
+        if (tagForCommenter) {
+          const existingComments = await this.otherCommentService.findByItemId(
+            itemId,
+          );
+          const taggerHasCommented = existingComments.some(
+            (comment) =>
+              comment.userId === tagForCommenter.createdBy &&
+              comment.otherDetailId !== otherComment.otherDetailId,
+          );
+
+          if (taggerHasCommented) {
+            const taggerData = await this.getUserData(
+              tagForCommenter.createdBy,
+            );
+
+            if (taggerData?.email) {
+              const [commenterData, item] = await Promise.all([
+                this.getUserData(createDto.userId),
+                this.auditItemsService.findOne(itemId),
+              ]);
+              const job = await this.auditJobsService.findOne(item.jobId);
+
+              await this.tagOtherUserGmailApiService.sendTaggedUserReplyEmail({
+                to: taggerData.email,
+                taggerFullname: taggerData.fullname,
+                replierFullname: commenterData?.fullname,
+                commentText: createDto.note,
+                itemId,
+                itemName: item.categoryItem?.categoryName,
+                jobNo: job.jobNo,
+                branchName: item.job?.branchName,
+                formType: 'Other',
+              });
+
+              console.log(
+                `✓ Tagged user reply email sent to ${taggerData.email}`,
+              );
+            }
+          }
+        }
+      } catch (tagEmailError) {
+        console.error(
+          'Error sending tagged user reply email:',
+          tagEmailError,
+        );
+      }
+
       return res.status(HttpStatus.CREATED).json({
         success: true,
         data: otherComment,

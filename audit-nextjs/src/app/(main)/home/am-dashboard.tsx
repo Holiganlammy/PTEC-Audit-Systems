@@ -3,10 +3,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  Briefcase,
+  Activity,
   Clock,
   CheckCircle2,
-  XCircle,
-  AlertCircle,
   AlertTriangle,
   FileQuestion,
 } from "lucide-react";
@@ -75,26 +75,23 @@ export function AMDashboard() {
   }
 
   const stats = dashboardData?.stats?.am || {
-    notChecked: 0,
-    pending: 0,
-    passed: 0,
-    failed: 0,
-    needFix: 0,
-    totalIssues: 0,
+    totalJobs: 0,
+    activeJobs: 0,
+    closedJobs: 0,
+    pendingCloseCase: 0,
+    overdueItems: 0,
   };
 
   // แยก Action Items ตามสถานะ
-  const notCheckedItems =
-    dashboardData?.notCheckedItems?.items || [];
-  const failedItems =
-    dashboardData?.failedItems?.items || [];
-  const needFixItems =
-    dashboardData?.needFixItems?.items || [];
+  const notCheckedItems = dashboardData?.notCheckedItems?.items || [];
+  const activeItems = dashboardData?.activeItems?.items || [];
+  const pendingCloseCaseItems = dashboardData?.pendingCloseCaseItems?.items || [];
+  const overdueItems = dashboardData?.overdueItems?.items || [];
 
   return (
     <div className="space-y-6">
       <DashboardHeader
-        notificationCount={stats.totalIssues}
+        notificationCount={stats.pendingCloseCase}
         onRefresh={() => {
           fetchData();
           fetchChartData();
@@ -105,47 +102,40 @@ export function AMDashboard() {
       />
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <KPICard
-          title="ยังไม่ได้ตรวจ"
-          value={stats.notChecked}
-          icon={FileQuestion}
-          description="Not Checked"
-          iconClassName="text-gray-600 dark:text-gray-400"
+          title="งานทั้งหมด"
+          value={stats.totalJobs}
+          icon={Briefcase}
+          description="Total Jobs"
+          iconClassName="text-blue-600 dark:text-blue-400"
         />
         <KPICard
-          title="รอตรวจสอบ"
-          value={stats.pending}
-          icon={Clock}
-          description="Pending"
-          iconClassName="text-yellow-600 dark:text-yellow-400"
-        />
-        <KPICard
-          title="ผ่าน"
-          value={stats.passed}
-          icon={CheckCircle2}
-          description="Pass"
-          iconClassName="text-green-600 dark:text-green-400"
-        />
-        <KPICard
-          title="ไม่ผ่าน"
-          value={stats.failed}
-          icon={XCircle}
-          description="Fail"
-          iconClassName="text-red-600 dark:text-red-400"
-        />
-        <KPICard
-          title="ต้องแก้ไข"
-          value={stats.needFix}
-          icon={AlertCircle}
-          description="Fix Required"
+          title="เอกสารที่กำลังดำเนินการ"
+          value={stats.activeJobs}
+          icon={Activity}
+          description="Active Documents"
           iconClassName="text-orange-600 dark:text-orange-400"
         />
         <KPICard
-          title="รวมปัญหา"
-          value={stats.totalIssues}
+          title="รายการที่ปิดเคสแล้ว"
+          value={stats.closedJobs}
+          icon={CheckCircle2}
+          description="Closed"
+          iconClassName="text-green-600 dark:text-green-400"
+        />
+        <KPICard
+          title="รายการที่รอปิดเคส"
+          value={stats.pendingCloseCase}
+          icon={Clock}
+          description="Pending Items"
+          iconClassName="text-yellow-600 dark:text-yellow-400"
+        />
+        <KPICard
+          title="ค้างเกิน 7 วัน"
+          value={stats.overdueItems}
           icon={AlertTriangle}
-          description="Total Issues"
+          description="Overdue (7+ days)"
           iconClassName="text-red-600 dark:text-red-400"
         />
       </div>
@@ -161,33 +151,46 @@ export function AMDashboard() {
         />
       )}
 
-      {/* Dialog Buttons - 3 ปุ่ม */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Dialog Buttons - 4 ปุ่ม */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <ActionItemsDialog
           title="รายการที่ยังไม่ได้ตรวจ"
           items={notCheckedItems}
           totalCount={dashboardData?.notCheckedItems?.totalCount || 0}
-          triggerIcon={<FileQuestion className="h-4 w-4" />}
-          triggerLabel="เอกสารที่ยังไม่ได้ตรวจ"
+          triggerIcon={<FileQuestion className="h-4 w-4 mr-2" />}
           triggerClassName="w-full h-20 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-700"
+          basePath="/areamanage/edit_document"
+          formType="AM"
         />
-        
+
         <ActionItemsDialog
-          title="รายการที่ไม่ผ่าน"
-          items={failedItems}
-          totalCount={dashboardData?.failedItems?.totalCount || 0}
-          triggerIcon={<XCircle className="h-4 w-4" />}
-          triggerLabel="เอกสารที่มีรายการไม่ผ่าน"
-          triggerClassName="w-full h-20 text-red-600 dark:text-red-400 border-red-300 dark:border-red-700"
-        />
-        
-        <ActionItemsDialog
-          title="รายการที่ต้องแก้ไข"
-          items={needFixItems}
-          totalCount={dashboardData?.needFixItems?.totalCount || 0}
-          triggerIcon={<AlertCircle className="h-4 w-4" />}
-          triggerLabel="เอกสารที่มีรายการต้องแก้ไข"
+          title="เอกสารที่กำลังดำเนินการ"
+          items={activeItems}
+          totalCount={dashboardData?.activeItems?.totalCount || 0}
+          triggerIcon={<Activity className="h-4 w-4 mr-2" />}
           triggerClassName="w-full h-20 text-orange-600 dark:text-orange-400 border-orange-300 dark:border-orange-700"
+          basePath="/areamanage/edit_document"
+          formType="AM"
+        />
+
+        <ActionItemsDialog
+          title="รายการที่รอปิดเคส"
+          items={pendingCloseCaseItems}
+          totalCount={dashboardData?.pendingCloseCaseItems?.totalCount || 0}
+          triggerIcon={<Clock className="h-4 w-4 mr-2" />}
+          triggerClassName="w-full h-20 text-yellow-600 dark:text-yellow-400 border-yellow-300 dark:border-yellow-700"
+          basePath="/areamanage/edit_document"
+          formType="AM"
+        />
+
+        <ActionItemsDialog
+          title="รายการค้างเกิน 7 วัน"
+          items={overdueItems}
+          totalCount={dashboardData?.overdueItems?.totalCount || 0}
+          triggerIcon={<AlertTriangle className="h-4 w-4 mr-2" />}
+          triggerClassName="w-full h-20 text-red-600 dark:text-red-400 border-red-300 dark:border-red-700"
+          basePath="/areamanage/edit_document"
+          formType="AM"
         />
       </div>
 
@@ -250,14 +253,14 @@ function DashboardSkeleton() {
   return (
     <div className="space-y-6">
       <Skeleton className="h-12 w-64" />
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {[1, 2, 3, 4, 5].map((i) => (
           <Skeleton key={i} className="h-32" />
         ))}
       </div>
       <Skeleton className="h-[350px] w-full" />
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[1, 2, 3].map((i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
           <Skeleton key={i} className="h-20" />
         ))}
       </div>

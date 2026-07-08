@@ -34,6 +34,8 @@ interface ActionItemsDialogProps {
   triggerLabel?: string;
   triggerClassName?: string;
   titleHeader?: string;
+  basePath?: string;
+  formType?: string;
 }
 
 export function ActionItemsDialog({
@@ -44,13 +46,17 @@ export function ActionItemsDialog({
   triggerLabel,
   triggerClassName,
   titleHeader,
+  basePath = "/audit/edit_document",
+  formType,
 }: ActionItemsDialogProps) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
   const handleItemClick = (itemId: number, jobNo: string) => {
     setOpen(false);
-    router.push(`/audit-jobs/${jobNo}`);
+    const params = new URLSearchParams({ jobNo, highlightItemId: String(itemId) });
+    if (formType) params.set("formType", formType);
+    router.push(`${basePath}?${params.toString()}`);
   };
 
   return (

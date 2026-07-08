@@ -15,12 +15,11 @@ export interface DashboardKPI {
 export interface DashboardStats {
   // AM Stats
   am?: {
-    pending: number;
-    passed: number;
-    failed: number;
-    needFix: number;
-    notChecked: number;
-    totalIssues: number;
+    totalJobs: number;
+    activeJobs: number;
+    closedJobs: number;
+    pendingCloseCase: number;
+    overdueItems: number;
   };
 
   // Audit Stats
@@ -95,6 +94,7 @@ export interface DashboardResponse {
   branchRankings?: BranchRanking[];
   branchIssues?: BranchIssue[];
   notCheckedItems?: PaginatedActionItems;
-  failedItems?: PaginatedActionItems;
-  needFixItems?: PaginatedActionItems;
+  activeItems?: PaginatedActionItems;
+  pendingCloseCaseItems?: PaginatedActionItems;
+  overdueItems?: PaginatedActionItems;
 }

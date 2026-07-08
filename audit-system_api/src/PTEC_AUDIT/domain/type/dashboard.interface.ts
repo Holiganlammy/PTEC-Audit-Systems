@@ -84,8 +84,8 @@ export interface AuditStats {
   totalJobs: number;
   activeJobs: number;
   closedJobs: number;
-  waitingAM: number;
-  amRejected: number;
+  pendingCloseCase: number;
+  overdueItems: number;
 }
 
 // ==========================================
@@ -115,11 +115,12 @@ export interface ManagerStats {
 
 export interface AMDashboardResponse {
   stats: {
-    am: AMStats;
+    am: AuditStats;
   };
   notCheckedItems: ItemList;
-  failedItems: ItemList;
-  needFixItems: ItemList;
+  activeItems: ItemList;
+  pendingCloseCaseItems: ItemList;
+  overdueItems: ItemList;
   recentActivities: Activity[];
   branchIssues: BranchIssue[];
 }
@@ -134,8 +135,8 @@ export interface AuditDashboardResponse {
   };
   notCheckedItems: ItemList;
   activeItems: ItemList;
-  waitingAMItems: ItemList;
-  amRejectedItems: ItemList;
+  pendingCloseCaseItems: ItemList;
+  overdueItems: ItemList;
   recentActivities: Activity[];
 }
 

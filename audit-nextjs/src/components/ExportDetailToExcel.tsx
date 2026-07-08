@@ -348,7 +348,8 @@ export default function ExportAuditDetailToExcel({
 
       const timestamp = format(new Date(), "yyyyMMdd_HHmmss");
       const safeJobNo = String(jobData.jobNo || "AUDIT").replace(/[\\/:*?\"<>|]/g, "-");
-      const filename = `Audit_Report_${safeJobNo}_${timestamp}.xlsx`;
+      const branchLabel = jobData.branchId ? `_Branch${jobData.branchId}` : "";
+      const filename = `Audit_Report_${safeJobNo}${branchLabel}_${timestamp}.xlsx`;
 
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");

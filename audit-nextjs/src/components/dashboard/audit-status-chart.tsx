@@ -49,11 +49,11 @@ const chartConfig = {
     color: "hsl(var(--chart-3))", // ส้ม
   },
   closed: {
-    label: "ปิดเคสแล้ว",
+    label: "รายการที่ปิดเคสแล้ว",
     color: "hsl(var(--chart-2))", // เขียว
   },
   waitingAM: {
-    label: "รอ AM ตรวจ",
+    label: "รอ Checker ตรวจ",
     color: "hsl(var(--chart-4))", // เหลือง
   },
 } satisfies ChartConfig;
@@ -71,7 +71,7 @@ export function AuditStatusChart({
         <CardTitle>สถานะงาน Audit</CardTitle>
         <CardDescription>
           <span className="hidden @[540px]/card:block">
-            จำนวนงานต่อวัน (กำลังทำ / ปิดเคส / รอ AM)
+            จำนวนงานต่อวัน (กำลังทำ / ปิดเคส / รอ Checker)
           </span>
           <span className="@[540px]/card:hidden">สถานะงานต่อวัน</span>
         </CardDescription>

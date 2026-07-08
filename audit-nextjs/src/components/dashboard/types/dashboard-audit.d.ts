@@ -6,8 +6,8 @@ export interface AuditStats {
   totalJobs: number;
   activeJobs: number;
   closedJobs: number;
-  waitingAM: number;
-  amRejected: number;
+  pendingCloseCase: number;
+  overdueItems: number;
 }
 
 export interface AuditDashboardResponse {
@@ -16,7 +16,7 @@ export interface AuditDashboardResponse {
   };
   notCheckedItems: PaginatedActionItems;
   activeItems: PaginatedActionItems;
-  waitingAMItems: PaginatedActionItems;
-  amRejectedItems: PaginatedActionItems;
+  pendingCloseCaseItems: PaginatedActionItems;
+  overdueItems: PaginatedActionItems;
   recentActivities: ActivityData[];
 }

@@ -252,7 +252,9 @@ export default function ExportDropdown({
       }
 
       const timestamp = format(new Date(), "yyyyMMdd_HHmmss");
-      const filename = `${filePrefix}_Report_${jobData.jobNo}_${timestamp}.pdf`;
+      const safeJobNo = String(jobData.jobNo || "AUDIT").replace(/[\\/:*?"<>|]/g, "-");
+      const branchLabel = jobData.branchId ? `_Branch${jobData.branchId}` : "";
+      const filename = `${filePrefix}_Report_${safeJobNo}${branchLabel}_${timestamp}.pdf`;
       const blob = doc.output("blob");
       const url = URL.createObjectURL(blob);
       setPdfPreview({ url, filename });
@@ -384,7 +386,8 @@ export default function ExportDropdown({
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const timestamp = format(new Date(), "yyyyMMdd_HHmmss");
       const safeJobNo = String(jobData.jobNo || "AUDIT").replace(/[\\/:*?"<>|]/g, "-");
-      const filename = `${filePrefix}_Report_${safeJobNo}_${timestamp}.xlsx`;
+      const branchLabel = jobData.branchId ? `_Branch${jobData.branchId}` : "";
+      const filename = `${filePrefix}_Report_${safeJobNo}${branchLabel}_${timestamp}.xlsx`;
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url; link.download = filename;

@@ -353,7 +353,9 @@ export default function ExportAuditDetailToPDF({
 
       // Save
       const timestamp = format(new Date(), "yyyyMMdd_HHmmss");
-      const filename = `Audit_Report_${jobData.jobNo}_${timestamp}.pdf`;
+      const safeJobNo = String(jobData.jobNo || "AUDIT").replace(/[\\/:*?"<>|]/g, "-");
+      const branchLabel = jobData.branchId ? `_Branch${jobData.branchId}` : "";
+      const filename = `Audit_Report_${safeJobNo}${branchLabel}_${timestamp}.pdf`;
 
       const blob = doc.output("blob");
       const url = URL.createObjectURL(blob);
