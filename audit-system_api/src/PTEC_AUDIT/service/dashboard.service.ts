@@ -9,6 +9,8 @@ import { AuditItemAuditComment } from '../domain/model/audit-item-audit-comment.
 import { AuditItemAMComment } from '../domain/model/audit-item-am-comment.entity';
 import { AuditItemOtherComment } from '../domain/model/audit-item-other-comment.entity';
 import { AuditItemOtherCommentUserTag } from '../domain/model/audit-item-other-comment-users-tag.entity';
+import { AMItem } from '../../PTEC_AUDIT_AM_AA/domain/model/am-item.entity';
+import { AMJobHeader } from '../../PTEC_AUDIT_AM_AA/domain/model/am.jobs-header.entity';
 import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec_useright.service';
 import {
   // AMChartData,
@@ -140,6 +142,12 @@ export class DashboardService {
     @InjectRepository(AuditItemOtherCommentUserTag)
     private readonly tagRepo: Repository<AuditItemOtherCommentUserTag>,
 
+    @InjectRepository(AMItem)
+    private readonly amItemRepo: Repository<AMItem>,
+
+    @InjectRepository(AMJobHeader)
+    private readonly amJobRepo: Repository<AMJobHeader>,
+
     private readonly userRightService: UserRightService,
   ) {}
 
@@ -151,20 +159,20 @@ export class DashboardService {
    *  Get AM Dashboard Data
    */
   async getAMDashboardData(userId: string, dateRange: number) {
-    const stats = await this.getAuditStats(dateRange);
+    const stats = await this.getAMDocStats(dateRange);
     const recentActivities = await this.getRecentActivities(dateRange);
     const branchIssues = await this.getAMBranchIssues(dateRange);
 
-    const notCheckedItems = await this.getAuditItemsByStatus(
+    const notCheckedItems = await this.getAMDocItemsByStatus(
       dateRange,
       'NOT_CHECKED',
     );
-    const activeItems = await this.getActiveAuditJobs(dateRange);
-    const pendingCloseCaseItems = await this.getAuditItemsByStatus(
+    const activeItems = await this.getActiveAMJobs(dateRange);
+    const pendingCloseCaseItems = await this.getAMDocItemsByStatus(
       dateRange,
       'PENDING_CLOSE_CASE',
     );
-    const overdueItems = await this.getOverdueAuditItems();
+    const overdueItems = await this.getOverdueAMItems();
 
     return {
       stats: { am: stats },
@@ -265,12 +273,12 @@ export class DashboardService {
   private async getAMBranchIssues(dateRange: number): Promise<BranchIssue[]> {
     const startDate = this.getStartDate(dateRange);
 
-    const result = await this.auditItemRepo
+    const result = await this.amItemRepo
       .createQueryBuilder('ai')
       .select('aj.branchId', 'branchId')
       .addSelect('aj.branchName', 'branchName')
       .addSelect(
-        'COUNT(CASE WHEN ai.amChecklistStatus IN (3, 4) THEN 1 END)',
+        'COUNT(CASE WHEN ai.headerChecklistStatus IN (3, 4) THEN 1 END)',
         'issueCount',
       )
       .addSelect('COUNT(*)', 'totalCount')
@@ -278,9 +286,14 @@ export class DashboardService {
       .where('ai.updatedAt >= :startDate', { startDate })
       .andWhere('ai.active = :active', { active: true })
       .andWhere('aj.active = :active', { active: true })
+      .andWhere('aj.positionType IN (:...positionTypes)', {
+        positionTypes: ['AM', 'AA'],
+      })
       .groupBy('aj.branchId')
       .addGroupBy('aj.branchName')
-      .having('COUNT(CASE WHEN ai.amChecklistStatus IN (3, 4) THEN 1 END) > 0')
+      .having(
+        'COUNT(CASE WHEN ai.headerChecklistStatus IN (3, 4) THEN 1 END) > 0',
+      )
       .orderBy('issueCount', 'DESC')
       .limit(5)
       .getRawMany<BranchIssueResult>();
@@ -293,6 +306,220 @@ export class DashboardService {
         (parseInt(row.issueCount, 10) / parseInt(row.totalCount, 10)) * 100,
       ),
     }));
+  }
+
+  private async getAMDocStats(dateRange: number): Promise<AuditStats> {
+    const startDate = this.getStartDate(dateRange);
+
+    const result = await this.amItemRepo
+      .createQueryBuilder('ai')
+      .select([
+        'COUNT(CASE WHEN ai.itemStatusEdit = 4 THEN 1 END) AS closedJobs',
+        'COUNT(CASE WHEN ai.itemStatusEdit IS NULL OR ai.itemStatusEdit = 2 THEN 1 END) AS pendingCloseCase',
+      ])
+      .innerJoin('ai.job', 'aj')
+      .where('ai.updatedAt >= :startDate', { startDate })
+      .andWhere('ai.active = :active', { active: true })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere('aj.positionType IN (:...positionTypes)', {
+        positionTypes: ['AM', 'AA'],
+      })
+      .getRawOne<AuditStatsResult>();
+
+    const jobResult = await this.amJobRepo
+      .createQueryBuilder('aj')
+      .select([
+        'COUNT(*) AS totalJobs',
+        'COUNT(CASE WHEN aj.status IS NULL OR aj.status <> 2 THEN 1 END) AS activeJobs',
+      ])
+      .where('aj.updatedAt >= :startDate', { startDate })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere('aj.positionType IN (:...positionTypes)', {
+        positionTypes: ['AM', 'AA'],
+      })
+      .getRawOne<{ totalJobs: string; activeJobs: string }>();
+
+    const overdueThreshold = new Date();
+    overdueThreshold.setDate(overdueThreshold.getDate() - 7);
+    const overdueItems = await this.amItemRepo
+      .createQueryBuilder('ai')
+      .innerJoin('ai.job', 'aj')
+      .where('(ai.itemStatusEdit IS NULL OR ai.itemStatusEdit <> 4)')
+      .andWhere('ai.updatedAt <= :overdueThreshold', { overdueThreshold })
+      .andWhere('ai.active = :active', { active: true })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere('aj.positionType IN (:...positionTypes)', {
+        positionTypes: ['AM', 'AA'],
+      })
+      .getCount();
+
+    return {
+      totalJobs: parseInt(jobResult?.totalJobs || '0', 10),
+      activeJobs: parseInt(jobResult?.activeJobs || '0', 10),
+      closedJobs: parseInt(result?.closedJobs || '0', 10),
+      pendingCloseCase: parseInt(result?.pendingCloseCase || '0', 10),
+      overdueItems,
+    };
+  }
+
+  private async getAMDocItemsByStatus(
+    dateRange: number,
+    statusType: 'NOT_CHECKED' | 'PENDING_CLOSE_CASE',
+  ): Promise<ItemList> {
+    const startDate = this.getStartDate(dateRange);
+    let whereClause = '';
+
+    switch (statusType) {
+      case 'NOT_CHECKED':
+        whereClause =
+          '(ai.itemStatusEdit IS NULL OR ai.itemStatusEdit <> 4 OR ai.headerChecklistStatus IS NULL OR ai.headerChecklistStatus = 0)';
+        break;
+      case 'PENDING_CLOSE_CASE':
+        whereClause = '(ai.itemStatusEdit IS NULL OR ai.itemStatusEdit = 2)';
+        break;
+    }
+
+    const totalCount = await this.amItemRepo
+      .createQueryBuilder('ai')
+      .innerJoin('ai.job', 'aj')
+      .where(whereClause)
+      .andWhere('ai.updatedAt >= :startDate', { startDate })
+      .andWhere('ai.active = :active', { active: true })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere('aj.positionType IN (:...positionTypes)', {
+        positionTypes: ['AM', 'AA'],
+      })
+      .getCount();
+
+    const items = await this.amItemRepo
+      .createQueryBuilder('ai')
+      .leftJoinAndSelect('ai.job', 'aj')
+      .leftJoinAndSelect('ai.categoryItem', 'cat')
+      .where(whereClause)
+      .andWhere('ai.updatedAt >= :startDate', { startDate })
+      .andWhere('ai.active = :active', { active: true })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere('aj.positionType IN (:...positionTypes)', {
+        positionTypes: ['AM', 'AA'],
+      })
+      .orderBy('ai.updatedAt', 'DESC')
+      .take(50)
+      .getMany();
+
+    return {
+      items: items.map((item) => ({
+        id: item.itemId,
+        jobNo: item.job?.jobNo || '',
+        branchName: item.job?.branchName || '',
+        categoryName: item.categoryItem?.categoryName || '',
+        categoryCode: item.categoryItem?.categoryCode ?? null,
+        status: this.getAuditItemStatusText(
+          item.itemStatusEdit,
+          item.headerChecklistStatus,
+        ),
+        daysAgo: this.calculateDaysAgo(item.updatedAt),
+        statusColor: this.getAuditItemStatusColor(
+          item.itemStatusEdit,
+          item.headerChecklistStatus,
+        ),
+      })),
+      totalCount,
+    };
+  }
+
+  private async getActiveAMJobs(dateRange: number): Promise<ItemList> {
+    const startDate = this.getStartDate(dateRange);
+    const whereClause = '(aj.status IS NULL OR aj.status <> 2)';
+
+    const totalCount = await this.amJobRepo
+      .createQueryBuilder('aj')
+      .where(whereClause)
+      .andWhere('aj.updatedAt >= :startDate', { startDate })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere('aj.positionType IN (:...positionTypes)', {
+        positionTypes: ['AM', 'AA'],
+      })
+      .getCount();
+
+    const jobs = await this.amJobRepo
+      .createQueryBuilder('aj')
+      .where(whereClause)
+      .andWhere('aj.updatedAt >= :startDate', { startDate })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere('aj.positionType IN (:...positionTypes)', {
+        positionTypes: ['AM', 'AA'],
+      })
+      .orderBy('aj.updatedAt', 'DESC')
+      .take(50)
+      .getMany();
+
+    return {
+      items: jobs.map((job) => ({
+        id: job.jobId,
+        jobNo: job.jobNo || '',
+        branchName: job.branchName || '',
+        categoryName: null,
+        categoryCode: null,
+        status:
+          job.status === 2 ? 'ดำเนินการเสร็จสิ้น' : 'อยู่ระหว่างดำเนินการ',
+        daysAgo: this.calculateDaysAgo(job.updatedAt),
+        statusColor: job.status === 2 ? 'default' : 'secondary',
+      })),
+      totalCount,
+    };
+  }
+
+  private async getOverdueAMItems(): Promise<ItemList> {
+    const overdueThreshold = new Date();
+    overdueThreshold.setDate(overdueThreshold.getDate() - 7);
+    const whereClause = '(ai.itemStatusEdit IS NULL OR ai.itemStatusEdit <> 4)';
+
+    const totalCount = await this.amItemRepo
+      .createQueryBuilder('ai')
+      .innerJoin('ai.job', 'aj')
+      .where(whereClause)
+      .andWhere('ai.updatedAt <= :overdueThreshold', { overdueThreshold })
+      .andWhere('ai.active = :active', { active: true })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere('aj.positionType IN (:...positionTypes)', {
+        positionTypes: ['AM', 'AA'],
+      })
+      .getCount();
+
+    const items = await this.amItemRepo
+      .createQueryBuilder('ai')
+      .leftJoinAndSelect('ai.job', 'aj')
+      .leftJoinAndSelect('ai.categoryItem', 'cat')
+      .where(whereClause)
+      .andWhere('ai.updatedAt <= :overdueThreshold', { overdueThreshold })
+      .andWhere('ai.active = :active', { active: true })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere('aj.positionType IN (:...positionTypes)', {
+        positionTypes: ['AM', 'AA'],
+      })
+      .orderBy('ai.updatedAt', 'ASC')
+      .take(50)
+      .getMany();
+
+    return {
+      items: items.map((item) => ({
+        id: item.itemId,
+        jobNo: item.job?.jobNo || '',
+        branchName: item.job?.branchName || '',
+        categoryName: item.categoryItem?.categoryName || '',
+        categoryCode: item.categoryItem?.categoryCode ?? null,
+        status: this.getAuditItemStatusText(
+          item.itemStatusEdit,
+          item.headerChecklistStatus,
+        ),
+        daysAgo: this.calculateDaysAgo(item.updatedAt),
+        statusColor: this.getAuditItemStatusColor(
+          item.itemStatusEdit,
+          item.headerChecklistStatus,
+        ),
+      })),
+      totalCount,
+    };
   }
 
   // ==========================================

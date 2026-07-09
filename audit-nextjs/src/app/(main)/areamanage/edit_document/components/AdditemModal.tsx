@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, getErrorMessage } from "@/lib/utils";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
@@ -117,7 +117,7 @@ export default function AddItemModal({
         setCategories(filtered);
       } catch (error) {
         console.error("Error fetching categories:", error);
-        toast.error("ไม่สามารถโหลดหมวดหมู่ได้");
+        toast.error("ไม่สามารถโหลดหมวดหมู่ได้", { description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง") });
       } finally {
         setIsLoadingCategories(false);
       }

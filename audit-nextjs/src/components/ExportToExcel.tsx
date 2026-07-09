@@ -13,6 +13,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/utils";
 import ExcelJS from "exceljs";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
@@ -273,7 +274,7 @@ export default function ExportToExcel({
     } catch (error) {
       console.error("Error exporting to Excel:", error);
       toast.error("ไม่สามารถ Export Excel ได้", {
-        description: "กรุณาลองใหม่อีกครั้ง",
+        description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง"),
       });
     } finally {
       setIsExporting(false);

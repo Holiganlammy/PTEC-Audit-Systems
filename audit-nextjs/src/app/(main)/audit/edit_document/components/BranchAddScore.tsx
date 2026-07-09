@@ -20,7 +20,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { cn } from "@/lib/utils";
+import { cn, getErrorMessage } from "@/lib/utils";
 import { toast } from "sonner";
 import { Save } from "lucide-react";
 import { z } from "zod";
@@ -102,7 +102,7 @@ export default function BranchAddScore({
     } catch (err) {
       console.error(err);
       toast.error("บันทึกคะแนนไม่สำเร็จ", {
-        description: "กรุณาลองใหม่อีกครั้ง",
+        description: getErrorMessage(err, "กรุณาลองใหม่อีกครั้ง"),
       });
     }
   };

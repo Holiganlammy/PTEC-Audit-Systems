@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/utils";
 import ExcelJS from "exceljs";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
@@ -363,7 +364,7 @@ export default function ExportAuditDetailToExcel({
       toast.success("Export Excel สำเร็จ", { description: `ไฟล์: ${filename}` });
     } catch (error) {
       console.error("Error exporting audit detail to Excel:", error);
-      toast.error("ไม่สามารถ Export Excel ได้", { description: "กรุณาลองใหม่อีกครั้ง" });
+      toast.error("ไม่สามารถ Export Excel ได้", { description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง") });
     } finally {
       setIsExporting(false);
     }

@@ -38,6 +38,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/utils";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
 import { format } from "date-fns";
@@ -285,7 +286,7 @@ export default function AMChecklistModal({
       toast.success('ดาวน์โหลดไฟล์สำเร็จ');
     } catch (error) {
       console.error('Error downloading file:', error);
-      toast.error('ไม่สามารถดาวน์โหลดไฟล์ได้');
+      toast.error('ไม่สามารถดาวน์โหลดไฟล์ได้', { description: getErrorMessage(error, 'กรุณาลองใหม่อีกครั้ง') });
     }
   };
 
@@ -302,7 +303,7 @@ export default function AMChecklistModal({
       toast.success("ลบไฟล์สำเร็จ");
     } catch (error) {
       console.error("Error deleting file:", error);
-      toast.error("ไม่สามารถลบไฟล์ได้");
+      toast.error("ไม่สามารถลบไฟล์ได้", { description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง") });
     }
   };
 
@@ -348,7 +349,7 @@ export default function AMChecklistModal({
       onOpenChange(false);
     } catch (error) {
       console.error("Error updating AM checklist:", error);
-      toast.error("ไม่สามารถบันทึกได้");
+      toast.error("ไม่สามารถบันทึกได้", { description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง") });
     } finally {
       setIsSubmitting(false);
     }
@@ -372,7 +373,7 @@ export default function AMChecklistModal({
       onOpenChange(false);
     } catch (error) {
       console.error("Error clearing AM checklist:", error);
-      toast.error("ไม่สามารถล้างข้อมูลได้");
+      toast.error("ไม่สามารถล้างข้อมูลได้", { description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง") });
     } finally {
       setIsSubmitting(false);
     }

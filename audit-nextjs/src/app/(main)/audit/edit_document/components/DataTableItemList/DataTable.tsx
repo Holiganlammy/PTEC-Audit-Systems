@@ -70,6 +70,7 @@ import AddItemModal, { type DraftAddItem } from "../AdditemModal";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/utils";
 import type { TaggedUser } from "./TagCell/TagCell";
 import AMChecklistModal from "./Amchecklist/modal";
 import ItemAttachmentModal from "./ItemAttachmentModal";
@@ -427,7 +428,7 @@ export default function DataTableItemList({
     try {
       await client.delete(`/audit-items/${deleteItem.item_id}`, { headers: dataConfig().headers });
       toast.success("ลบรายการสำเร็จ"); onItemsChange();
-    } catch { toast.error("ไม่สามารถลบรายการได้"); }
+    } catch (error) { toast.error("ไม่สามารถลบรายการได้", { description: getErrorMessage(error, "ไม่สามารถลบรายการได้") }); }
     finally { setDeleteItem(null); }
   };
 

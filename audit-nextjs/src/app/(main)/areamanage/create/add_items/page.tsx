@@ -17,6 +17,7 @@ import {
 import { ArrowLeft, CheckCircle, Loader2, X, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/utils";
 import client from "@/lib/axios/interceptors";
 import DataTableItemList from "@/app/(main)/areamanage/edit_document/components/DataTableItemList/DataTable";
 import { format } from "date-fns";
@@ -195,7 +196,7 @@ export default function AddItemsPage() {
       }
     } catch (error) {
       console.error("Error fetching audit items:", error);
-      toast.error("ไม่สามารถโหลดรายการตรวจสอบได้");
+      toast.error("ไม่สามารถโหลดรายการตรวจสอบได้", { description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง") });
     } finally {
       setIsLoadingItems(false);
     }

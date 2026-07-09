@@ -28,6 +28,7 @@ import { Send, Loader2, CheckCircle2, XCircle, Clock, Trash2, Pencil } from "luc
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/utils";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 // import type { AuditComment } from "../Column/Column";
@@ -249,8 +250,8 @@ function CommentItem({
       setIsApproving(true);
       await onApprove(comment.id, status);
       toast.success(status === 1 ? (isAuditUnit ? "รับทราบสำเร็จ" : "อนุมัติสำเร็จ") : (isAuditUnit ? "ตรวจสอบอีกครั้งสำเร็จ" : "ไม่อนุมัติสำเร็จ"));
-    } catch {
-      toast.error("เกิดข้อผิดพลาด");
+    } catch (error) {
+      toast.error("เกิดข้อผิดพลาด", { description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง") });
     } finally {
       setIsApproving(false);
     }
@@ -266,8 +267,8 @@ function CommentItem({
       setIsDeleting(true);
       await onDelete(comment.id, remark);
       toast.success("ลบความเห็นสำเร็จ");
-    } catch {
-      toast.error("ไม่สามารถลบความเห็นได้");
+    } catch (error) {
+      toast.error("ไม่สามารถลบความเห็นได้", { description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง") });
     } finally {
       setIsDeleting(false);
     }
@@ -285,8 +286,8 @@ function CommentItem({
       await onEdit(comment.id, next);
       toast.success("แก้ไขความเห็นสำเร็จ");
       setIsEditing(false);
-    } catch {
-      toast.error("ไม่สามารถแก้ไขความเห็นได้");
+    } catch (error) {
+      toast.error("ไม่สามารถแก้ไขความเห็นได้", { description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง") });
     } finally {
       setIsSaving(false);
     }
@@ -623,8 +624,8 @@ export default function ThreadModal({
       setDraft("");
       setSendForApproval(false);
       toast.success(sendForApproval ? (isAuditUnit ? "ส่งเพื่อรับทราบสำเร็จ" : "ส่งเพื่ออนุมัติสำเร็จ") : "เพิ่มความเห็นสำเร็จ");
-    } catch {
-      toast.error("ไม่สามารถส่งความเห็นได้");
+    } catch (error) {
+      toast.error("ไม่สามารถส่งความเห็นได้", { description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง") });
     } finally {
       setIsSending(false);
     }

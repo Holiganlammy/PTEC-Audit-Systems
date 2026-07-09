@@ -1009,7 +1009,7 @@ export default function CreateAuditJobPage() {
                     <Field>
                       <FieldLabel>แนบไฟล์เอกสาร (Header)</FieldLabel>
                       <FieldDescription>
-                        รองรับไฟล์รูปภาพ, PDF, Excel (สูงสุด 10 ไฟล์, แต่ละไฟล์ไม่เกิน 10MB)
+                        รองรับไฟล์รูปภาพ, PDF, Excel (สูงสุด 10 ไฟล์, แต่ละไฟล์ไม่เกิน 100MB)
                       </FieldDescription>
 
                       {/* Hidden file input */}

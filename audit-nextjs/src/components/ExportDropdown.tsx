@@ -30,6 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import ExcelJS from "exceljs";
@@ -261,7 +262,7 @@ export default function ExportDropdown({
       setIsPdfPreviewOpen(true);
     } catch (error) {
       console.error("Error exporting to PDF:", error);
-      toast.error("ไม่สามารถ Export PDF ได้", { description: "กรุณาลองใหม่อีกครั้ง" });
+      toast.error("ไม่สามารถ Export PDF ได้", { description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง") });
     } finally {
       setIsPdfExporting(false);
     }
@@ -397,7 +398,7 @@ export default function ExportDropdown({
       toast.success("Export Excel สำเร็จ", { description: `ไฟล์: ${filename}` });
     } catch (error) {
       console.error("Error exporting to Excel:", error);
-      toast.error("ไม่สามารถ Export Excel ได้", { description: "กรุณาลองใหม่อีกครั้ง" });
+      toast.error("ไม่สามารถ Export Excel ได้", { description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง") });
     } finally {
       setIsExcelExporting(false);
       setIsExcelConfirmOpen(false);

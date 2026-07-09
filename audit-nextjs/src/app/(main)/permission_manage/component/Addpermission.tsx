@@ -35,7 +35,7 @@ import { Loader2, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
-import { cn } from "@/lib/utils";
+import { cn, getErrorMessage } from "@/lib/utils";
 
 interface Role {
   roleId: number;
@@ -90,7 +90,9 @@ export default function AddPermissionModal({
         }
       } catch (error) {
         console.error("Error fetching users:", error);
-        toast.error("ไม่สามารถโหลดรายชื่อผู้ใช้ได้");
+        toast.error("ไม่สามารถโหลดรายชื่อผู้ใช้ได้", {
+          description: getErrorMessage(error, "ไม่สามารถโหลดรายชื่อผู้ใช้ได้"),
+        });
       } finally {
         setIsLoadingUsers(false);
       }

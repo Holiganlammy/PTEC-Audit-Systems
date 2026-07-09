@@ -40,7 +40,7 @@ import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn, getErrorMessage } from "@/lib/utils";
 import BranchAddScore from "../../BranchAddScore";
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -364,7 +364,9 @@ function SendEmailCell({ item, isLocked }: { item: AuditItem; isLocked?: boolean
       toast.success(`ส่งเมลสำเร็จ`);
     } catch (error) {
       console.error('❌ Failed to send summary email:', error);
-      toast.error('ส่งเมลไม่สำเร็จ');
+      toast.error('ส่งเมลไม่สำเร็จ', {
+        description: getErrorMessage(error, 'ส่งเมลไม่สำเร็จ'),
+      });
     } finally {
       setIsSending(false);
     }

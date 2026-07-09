@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
 import { useSession } from "next-auth/react";
-import { cn } from "@/lib/utils";
+import { cn, getErrorMessage } from "@/lib/utils";
 import type { TaggedUser } from "../TagCell/TagCell";
 import ThreadModal from "./ThreadModal";
 
@@ -177,7 +177,9 @@ export default function NoteCell({
         }
       } catch (error) {
         console.error("❌ Error fetching comments:", error);
-        toast.error("ไม่สามารถโหลดความเห็นได้");
+        toast.error("ไม่สามารถโหลดความเห็นได้", {
+          description: getErrorMessage(error, "ไม่สามารถโหลดความเห็นได้"),
+        });
       } finally {
         setIsLoading(false);
       }

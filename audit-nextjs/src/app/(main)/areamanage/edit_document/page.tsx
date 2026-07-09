@@ -60,7 +60,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn, getErrorMessage } from "@/lib/utils";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -445,7 +445,9 @@ export default function EditAuditJobPage() {
       toast.success('ดาวน์โหลดไฟล์สำเร็จ');
     } catch (error) {
       console.error('Error downloading file:', error);
-      toast.error('ไม่สามารถดาวน์โหลดไฟล์ได้');
+      toast.error('ไม่สามารถดาวน์โหลดไฟล์ได้', {
+        description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง"),
+      });
     }
   };
 
@@ -468,7 +470,9 @@ export default function EditAuditJobPage() {
       toast.success("ลบไฟล์สำเร็จ");
     } catch (error) {
       console.error("Error deleting file:", error);
-      toast.error("ไม่สามารถลบไฟล์ได้");
+      toast.error("ไม่สามารถลบไฟล์ได้", {
+        description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง"),
+      });
     }
   };
 
@@ -625,7 +629,9 @@ export default function EditAuditJobPage() {
         }
       } catch (error) {
         console.error("Error fetching audit items:", error);
-        toast.error("ไม่สามารถโหลดรายการตรวจสอบได้");
+        toast.error("ไม่สามารถโหลดรายการตรวจสอบได้", {
+          description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง"),
+        });
       } finally {
         setIsLoadingItems(false);
       }
@@ -791,7 +797,9 @@ export default function EditAuditJobPage() {
         }
       } catch (error: unknown) {
         console.error("Error fetching users:", error);
-        toast.error("ไม่สามารถโหลดข้อมูลผู้ใช้ได้");
+        toast.error("ไม่สามารถโหลดข้อมูลผู้ใช้ได้", {
+          description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง"),
+        });
       } finally {
         setIsLoadingUsers(false);
       }
@@ -817,7 +825,9 @@ export default function EditAuditJobPage() {
         }
       } catch (error: unknown) {
         console.error("Error fetching user personal codes:", error);
-        toast.error("ไม่สามารถโหลดข้อมูลรหัสส่วนตัวผู้ใช้ได้");
+        toast.error("ไม่สามารถโหลดข้อมูลรหัสส่วนตัวผู้ใช้ได้", {
+          description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง"),
+        });
       } finally {
         setIsLoadingPMCodes(false);
       }
@@ -1036,7 +1046,7 @@ export default function EditAuditJobPage() {
       await fetchJobData();
     } catch (error) {
       console.error("Error sending email:", error);
-      toast.error("เกิดข้อผิดพลาด", { description: "ไม่สามารถส่งเมลได้ กรุณาลองใหม่อีกครั้ง" });
+      toast.error("เกิดข้อผิดพลาด", { description: getErrorMessage(error, "ไม่สามารถส่งเมลได้ กรุณาลองใหม่อีกครั้ง") });
     } finally {
       setIsSendingEmail(false);
     }
@@ -1060,7 +1070,7 @@ export default function EditAuditJobPage() {
     } catch (error) {
       console.error("Error confirming audit job:", error);
       toast.error("เกิดข้อผิดพลาด", {
-        description: "ไม่สามารถยืนยันเอกสารได้",
+        description: getErrorMessage(error, "ไม่สามารถยืนยันเอกสารได้"),
       });
     } finally {
       setIsConfirming(false);
@@ -1085,7 +1095,7 @@ export default function EditAuditJobPage() {
     } catch (error) {
       console.error("Error resetting status:", error);
       toast.error("เกิดข้อผิดพลาด", {
-        description: "ไม่สามารถ reset status ได้",
+        description: getErrorMessage(error, "ไม่สามารถ reset status ได้"),
       });
     } finally {
       setIsResetting(false);
@@ -1889,7 +1899,7 @@ export default function EditAuditJobPage() {
               <Field>
                 <FieldLabel>แนบไฟล์เอกสาร (Header)</FieldLabel>
                 <FieldDescription>
-                  รองรับไฟล์รูปภาพ, PDF, Excel (สูงสุด 10 ไฟล์, แต่ละไฟล์ไม่เกิน 10MB)
+                  รองรับไฟล์รูปภาพ, PDF, Excel (สูงสุด 10 ไฟล์, แต่ละไฟล์ไม่เกิน 100MB)
                 </FieldDescription>
 
                 {isLoadingData ? (

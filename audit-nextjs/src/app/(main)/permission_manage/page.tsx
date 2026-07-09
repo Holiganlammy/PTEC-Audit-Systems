@@ -23,6 +23,7 @@ import { Plus, RefreshCcw } from "lucide-react";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
+import { getErrorMessage } from "@/lib/utils";
 import { DataTable } from "@/components/DataTable";
 import AddPermissionModal from "./component/Addpermission";
 import EditPermissionModal from "./component/Editpermission";
@@ -60,7 +61,9 @@ export default function PermissionsPage() {
         }
       } catch (error) {
         console.error("Error fetching roles:", error);
-        toast.error("ไม่สามารถโหลดรายการ Role ได้");
+        toast.error("ไม่สามารถโหลดรายการ Role ได้", {
+          description: getErrorMessage(error, "ไม่สามารถโหลดรายการ Role ได้"),
+        });
       }
     };
     fetchRoles();
@@ -87,7 +90,9 @@ export default function PermissionsPage() {
       }
     } catch (error) {
       console.error("Error fetching user roles:", error);
-      toast.error("ไม่สามารถโหลดข้อมูล Permissions ได้");
+      toast.error("ไม่สามารถโหลดข้อมูล Permissions ได้", {
+        description: getErrorMessage(error, "ไม่สามารถโหลดข้อมูล Permissions ได้"),
+      });
     } finally {
       setIsLoading(false);
     }
@@ -117,7 +122,7 @@ export default function PermissionsPage() {
       fetchUserRoles();
     } catch (error) {
       console.error("Error deleting user role:", error);
-      toast.error("ไม่สามารถปิดใช้งาน Permission ได้");
+      toast.error(getErrorMessage(error, "ไม่สามารถปิดใช้งาน Permission ได้"));
     } finally {
       setPendingDelete(null);
     }
@@ -134,10 +139,7 @@ export default function PermissionsPage() {
       fetchUserRoles();
     } catch (error) {
       console.error("Error reactivating user role:", error);
-      const errorMsg =
-        (error as { response?: { data?: { message?: string } } }).response?.data?.message ||
-        "ไม่สามารถเปิดใช้งาน Permission ได้";
-      toast.error(errorMsg);
+      toast.error(getErrorMessage(error, "ไม่สามารถเปิดใช้งาน Permission ได้"));
     }
   };
 

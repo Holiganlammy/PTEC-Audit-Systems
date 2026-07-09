@@ -22,7 +22,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import { cn, getErrorMessage } from "@/lib/utils";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
@@ -116,7 +116,7 @@ export default function EditItemModal({
         setCategories(filtered);
       } catch (error) {
         console.error("Error fetching categories:", error);
-        toast.error("ไม่สามารถโหลดหมวดหมู่ได้");
+        toast.error("ไม่สามารถโหลดหมวดหมู่ได้", { description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง") });
       } finally {
         setIsLoadingCategories(false);
       }
@@ -153,7 +153,7 @@ export default function EditItemModal({
       onOpenChange(false);
     } catch (error) {
       console.error("Error updating item:", error);
-      toast.error("ไม่สามารถอัพเดทรายการได้");
+      toast.error("ไม่สามารถอัพเดทรายการได้", { description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง") });
     } finally {
       setIsSubmitting(false);
     }

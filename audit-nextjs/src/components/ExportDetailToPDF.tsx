@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
@@ -364,7 +365,7 @@ export default function ExportAuditDetailToPDF({
     } catch (error) {
       console.error("Error exporting to PDF:", error);
       toast.error("ไม่สามารถ Export PDF ได้", {
-        description: "กรุณาลองใหม่อีกครั้ง",
+        description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง"),
       });
     } finally {
       setIsExporting(false);

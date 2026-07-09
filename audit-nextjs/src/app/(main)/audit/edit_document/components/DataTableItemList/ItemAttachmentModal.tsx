@@ -25,6 +25,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/utils";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
 
@@ -209,7 +210,9 @@ export default function ItemAttachmentModal({
         setExistingFiles(list);
       } catch (error) {
         console.error("Error fetching item attachments:", error);
-        toast.error("ไม่สามารถโหลดไฟล์แนบของรายการได้");
+        toast.error("ไม่สามารถโหลดไฟล์แนบของรายการได้", {
+          description: getErrorMessage(error, "ไม่สามารถโหลดไฟล์แนบของรายการได้"),
+        });
       } finally {
         setIsLoading(false);
       }
@@ -271,7 +274,9 @@ export default function ItemAttachmentModal({
       onUpdated?.();
     } catch (error) {
       console.error("Error uploading item attachments:", error);
-      toast.error("ไม่สามารถอัปโหลดไฟล์ได้");
+      toast.error("ไม่สามารถอัปโหลดไฟล์ได้", {
+        description: getErrorMessage(error, "ไม่สามารถอัปโหลดไฟล์ได้"),
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -301,7 +306,9 @@ export default function ItemAttachmentModal({
       toast.success("ดาวน์โหลดไฟล์สำเร็จ");
     } catch (error) {
       console.error("Error downloading item attachment:", error);
-      toast.error("ไม่สามารถดาวน์โหลดไฟล์ได้");
+      toast.error("ไม่สามารถดาวน์โหลดไฟล์ได้", {
+        description: getErrorMessage(error, "ไม่สามารถดาวน์โหลดไฟล์ได้"),
+      });
     }
   };
 
@@ -319,7 +326,9 @@ export default function ItemAttachmentModal({
       onUpdated?.();
     } catch (error) {
       console.error("Error deleting item attachment:", error);
-      toast.error("ไม่สามารถลบไฟล์ได้");
+      toast.error("ไม่สามารถลบไฟล์ได้", {
+        description: getErrorMessage(error, "ไม่สามารถลบไฟล์ได้"),
+      });
     }
   };
 

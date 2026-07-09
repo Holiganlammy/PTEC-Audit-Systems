@@ -24,7 +24,7 @@ import {
   CalendarIcon, Upload, ArrowLeft, Loader2, Check, ChevronsUpDown,
   Paperclip, ImageIcon, FileText, FileSpreadsheet, X, FileWarning,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getErrorMessage } from "@/lib/utils";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -147,7 +147,7 @@ export default function CreateAMJobPage() {
   useEffect(() => {
     client.get("/branch", { headers: dataConfig().headers })
       .then((res) => { if (res.data.success) setBranches(res.data.data.filter((b: Branch) => b.name?.startsWith("สาขา"))); })
-      .catch(() => { toast.error("ไม่สามารถโหลดข้อมูลสาขาได้"); })
+      .catch((error) => { toast.error("ไม่สามารถโหลดข้อมูลสาขาได้", { description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง") }); })
       .finally(() => setIsLoadingBranches(false));
   }, []);
 
@@ -155,7 +155,7 @@ export default function CreateAMJobPage() {
   useEffect(() => {
     client.get("/users", { headers: dataConfig().headers })
       .then((res) => { if (Array.isArray(res.data)) setUsers(res.data); })
-      .catch(() => { toast.error("ไม่สามารถโหลดข้อมูลผู้ใช้ได้"); })
+      .catch((error) => { toast.error("ไม่สามารถโหลดข้อมูลผู้ใช้ได้", { description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง") }); })
       .finally(() => setIsLoadingUsers(false));
   }, []);
 
@@ -167,7 +167,7 @@ export default function CreateAMJobPage() {
         else if (res.data?.success && Array.isArray(res.data?.data)) setUserPersonalCodes(res.data.data);
         else if (Array.isArray(res.data?.data)) setUserPersonalCodes(res.data.data);
       })
-      .catch(() => { toast.error("ไม่สามารถโหลดข้อมูลรหัสส่วนตัวผู้ใช้ได้"); })
+      .catch((error) => { toast.error("ไม่สามารถโหลดข้อมูลรหัสส่วนตัวผู้ใช้ได้", { description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง") }); })
       .finally(() => setIsLoadingPMCodes(false));
   }, []);
 
@@ -256,7 +256,7 @@ export default function CreateAMJobPage() {
       router.push(`/areamanage/create/add_items?mode=draft&formType=${roleFormTab}`);
     } catch (error) {
       console.error("Error saving draft:", error);
-      toast.error("ไม่สามารถบันทึก Draft ได้");
+      toast.error("ไม่สามารถบันทึก Draft ได้", { description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง") });
     } finally {
       setIsSubmitting(false);
     }
@@ -587,7 +587,7 @@ export default function CreateAMJobPage() {
                   {/* File Upload */}
                   <Field>
                     <FieldLabel>แนบไฟล์เอกสาร (Header)</FieldLabel>
-                    <FieldDescription>รองรับไฟล์รูปภาพ, PDF, Excel (สูงสุด 10 ไฟล์, แต่ละไฟล์ไม่เกิน 10MB)</FieldDescription>
+                    <FieldDescription>รองรับไฟล์รูปภาพ, PDF, Excel (สูงสุด 10 ไฟล์, แต่ละไฟล์ไม่เกิน 100MB)</FieldDescription>
                     <input ref={jobHeaderFileInputRef} type="file" multiple accept=".jpg,.jpeg,.png,.gif,.pdf,.xlsx,.xls" onChange={handleJobHeaderFilesChange} className="hidden" />
                     <button type="button" onClick={() => jobHeaderFileInputRef.current?.click()} className="flex items-center gap-2 w-full border border-dashed border-muted-foreground/40 rounded-md px-4 py-3 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors">
                       <Upload className="h-4 w-4" />คลิกเพื่อเลือกไฟล์

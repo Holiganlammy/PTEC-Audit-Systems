@@ -35,7 +35,6 @@ import { AuditCreateDocGmailApiService } from '../email/audit-create-doc-gmail-a
 import { AuditCommentApprovalGmailApiService } from '../email/audit-comment-approval-gmail-api.service';
 import { MentionEmailService } from '../email/mention-comment-gmail.api.service';
 import { AuditSummaryEmailService } from '../email/audit-sumary-comment-send-items.api.service';
-import { DashboardService } from './service/dashboard.service';
 import { FileAccessService } from './service/file-access.service';
 
 // Controllers
@@ -53,7 +52,6 @@ import { AuditItemOtherUserCommentTagController } from './controller/audit-item-
 import { AMFilesController } from './controller/am-files.controller';
 import { BranchAmScoresController } from './controller/branch-am-score.controller';
 import { AuditEmailController } from './controller/audit-email.controller';
-import { DashboardController } from './controller/dashboard.controller';
 import { FileAccessController } from './controller/file-access.controller';
 
 @Module({
@@ -72,7 +70,6 @@ import { FileAccessController } from './controller/file-access.controller';
     BranchAmScoresController,
     AuditEmailController,
     FileAccessController,
-    DashboardController,
   ],
   imports: [
     TypeOrmModule.forFeature([
@@ -113,10 +110,8 @@ import { FileAccessController } from './controller/file-access.controller';
     AuditCommentApprovalGmailApiService,
     MentionEmailService,
     AuditSummaryEmailService,
-    DashboardService,
     FileAccessService,
   ],
-  exports: [DashboardService],
 })
 export class PTEC_AUDIT_AM_AA_Module implements NestModule {
   configure(consumer: MiddlewareConsumer) {

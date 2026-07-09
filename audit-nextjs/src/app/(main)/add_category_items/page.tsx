@@ -48,6 +48,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { auditCategoriesApi, type AuditCategory } from "@/lib/api/audit-categories";
+import { getErrorMessage } from "@/lib/utils";
 import AddCategoryDialog from "./components/Add_Category_Dialog";
 
 export default function CategoriesPage() {
@@ -73,7 +74,9 @@ export default function CategoriesPage() {
       setTotal(result.total);
     } catch (error) {
       console.error("Failed to fetch categories:", error);
-      toast.error("Failed to load categories");
+      toast.error("Failed to load categories", {
+        description: getErrorMessage(error, "Failed to load categories"),
+      });
     } finally {
       setLoading(false);
     }
@@ -98,7 +101,9 @@ export default function CategoriesPage() {
       if (newPage === page) fetchCategories(page, limit);
     } catch (error) {
       console.error("Failed to delete category:", error);
-      toast.error("Failed to delete category");
+      toast.error("Failed to delete category", {
+        description: getErrorMessage(error, "Failed to delete category"),
+      });
     }
   };
 

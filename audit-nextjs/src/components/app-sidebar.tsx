@@ -19,6 +19,7 @@ import { useSession } from "next-auth/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import client from "@/lib/axios/interceptors";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/utils";
 
 interface MenuItem {
   menuId: number;
@@ -54,7 +55,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       }
     } catch (err) {
       console.error("Failed to fetch menus:", err);
-      toast.error("เกิดข้อผิดพลาดในการดึงข้อมูล menu");
+      toast.error("เกิดข้อผิดพลาดในการดึงข้อมูล menu", {
+        description: getErrorMessage(err, "เกิดข้อผิดพลาดในการดึงข้อมูล menu"),
+      });
     } finally {
       setLoading(false);
     }

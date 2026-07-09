@@ -18,6 +18,8 @@ import { AuditItemOtherCommentUserTag } from './domain/model/audit-item-other-co
 import { DatabaseManagerModule } from '../database/database-manager.module';
 import { AuditFiles } from './domain/model/audit-file.entity';
 import { BranchAuditScores } from './domain/model/branch_audit_scores.entity';
+import { AMItem } from '../PTEC_AUDIT_AM_AA/domain/model/am-item.entity';
+import { AMJobHeader } from '../PTEC_AUDIT_AM_AA/domain/model/am.jobs-header.entity';
 
 // Services
 import { AuditJobsService } from './service/audit-job.service';
@@ -85,6 +87,8 @@ import { FileAccessController } from './controller/file-access.controller';
       AuditItemOtherCommentUserTag,
       AuditFiles,
       BranchAuditScores,
+      AMItem,
+      AMJobHeader,
     ]),
     DatabaseManagerModule,
     PTEC_USERRIGHT_Module,

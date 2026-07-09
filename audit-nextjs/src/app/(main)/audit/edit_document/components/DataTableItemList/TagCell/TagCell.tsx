@@ -8,6 +8,7 @@ import { X } from "lucide-react";
 import client from "@/lib/axios/interceptors";
 import { dataConfig } from "@/config/config";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/utils";
 import { getSession, useSession } from "next-auth/react";
 import {
   AlertDialog,
@@ -125,8 +126,10 @@ export default function TagCell({
           { headers: dataConfig().headers }
         );
         onTagChange?.(next);
-      } catch {
-        toast.error("ไม่สามารถบันทึก tag ได้");
+      } catch (error) {
+        toast.error("ไม่สามารถบันทึก tag ได้", {
+          description: getErrorMessage(error, "ไม่สามารถบันทึก tag ได้"),
+        });
         setTags(tags);
       }
     },
@@ -160,8 +163,10 @@ export default function TagCell({
           headers: dataConfig().headers,
         });
         onTagChange?.(next);
-      } catch {
-        toast.error("ไม่สามารถลบ tag ได้");
+      } catch (error) {
+        toast.error("ไม่สามารถลบ tag ได้", {
+          description: getErrorMessage(error, "ไม่สามารถลบ tag ได้"),
+        });
         setTags(tags);
       }
     },

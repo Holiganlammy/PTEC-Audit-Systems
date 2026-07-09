@@ -203,7 +203,9 @@ export default function LoginPage() {
       window.location.href = redirectWithHash;
     } catch (err) {
       console.error("Sign in error:", err);
-      toast.error("เข้าสู่ระบบไม่สำเร็จ");
+      toast.error("เข้าสู่ระบบไม่สำเร็จ", {
+        description: err instanceof Error ? err.message : "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง",
+      });
     }
   };
 
