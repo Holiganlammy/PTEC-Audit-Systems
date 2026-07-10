@@ -20,6 +20,10 @@ import { AuditFiles } from './domain/model/audit-file.entity';
 import { BranchAuditScores } from './domain/model/branch_audit_scores.entity';
 import { AMItem } from '../PTEC_AUDIT_AM_AA/domain/model/am-item.entity';
 import { AMJobHeader } from '../PTEC_AUDIT_AM_AA/domain/model/am.jobs-header.entity';
+import { AMItemAMComment } from '../PTEC_AUDIT_AM_AA/domain/model/am-item-am-comment.entity';
+import { AMItemAMCheckerComment } from '../PTEC_AUDIT_AM_AA/domain/model/am-item-am-checker-comment.entity';
+import { AMItemOtherComment } from '../PTEC_AUDIT_AM_AA/domain/model/am-item-other-comment.entity';
+import { AMItemOtherCommentUsersTag } from '../PTEC_AUDIT_AM_AA/domain/model/am-item-other-comment-users-tag.entity';
 
 // Services
 import { AuditJobsService } from './service/audit-job.service';
@@ -89,6 +93,10 @@ import { FileAccessController } from './controller/file-access.controller';
       BranchAuditScores,
       AMItem,
       AMJobHeader,
+      AMItemAMComment,
+      AMItemAMCheckerComment,
+      AMItemOtherComment,
+      AMItemOtherCommentUsersTag,
     ]),
     DatabaseManagerModule,
     PTEC_USERRIGHT_Module,

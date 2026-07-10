@@ -14,7 +14,7 @@ import { KPICard } from "@/components/dashboard/kpi-card";
 import { ActionItemsDialog } from "@/components/dashboard/action-items-dialog";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
-import { AMInspectionChart } from "@/components/dashboard/am-inspection-chart";
+import { AuditStatusChart } from "@/components/dashboard/audit-status-chart";
 import { dashboardApi } from "@/lib/api/dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,9 +23,9 @@ import type { DashboardResponse } from "@/components/dashboard/types/dashboard-a
 
 interface AMChartData {
   date: string;
-  passed: number;
-  failed: number;
-  needFix: number;
+  active: number;
+  closed: number;
+  waitingAM: number;
 }
 
 export function AMDashboard() {
@@ -144,10 +144,13 @@ export function AMDashboard() {
       {chartLoading ? (
         <Skeleton className="h-[350px] w-full" />
       ) : (
-        <AMInspectionChart
+        <AuditStatusChart
           data={chartData}
           timeRange={chartTimeRange}
           onTimeRangeChange={setChartTimeRange}
+          title="สถานะงาน AM"
+          description="จำนวนงานต่อวัน (กำลังทำ / ปิดเคส / รอ Checker)"
+          descriptionMobile="สถานะงานต่อวัน"
         />
       )}
 
@@ -227,7 +230,7 @@ export function AMDashboard() {
                           {branch.branchName}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {branch.issueCount} รายการมีปัญหา
+                          {branch.issueCount} จาก {branch.totalCount} รายการมีปัญหา
                         </p>
                       </div>
                     </div>

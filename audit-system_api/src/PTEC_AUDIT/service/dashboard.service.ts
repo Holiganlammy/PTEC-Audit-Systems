@@ -11,6 +11,10 @@ import { AuditItemOtherComment } from '../domain/model/audit-item-other-comment.
 import { AuditItemOtherCommentUserTag } from '../domain/model/audit-item-other-comment-users-tag.entity';
 import { AMItem } from '../../PTEC_AUDIT_AM_AA/domain/model/am-item.entity';
 import { AMJobHeader } from '../../PTEC_AUDIT_AM_AA/domain/model/am.jobs-header.entity';
+import { AMItemAMComment } from '../../PTEC_AUDIT_AM_AA/domain/model/am-item-am-comment.entity';
+import { AMItemAMCheckerComment } from '../../PTEC_AUDIT_AM_AA/domain/model/am-item-am-checker-comment.entity';
+import { AMItemOtherComment } from '../../PTEC_AUDIT_AM_AA/domain/model/am-item-other-comment.entity';
+import { AMItemOtherCommentUsersTag } from '../../PTEC_AUDIT_AM_AA/domain/model/am-item-other-comment-users-tag.entity';
 import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec_useright.service';
 import {
   // AMChartData,
@@ -71,6 +75,7 @@ interface BranchIssue {
   branchId: number;
   branchName: string;
   issueCount: number;
+  totalCount: number;
   failureRate: number;
 }
 
@@ -148,6 +153,18 @@ export class DashboardService {
     @InjectRepository(AMJobHeader)
     private readonly amJobRepo: Repository<AMJobHeader>,
 
+    @InjectRepository(AMItemAMComment)
+    private readonly amAmCommentRepo: Repository<AMItemAMComment>,
+
+    @InjectRepository(AMItemAMCheckerComment)
+    private readonly amCheckerCommentRepo: Repository<AMItemAMCheckerComment>,
+
+    @InjectRepository(AMItemOtherComment)
+    private readonly amOtherCommentRepo: Repository<AMItemOtherComment>,
+
+    @InjectRepository(AMItemOtherCommentUsersTag)
+    private readonly amTagRepo: Repository<AMItemOtherCommentUsersTag>,
+
     private readonly userRightService: UserRightService,
   ) {}
 
@@ -160,7 +177,7 @@ export class DashboardService {
    */
   async getAMDashboardData(userId: string, dateRange: number) {
     const stats = await this.getAMDocStats(dateRange);
-    const recentActivities = await this.getRecentActivities(dateRange);
+    const recentActivities = await this.getAMRecentActivities(dateRange);
     const branchIssues = await this.getAMBranchIssues(dateRange);
 
     const notCheckedItems = await this.getAMDocItemsByStatus(
@@ -273,17 +290,25 @@ export class DashboardService {
   private async getAMBranchIssues(dateRange: number): Promise<BranchIssue[]> {
     const startDate = this.getStartDate(dateRange);
 
+    // ใช้ Branch_Am_Scores (คะแนนที่ให้ครั้งแรกตอนตรวจ) แทน headerChecklistStatus
+    // เพราะแม้ภายหลังจะมีการแก้ไข checklist status คะแนนแรกที่เจอปัญหาก็ยังคงสำคัญ
+    // ใช้ LEFT JOIN + COUNT(DISTINCT ... CASE) แทน COUNT(CASE WHEN EXISTS(...))
+    // เพราะ SQL Server ไม่อนุญาตให้ aggregate ครอบ subquery ซ้อนกันแบบนั้น (error 130)
+    // กรองช่วงวันที่ด้วย "วันที่ให้คะแนน" (bs.createdAt) ไม่ใช่ ai.updatedAt
+    // เพราะ item ที่ให้คะแนนแล้วไม่มีใครแก้ไขต่อจะหลุดจากตัวหารถ้าใช้ updatedAt
+    const issueScoreCase = `CASE WHEN bs.score IN (0, -1) THEN ai.itemId END`;
+
     const result = await this.amItemRepo
       .createQueryBuilder('ai')
       .select('aj.branchId', 'branchId')
       .addSelect('aj.branchName', 'branchName')
-      .addSelect(
-        'COUNT(CASE WHEN ai.headerChecklistStatus IN (3, 4) THEN 1 END)',
-        'issueCount',
-      )
-      .addSelect('COUNT(*)', 'totalCount')
+      .addSelect(`COUNT(DISTINCT ${issueScoreCase})`, 'issueCount')
+      .addSelect('COUNT(DISTINCT ai.itemId)', 'totalCount')
       .innerJoin('ai.job', 'aj')
-      .where('ai.updatedAt >= :startDate', { startDate })
+      .innerJoin('ai.branchAmScores', 'bs', 'bs.active = :bsActive', {
+        bsActive: true,
+      })
+      .where('bs.createdAt >= :startDate', { startDate })
       .andWhere('ai.active = :active', { active: true })
       .andWhere('aj.active = :active', { active: true })
       .andWhere('aj.positionType IN (:...positionTypes)', {
@@ -291,9 +316,7 @@ export class DashboardService {
       })
       .groupBy('aj.branchId')
       .addGroupBy('aj.branchName')
-      .having(
-        'COUNT(CASE WHEN ai.headerChecklistStatus IN (3, 4) THEN 1 END) > 0',
-      )
+      .having(`COUNT(DISTINCT ${issueScoreCase}) > 0`)
       .orderBy('issueCount', 'DESC')
       .limit(5)
       .getRawMany<BranchIssueResult>();
@@ -302,6 +325,7 @@ export class DashboardService {
       branchId: row.branchId,
       branchName: row.branchName,
       issueCount: parseInt(row.issueCount, 10),
+      totalCount: parseInt(row.totalCount, 10),
       failureRate: Math.round(
         (parseInt(row.issueCount, 10) / parseInt(row.totalCount, 10)) * 100,
       ),
@@ -1352,6 +1376,163 @@ export class DashboardService {
       .slice(0, 10);
   }
 
+  private async getAMRecentActivities(dateRange: number): Promise<Activity[]> {
+    const startDate = this.getStartDate(dateRange);
+    const activities: Activity[] = [];
+
+    const [
+      checkerComments,
+      amComments,
+      otherComments,
+      tagEvents,
+      checklistUpdates,
+    ] = await Promise.all([
+      this.amCheckerCommentRepo
+        .createQueryBuilder('c')
+        .leftJoinAndSelect('c.item', 'ai')
+        .leftJoinAndSelect('ai.job', 'aj')
+        .where('c.createdAt >= :startDate', { startDate })
+        .andWhere('c.active = :active', { active: true })
+        .orderBy('c.createdAt', 'DESC')
+        .take(5)
+        .getMany(),
+      this.amAmCommentRepo
+        .createQueryBuilder('c')
+        .leftJoinAndSelect('c.item', 'ai')
+        .leftJoinAndSelect('ai.job', 'aj')
+        .where('c.createdAt >= :startDate', { startDate })
+        .andWhere('c.active = :active', { active: true })
+        .orderBy('c.createdAt', 'DESC')
+        .take(5)
+        .getMany(),
+      this.amOtherCommentRepo
+        .createQueryBuilder('c')
+        .leftJoinAndSelect('c.item', 'ai')
+        .leftJoinAndSelect('ai.job', 'aj')
+        .where('c.createdAt >= :startDate', { startDate })
+        .andWhere('c.active = :active', { active: true })
+        .orderBy('c.createdAt', 'DESC')
+        .take(5)
+        .getMany(),
+      this.amTagRepo
+        .createQueryBuilder('t')
+        .leftJoinAndSelect('t.item', 'ai')
+        .leftJoinAndSelect('ai.job', 'aj')
+        .where('t.createdAt >= :startDate', { startDate })
+        .andWhere('t.active = :active', { active: true })
+        .orderBy('t.createdAt', 'DESC')
+        .take(5)
+        .getMany(),
+      this.amItemRepo
+        .createQueryBuilder('ai')
+        .leftJoinAndSelect('ai.job', 'aj')
+        .where('ai.headerChecklistAt >= :startDate', { startDate })
+        .andWhere('ai.active = :active', { active: true })
+        .orderBy('ai.headerChecklistAt', 'DESC')
+        .take(5)
+        .getMany(),
+    ]);
+
+    const uniqueUserIds = [
+      ...new Set(
+        [
+          ...checkerComments.map((c) => c.userId),
+          ...amComments.map((c) => c.userId),
+          ...otherComments.map((c) => c.userId),
+          ...tagEvents.map((t) => t.createdBy),
+          ...checklistUpdates.map((i) => i.headerChecklistBy),
+        ].filter((id): id is number => id !== null && id !== undefined),
+      ),
+    ];
+
+    const userDataList = await Promise.all(
+      uniqueUserIds.map((id) => this.getUserData(id)),
+    );
+    const userMap = new Map(
+      uniqueUserIds.map((id, idx) => [id, userDataList[idx]]),
+    );
+
+    checkerComments.forEach((comment) => {
+      const userData = comment.userId ? userMap.get(comment.userId) : null;
+      activities.push({
+        id: `am-checker-${comment.amCheckerDetailId}`,
+        user: userData?.userCode || 'Unknown',
+        userCode: userData?.userCode || '',
+        action: 'Comment ใน Checker Unit',
+        jobNo: comment.item?.job?.jobNo || '',
+        timestamp: new Date(comment.createdAt),
+        type: 'comment',
+      });
+    });
+
+    amComments.forEach((comment) => {
+      const userData = comment.userId ? userMap.get(comment.userId) : null;
+      activities.push({
+        id: `am-${comment.amDetailId}`,
+        user: userData?.userCode || 'Unknown',
+        userCode: userData?.userCode || '',
+        action: 'Comment ใน AM Unit',
+        jobNo: comment.item?.job?.jobNo || '',
+        timestamp: new Date(comment.createdAt),
+        type: 'comment',
+      });
+    });
+
+    otherComments.forEach((comment) => {
+      const userData = comment.userId ? userMap.get(comment.userId) : null;
+      activities.push({
+        id: `am-other-${comment.otherDetailId}`,
+        user: userData?.userCode || 'Unknown',
+        userCode: userData?.userCode || '',
+        action: 'Comment ใน หน่วยงานที่เกี่ยวข้อง',
+        jobNo: comment.item?.job?.jobNo || '',
+        timestamp: new Date(comment.createdAt),
+        type: 'comment',
+      });
+    });
+
+    tagEvents.forEach((tag) => {
+      const userData = tag.createdBy ? userMap.get(tag.createdBy) : null;
+      activities.push({
+        id: `am-tag-${tag.taggedUserId}`,
+        user: userData?.userCode || 'Unknown',
+        userCode: userData?.userCode || '',
+        action: 'แท็กผู้ใช้ในรายการ',
+        jobNo: tag.item?.job?.jobNo || '',
+        timestamp: new Date(tag.createdAt),
+        type: 'create',
+      });
+    });
+
+    checklistUpdates.forEach((item) => {
+      if (!item.headerChecklistAt) return;
+      const userData = item.headerChecklistBy
+        ? userMap.get(item.headerChecklistBy)
+        : null;
+      const verdict =
+        item.headerChecklistStatus === 2
+          ? 'ตรวจผ่าน'
+          : item.headerChecklistStatus === 3
+            ? 'ตรวจไม่ผ่าน'
+            : item.headerChecklistStatus === 4
+              ? 'ให้แก้ไข'
+              : 'ตรวจสอบ';
+      activities.push({
+        id: `am-checklist-${item.itemId}`,
+        user: userData?.userCode || 'Unknown',
+        userCode: userData?.userCode || '',
+        action: `Checker ${verdict}ใน`,
+        jobNo: item.job?.jobNo || '',
+        timestamp: new Date(item.headerChecklistAt),
+        type: 'approve',
+      });
+    });
+
+    return activities
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+      .slice(0, 10);
+  }
+
   async getUserChartData(
     userId: string,
     dateRange: number,
@@ -1515,38 +1696,44 @@ export class DashboardService {
     return null;
   }
 
-  async getAMChartData(dateRange: number): Promise<AMChartData[]> {
+  /**
+   * AM Chart - สถานะงาน (ต่อวัน) - รูปแบบเดียวกับ Audit Chart แต่ใช้ข้อมูล AM
+   * 3 เส้น: กำลังดำเนินการ (2) / ปิดเคสแล้ว (4) / รอ Checker ตรวจ (4 + headerChecklistStatus null/0/1)
+   */
+  async getAMChartData(dateRange: number): Promise<AuditChartData[]> {
     const startDate = this.getStartDate(dateRange);
 
-    const result = await this.auditItemRepo
+    const result = await this.amItemRepo
       .createQueryBuilder('ai')
       .select([
         "FORMAT(ai.updatedAt, 'yyyy-MM-dd') as date",
-        'SUM(CASE WHEN ai.amChecklistStatus = 2 THEN 1 ELSE 0 END) as passed',
-        'SUM(CASE WHEN ai.amChecklistStatus = 3 THEN 1 ELSE 0 END) as failed',
-        'SUM(CASE WHEN ai.amChecklistStatus = 4 THEN 1 ELSE 0 END) as needFix',
+        'SUM(CASE WHEN ai.itemStatusEdit = 2 THEN 1 ELSE 0 END) as active',
+        'SUM(CASE WHEN ai.itemStatusEdit = 4 THEN 1 ELSE 0 END) as closed',
+        `SUM(CASE WHEN ai.itemStatusEdit = 4
+        AND (ai.headerChecklistStatus IS NULL OR ai.headerChecklistStatus IN (0, 1))
+        THEN 1 ELSE 0 END) as waitingAM`,
       ])
       .innerJoin('ai.job', 'aj')
       .where('ai.updatedAt >= :startDate', { startDate })
       .andWhere('ai.active = :active', { active: true })
       .andWhere('aj.active = :active', { active: true })
-      .andWhere('ai.amChecklistStatus IN (:...statuses)', {
-        statuses: [2, 3, 4],
+      .andWhere('aj.positionType IN (:...positionTypes)', {
+        positionTypes: ['AM', 'AA'],
       })
       .groupBy("FORMAT(ai.updatedAt, 'yyyy-MM-dd')")
       .orderBy('date', 'ASC')
       .getRawMany<{
         date: string;
-        passed: string;
-        failed: string;
-        needFix: string;
+        active: string;
+        closed: string;
+        waitingAM: string;
       }>();
 
     return result.map((row) => ({
       date: row.date,
-      passed: parseInt(row.passed || '0', 10),
-      failed: parseInt(row.failed || '0', 10),
-      needFix: parseInt(row.needFix || '0', 10),
+      active: parseInt(row.active || '0', 10),
+      closed: parseInt(row.closed || '0', 10),
+      waitingAM: parseInt(row.waitingAM || '0', 10),
     }));
   }
 
@@ -1666,6 +1853,37 @@ export class DashboardService {
     return 'outline';
   }
   async getManagerChartData(dateRange: number): Promise<AMChartData[]> {
-    return this.getAMChartData(dateRange);
+    const startDate = this.getStartDate(dateRange);
+
+    const result = await this.auditItemRepo
+      .createQueryBuilder('ai')
+      .select([
+        "FORMAT(ai.updatedAt, 'yyyy-MM-dd') as date",
+        'SUM(CASE WHEN ai.amChecklistStatus = 2 THEN 1 ELSE 0 END) as passed',
+        'SUM(CASE WHEN ai.amChecklistStatus = 3 THEN 1 ELSE 0 END) as failed',
+        'SUM(CASE WHEN ai.amChecklistStatus = 4 THEN 1 ELSE 0 END) as needFix',
+      ])
+      .innerJoin('ai.job', 'aj')
+      .where('ai.updatedAt >= :startDate', { startDate })
+      .andWhere('ai.active = :active', { active: true })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere('ai.amChecklistStatus IN (:...statuses)', {
+        statuses: [2, 3, 4],
+      })
+      .groupBy("FORMAT(ai.updatedAt, 'yyyy-MM-dd')")
+      .orderBy('date', 'ASC')
+      .getRawMany<{
+        date: string;
+        passed: string;
+        failed: string;
+        needFix: string;
+      }>();
+
+    return result.map((row) => ({
+      date: row.date,
+      passed: parseInt(row.passed || '0', 10),
+      failed: parseInt(row.failed || '0', 10),
+      needFix: parseInt(row.needFix || '0', 10),
+    }));
   }
 }

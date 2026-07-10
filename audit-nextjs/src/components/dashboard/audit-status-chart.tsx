@@ -41,6 +41,9 @@ interface AuditStatusChartProps {
   data: AuditChartData[];
   timeRange: string;
   onTimeRangeChange: (value: string) => void;
+  title?: string;
+  description?: string;
+  descriptionMobile?: string;
 }
 
 const chartConfig = {
@@ -62,18 +65,21 @@ export function AuditStatusChart({
   data,
   timeRange,
   onTimeRangeChange,
+  title = "สถานะงาน Audit",
+  description = "จำนวนงานต่อวัน (กำลังทำ / ปิดเคส / รอ Checker)",
+  descriptionMobile = "สถานะงานต่อวัน",
 }: AuditStatusChartProps) {
   const isMobile = useIsMobile();
 
   return (
     <Card className="@container/card">
       <CardHeader>
-        <CardTitle>สถานะงาน Audit</CardTitle>
+        <CardTitle>{title}</CardTitle>
         <CardDescription>
           <span className="hidden @[540px]/card:block">
-            จำนวนงานต่อวัน (กำลังทำ / ปิดเคส / รอ Checker)
+            {description}
           </span>
-          <span className="@[540px]/card:hidden">สถานะงานต่อวัน</span>
+          <span className="@[540px]/card:hidden">{descriptionMobile}</span>
         </CardDescription>
         <CardAction>
           <ToggleGroup

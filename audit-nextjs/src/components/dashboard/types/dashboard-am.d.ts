@@ -84,6 +84,7 @@ export interface PaginatedActionItems {
 export interface BranchIssue {
   branchName: string;
   issueCount: number;
+  totalCount: number;
   failureRate: number;
 }
 
