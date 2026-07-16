@@ -789,6 +789,7 @@ export default function AuditJobsListPage() {
               onRowSelectionChange={setSelectedRows}
               onSearchChange={handleSearchChange}
               searchValue={searchQuery}
+              fillParent
             />
             {!isLoading && jobs.length === 0 && (
               <div className="text-center py-8 shrink-0">

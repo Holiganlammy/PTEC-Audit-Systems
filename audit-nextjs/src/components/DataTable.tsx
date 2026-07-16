@@ -69,7 +69,9 @@ interface DataTableProps<TData, TValue> {
    searchValue?: string
    rowSelection?: RowSelectionState
    onRowSelectionChange?: (selection: RowSelectionState) => void
-   rowIdKey?: string  // ชื่อ field ที่จะใช้เป็น unique id (เช่น 'jobId', 'id', 'userId') true = ใช้ flexbox เติมความสูงของ parent พอดี (parent ต้องกำหนดความสูงไว้แล้ว) แทนการคำนวณจาก vh
+   rowIdKey?: string  // ชื่อ field ที่จะใช้เป็น unique id (เช่น 'jobId', 'id', 'userId')
+   maxHeight?: string  // ความสูงสูงสุดของ table container (default: 'calc(100vh - 200px)') ใช้เมื่อ fillParent เป็น false
+   fillParent?: boolean  // true = ใช้ flexbox เติมความสูงของ parent พอดี (parent ต้องกำหนดความสูงไว้แล้ว) แทนการคำนวณจาก vh
 }
 
 function isRowSelectionEqual(a: RowSelectionState, b: RowSelectionState): boolean {
@@ -102,6 +104,8 @@ export function DataTable<TData, TValue>({
    rowSelection: externalRowSelection,
    onRowSelectionChange: externalOnRowSelectionChange,
    rowIdKey,
+   maxHeight = 'calc(100vh - 200px)',
+   fillParent = false,
 }: DataTableProps<TData, TValue>) {
    const [sorting, setSorting] = React.useState<SortingState>([])
    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -299,8 +303,8 @@ export function DataTable<TData, TValue>({
       : table.getFilteredRowModel().rows.length
 
    return (
-      <div className="w-full min-w-0">
-         <div className="flex flex-wrap gap-2 justify-between items-center py-4">
+      <div className={fillParent ? "w-full min-w-0 h-full flex flex-col min-h-0" : "w-full min-w-0"}>
+         <div className={fillParent ? "flex flex-wrap gap-2 justify-between items-center py-4 shrink-0" : "flex flex-wrap gap-2 justify-between items-center py-4"}>
             {shouldShowSearch && (
                <Input
                   placeholder={searchPlaceholder}
@@ -346,7 +350,10 @@ export function DataTable<TData, TValue>({
             </div>
          </div>
 
-         <div className="relative overflow-auto bg-background text-xs xl:text-sm" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+         <div
+            className={fillParent ? "relative overflow-auto bg-background text-xs xl:text-sm flex-1 min-h-0" : "relative overflow-auto bg-background text-xs xl:text-sm"}
+            style={fillParent ? undefined : { maxHeight }}
+         >
             <Table>
                <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (
@@ -410,7 +417,7 @@ export function DataTable<TData, TValue>({
             )}
          </div>
 
-         <div className="sm:flex items-center justify-between px-2 pt-4">
+         <div className={fillParent ? "sm:flex items-center justify-between px-2 pt-4 shrink-0" : "sm:flex items-center justify-between px-2 pt-4"}>
             <div className="text-muted-foreground sm:flex-1 text-xs sm:text-sm sm:ml-4 my-2">
                {isServerSidePagination ? (
                   <>
