@@ -193,7 +193,7 @@ export const createAuditListColumns = (
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           className="font-semibold text-sm"
         >
-          {formType === "AA" ? "Area Assistant (AA)" : "Area Manager (AM)"}
+          {formType === "AA" ? "ผู้ช่วยเขต" : "ผู้จัดการเขต"}
         </Button>
       )
     },
@@ -226,7 +226,7 @@ export const createAuditListColumns = (
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           className="font-semibold"
         >
-          {formType === "AA" ? "ผู้จัดการเขต (AM)" : "Regional Manager (RM)"}
+          {formType === "AA" ? "ผู้จัดการเขต" : "ผู้จัดการภูมิภาค"}
         </Button>
       )
     },

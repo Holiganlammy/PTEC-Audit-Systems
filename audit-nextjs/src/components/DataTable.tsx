@@ -69,7 +69,7 @@ interface DataTableProps<TData, TValue> {
    searchValue?: string
    rowSelection?: RowSelectionState
    onRowSelectionChange?: (selection: RowSelectionState) => void
-   rowIdKey?: string  // ชื่อ field ที่จะใช้เป็น unique id (เช่น 'jobId', 'id', 'userId')
+   rowIdKey?: string  // ชื่อ field ที่จะใช้เป็น unique id (เช่น 'jobId', 'id', 'userId') true = ใช้ flexbox เติมความสูงของ parent พอดี (parent ต้องกำหนดความสูงไว้แล้ว) แทนการคำนวณจาก vh
 }
 
 function isRowSelectionEqual(a: RowSelectionState, b: RowSelectionState): boolean {
@@ -114,7 +114,7 @@ export function DataTable<TData, TValue>({
    const isServerSideSearch = Boolean(onSearchChange && controlledSearchValue !== undefined)
    const [internalPagination, setInternalPagination] = React.useState({
       pageIndex: 0,
-      pageSize: 20,
+      pageSize: 10,
    });
    // ถ้าเป็น server-side search ให้ init จาก controlledSearchValue (restore หลัง remount)
    const [internalSearchValue, setInternalSearchValue] = React.useState(
@@ -444,7 +444,7 @@ export function DataTable<TData, TValue>({
                         <SelectValue placeholder={table.getState().pagination.pageSize} />
                      </SelectTrigger>
                      <SelectContent side="top">
-                        {[20, 50, 100].map((pageSize) => (
+                        {[10, 20, 50, 100].map((pageSize) => (
                            <SelectItem key={pageSize} value={`${pageSize}`}>
                               {pageSize}
                            </SelectItem>

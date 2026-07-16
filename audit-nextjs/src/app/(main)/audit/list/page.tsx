@@ -137,7 +137,7 @@ export default function AuditJobsListPage() {
   const [deleteJobId, setDeleteJobId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteNote, setDeleteNote] = useState("");
-  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const session = useSession();
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
 
@@ -193,7 +193,7 @@ export default function AuditJobsListPage() {
     if (search) setSearchQuery(search);
     if (status) setStatusFilter(status);
     if (page) setCurrentPage(parseInt(page, 10) || 1);
-    if (limit) setItemsPerPage(parseInt(limit, 10) || 20);
+    if (limit) setItemsPerPage(parseInt(limit, 10) || 10);
     if (df) setDateFrom(new Date(df));
     if (dt) setDateTo(new Date(dt));
     if (dm) setDistrictManagerFilter(dm);
@@ -211,7 +211,7 @@ export default function AuditJobsListPage() {
     if (searchQuery) params.set("search", searchQuery);
     if (statusFilter !== "all") params.set("status", statusFilter);
     if (currentPage > 1) params.set("page", String(currentPage));
-    if (itemsPerPage !== 20) params.set("limit", String(itemsPerPage));
+    if (itemsPerPage !== 10) params.set("limit", String(itemsPerPage));
     if (dateFrom) params.set("dateFrom", format(dateFrom, "yyyy-MM-dd"));
     if (dateTo) params.set("dateTo", format(dateTo, "yyyy-MM-dd"));
     if (districtManagerFilter !== "all") params.set("dm", districtManagerFilter);

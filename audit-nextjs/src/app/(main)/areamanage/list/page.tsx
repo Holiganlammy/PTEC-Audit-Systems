@@ -140,7 +140,7 @@ export default function AuditJobsListPage() {
   const [deleteJobId, setDeleteJobId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteNote, setDeleteNote] = useState("");
-  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const session = useSession();
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
 
@@ -208,7 +208,7 @@ export default function AuditJobsListPage() {
     if (search) setSearchQuery(search);
     if (status) setStatusFilter(status);
     if (page) setCurrentPage(parseInt(page, 10) || 1);
-    if (limit) setItemsPerPage(parseInt(limit, 10) || 20);
+    if (limit) setItemsPerPage(parseInt(limit, 10) || 10);
     if (df) setDateFrom(new Date(df));
     if (dt) setDateTo(new Date(dt));
     if (dm) setDistrictManagerFilter(dm);
@@ -236,7 +236,7 @@ export default function AuditJobsListPage() {
     if (searchQuery) params.set("search", searchQuery);
     if (statusFilter !== "all") params.set("status", statusFilter);
     if (currentPage > 1) params.set("page", String(currentPage));
-    if (itemsPerPage !== 20) params.set("limit", String(itemsPerPage));
+    if (itemsPerPage !== 10) params.set("limit", String(itemsPerPage));
     if (dateFrom) params.set("dateFrom", format(dateFrom, "yyyy-MM-dd"));
     if (dateTo) params.set("dateTo", format(dateTo, "yyyy-MM-dd"));
     if (districtManagerFilter !== "all") params.set("dm", districtManagerFilter);
@@ -285,6 +285,24 @@ export default function AuditJobsListPage() {
   ].filter(Boolean).length;
 
   const hasActiveFilters = activeFilterCount > 0;
+
+  // ── Fit-to-viewport page height (no page-level scroll, ever) ────────────
+  // แทนที่จะเดาความสูงของ header ด้วย px คงที่ (ซึ่งคลาดเคลื่อนได้เมื่อ filter/tab/draft
+  // card สูงไม่เท่ากัน) ให้วัดตำแหน่ง top จริงของ root element เทียบกับ viewport แล้ว
+  // ล็อกความสูงทั้งหน้าให้พอดี 100dvh - top จากนั้นใช้ flexbox (header shrink-0,
+  // ตาราง flex-1 min-h-0) ให้ตารางเติมพื้นที่ที่เหลือพอดีเป๊ะโดยไม่ต้องเดาความสูง header/pagination เลย
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [rootHeight, setRootHeight] = useState<string>("calc(100dvh - 96px)");
+  useEffect(() => {
+    const updateHeight = () => {
+      if (!rootRef.current) return;
+      const top = rootRef.current.getBoundingClientRect().top;
+      setRootHeight(`calc(100dvh - ${top}px)`);
+    };
+    updateHeight();
+    window.addEventListener("resize", updateHeight);
+    return () => window.removeEventListener("resize", updateHeight);
+  }, []);
 
   // ── Fetch Jobs ──────────────────────────────────────────────────────────
   const fetchJobs = useCallback(async () => {
@@ -430,8 +448,9 @@ export default function AuditJobsListPage() {
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="py-4 sm:py-8">
-      <div className="container mx-auto px-4 max-w-[1500px]">
+    <div ref={rootRef} style={{ height: rootHeight }} className="py-4 sm:py-8 overflow-hidden flex flex-col">
+      <div className="container mx-auto px-4 max-w-[1500px] flex flex-col min-h-0 h-full">
+      <div className="shrink-0">
         {/* Header */}
         <div className="mb-6">
           <div className="flex flex-col gap-4">
@@ -745,8 +764,10 @@ export default function AuditJobsListPage() {
             </CardContent>
           </Card>
         )}
+      </div>
 
         {/* DataTable */}
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {pagination === null && isLoading ? (
           <div className="flex items-center justify-center py-16">
             <div className="text-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-4" /><p className="text-sm text-muted-foreground">Loading jobs...</p></div>
@@ -770,7 +791,7 @@ export default function AuditJobsListPage() {
               searchValue={searchQuery}
             />
             {!isLoading && jobs.length === 0 && (
-              <div className="text-center py-8">
+              <div className="text-center py-8 shrink-0">
                 <p className="text-muted-foreground mb-4">No jobs found</p>
                 {hasActiveFilters ? (
                   <Button variant="outline" onClick={clearFilters} size="sm">Clear Filters</Button>
@@ -783,6 +804,7 @@ export default function AuditJobsListPage() {
             )}
           </>
         )}
+        </div>
 
         {/* Delete Draft Confirmation */}
         <AlertDialog open={showDeleteDraftDialog} onOpenChange={setShowDeleteDraftDialog}>
