@@ -22,8 +22,7 @@ import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec
 import { AMJobsService } from '../service/audit-job.service';
 import { AMItemsService } from '../service/am-item.service';
 import { AuditCommentApprovalGmailApiService } from '../../email/audit-comment-approval-gmail-api.service';
-import { AMItemOtherUserCommentTagService } from '../service/am-item-other-user-comment-tag.service';
-import { TagOtherUserGmailApiService } from '../../email/tag-other-user-gmail-api.service';
+import { CommentReplyGmailApiService } from '../../email/comment-reply-gmail-api.service';
 
 @Controller('am-items')
 export class AMItemOtherCommentController {
@@ -31,10 +30,9 @@ export class AMItemOtherCommentController {
     private readonly otherCommentService: AMItemOtherCommentService,
     private readonly userRightService: UserRightService,
     private readonly auditCommentApprovalGmailService: AuditCommentApprovalGmailApiService,
+    private readonly commentReplyGmailService: CommentReplyGmailApiService,
     private readonly auditItemsService: AMItemsService,
     private readonly auditJobsService: AMJobsService,
-    private readonly amItemOtherUserCommentTagService: AMItemOtherUserCommentTagService,
-    private readonly tagOtherUserGmailApiService: TagOtherUserGmailApiService,
   ) {}
 
   private async getItemData(itemId: number) {
@@ -126,41 +124,28 @@ export class AMItemOtherCommentController {
         }
       }
 
-      // ==================== ส่งเมลแจ้งผู้แท็ก เมื่อหน่วยงานที่เกี่ยวข้องตอบกลับคอมเมนต์ ====================
-      try {
-        const tags = await this.amItemOtherUserCommentTagService.findByItemId(
-          itemId,
-        );
-        const tagForCommenter = tags.find(
-          (tag) => tag.userId === createDto.userId,
-        );
-
-        if (tagForCommenter) {
-          const existingComments = await this.otherCommentService.findByItemId(
-            itemId,
-          );
-          const taggerHasCommented = existingComments.some(
-            (comment) =>
-              comment.userId === tagForCommenter.createdBy &&
-              comment.otherDetailId !== otherComment.otherDetailId,
+      // ==================== ส่งเมลแจ้งเจ้าของ comment เมื่อมีการ reply ====================
+      if (createDto.replyToId) {
+        try {
+          const parentComment = await this.otherCommentService.findOne(
+            createDto.replyToId,
           );
 
-          if (taggerHasCommented) {
-            const taggerData = await this.getUserData(
-              tagForCommenter.createdBy,
-            );
+          if (parentComment && parentComment.userId !== createDto.userId) {
+            const repliedToData = await this.getUserData(parentComment.userId);
 
-            if (taggerData?.email) {
-              const [commenterData, itemData] = await Promise.all([
+            if (repliedToData?.email) {
+              const [replierData, itemData] = await Promise.all([
                 this.getUserData(createDto.userId),
                 this.getItemData(itemId),
               ]);
 
-              await this.tagOtherUserGmailApiService.sendTaggedUserReplyEmail({
-                to: taggerData.email,
-                taggerFullname: taggerData.fullname,
-                replierFullname: commenterData?.fullname,
-                commentText: createDto.note,
+              await this.commentReplyGmailService.sendCommentReplyEmail({
+                to: repliedToData.email,
+                repliedToFullname: repliedToData.fullname,
+                replierFullname: replierData?.fullname,
+                originalCommentText: parentComment.note,
+                replyText: createDto.note,
                 itemId,
                 itemName: itemData?.itemName,
                 jobNo: itemData?.jobNo,
@@ -168,17 +153,12 @@ export class AMItemOtherCommentController {
                 formType: itemData?.formType,
               });
 
-              console.log(
-                `✓ Tagged user reply email sent to ${taggerData.email}`,
-              );
+              console.log(`✓ Comment reply email sent to ${repliedToData.email}`);
             }
           }
+        } catch (replyEmailError) {
+          console.error('Error sending comment reply email:', replyEmailError);
         }
-      } catch (tagEmailError) {
-        console.error(
-          'Error sending tagged user reply email:',
-          tagEmailError,
-        );
       }
 
       return res.status(HttpStatus.CREATED).json({

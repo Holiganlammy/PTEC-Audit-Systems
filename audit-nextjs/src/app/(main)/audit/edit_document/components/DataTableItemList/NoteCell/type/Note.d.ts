@@ -13,6 +13,7 @@ interface AuditComment {
   approverDate?: string;
   requireApprovalFromUserCode?: string; // userCode ของคนที่มีสิทธิ์อนุมัติ
   requireApprovalFromName?: string; // ชื่อคนที่มีสิทธิ์อนุมัติ
+  replyToId?: number | null; // id ของ comment ต้นทางที่ comment นี้ตอบกลับ (ถ้ามี)
   createdAt: string;
   updatedAt: string;
 }
@@ -31,6 +32,7 @@ interface auditCommentsComment {
   createdBy: number;
   createdAt: string;
   updatedAt: string;
+  replyToId?: number | null;
   OwnerCommentUser?: {
     fullname: string;
     position?: string;

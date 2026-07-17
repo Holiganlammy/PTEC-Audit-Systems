@@ -20,6 +20,10 @@ export class CreateCommentDto {
   @IsNumber()
   @IsOptional()
   approverStatus?: number; // เผื่ออนาคตมีการสร้าง comment ที่ไม่ต้องรออนุมัติ
+
+  @IsNumber()
+  @IsOptional()
+  replyToId?: number; // id ของ comment ต้นทางที่กำลัง reply ถึง (thread เดียวกัน)
 }
 
 export class UpdateCommentDto {

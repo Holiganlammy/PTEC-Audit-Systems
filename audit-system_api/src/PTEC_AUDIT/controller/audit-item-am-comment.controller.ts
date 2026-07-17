@@ -20,6 +20,7 @@ import {
 } from '../dto/comment.dto';
 import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec_useright.service';
 import { AuditCommentApprovalGmailApiService } from '../../email/audit-comment-approval-gmail-api.service';
+import { CommentReplyGmailApiService } from '../../email/comment-reply-gmail-api.service';
 import { AuditItemsService } from '../service/audit-item.service';
 import { AuditJobsService } from '../service/audit-job.service';
 
@@ -29,6 +30,7 @@ export class AuditItemAMCommentsController {
     private readonly amCommentsService: AuditItemAMCommentsService,
     private readonly userRightService: UserRightService,
     private readonly auditCommentApprovalGmailService: AuditCommentApprovalGmailApiService,
+    private readonly commentReplyGmailService: CommentReplyGmailApiService,
     private readonly auditItemsService: AuditItemsService,
     private readonly auditJobsService: AuditJobsService,
   ) {}
@@ -99,6 +101,45 @@ export class AuditItemAMCommentsController {
           console.error('Error sending approval email:', emailError);
         }
       }
+
+      // ==================== ส่งเมลแจ้งเจ้าของ comment เมื่อมีการ reply ====================
+      if (createDto.replyToId) {
+        try {
+          const parentComment = await this.amCommentsService.findOne(
+            createDto.replyToId,
+          );
+
+          if (parentComment && parentComment.userId !== createDto.userId) {
+            const repliedToData = await this.getUserData(parentComment.userId);
+
+            if (repliedToData?.email) {
+              const [replierData, item] = await Promise.all([
+                this.getUserData(createDto.userId),
+                this.auditItemsService.findOne(itemId),
+              ]);
+              const job = await this.auditJobsService.findOne(item.jobId);
+
+              await this.commentReplyGmailService.sendCommentReplyEmail({
+                to: repliedToData.email,
+                repliedToFullname: repliedToData.fullname,
+                replierFullname: replierData?.fullname,
+                originalCommentText: parentComment.note,
+                replyText: createDto.note,
+                itemId,
+                itemName: item.categoryItem?.categoryName,
+                jobNo: job.jobNo,
+                branchName: item.job?.branchName,
+                formType: 'Audit',
+              });
+
+              console.log(`✓ Comment reply email sent to ${repliedToData.email}`);
+            }
+          }
+        } catch (replyEmailError) {
+          console.error('Error sending comment reply email:', replyEmailError);
+        }
+      }
+
       return res.status(HttpStatus.CREATED).json({
         success: true,
         data: amComment,

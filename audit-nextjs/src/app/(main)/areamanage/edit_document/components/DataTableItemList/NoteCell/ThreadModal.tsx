@@ -24,7 +24,13 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, CheckCircle2, XCircle, Clock, Trash2, Pencil } from "lucide-react";
+import { Send, Loader2, CheckCircle2, XCircle, Clock, Trash2, Pencil, MoreHorizontal, Reply as ReplyIcon, X } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -55,6 +61,7 @@ interface AuditComment {
   approverDate?: string;
   requireApprovalFromUserCode?: string;
   requireApprovalFromName?: string;
+  replyToId?: number | null;
   createdAt: string;
   updatedAt?: string;
 }
@@ -65,7 +72,7 @@ interface ThreadModalProps {
   label: string;
   comments: AuditComment[];
   isLoading: boolean;
-  onSubmit: (text: string, approverStatus?: 0 | null) => Promise<void>;
+  onSubmit: (text: string, approverStatus?: 0 | null, replyToId?: number) => Promise<void>;
   onApprove: (commentId: number, status: 1 | 2) => Promise<void>;
   onDelete: (commentId: number, remark: string) => Promise<void>;
   onEdit: (commentId: number, note: string) => Promise<void>;
@@ -80,7 +87,7 @@ interface ThreadModalProps {
 }
 
 // ── Avatar ────────────────────────────────────────────────────────────────
-function Avatar({ name }: { name: string }) {
+function Avatar({ name, size = "md" }: { name: string; size?: "md" | "sm" }) {
   const initials = name
     .split(" ")
     .map((n) => n[0])
@@ -94,9 +101,10 @@ function Avatar({ name }: { name: string }) {
     "bg-orange-500",
   ];
   const color = colors[name.charCodeAt(0) % colors.length];
+  const sizeClass = size === "sm" ? "h-6 w-6 text-[10px]" : "h-8 w-8 text-xs";
   return (
     <div
-      className={`${color} flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-semibold`}
+      className={`${color} ${sizeClass} flex-shrink-0 rounded-full flex items-center justify-center text-white font-semibold`}
     >
       {initials}
     </div>
@@ -216,8 +224,10 @@ function CommentItem({
   canDelete,
   onEdit,
   canEdit,
+  onReply,
   users,
   isAuditUnit = false,
+  isReply = false,
 }: {
   comment: AuditComment;
   onApprove: (commentId: number, status: 1 | 2) => Promise<void>;
@@ -226,9 +236,14 @@ function CommentItem({
   canDelete: boolean;
   onEdit: (commentId: number, note: string) => Promise<void>;
   canEdit: boolean;
+  /** ถ้าไม่ส่ง prop นี้มา = ไม่แสดงตัวเลือก "ตอบกลับ" (ใช้กับ reply เพื่อจำกัดให้ซ้อนได้ชั้นเดียว) */
+  onReply?: () => void;
   users: ApiUser[];
   isAuditUnit?: boolean;
+  /** true = เป็น reply (avatar เล็กลง ตามสไตล์ Facebook) */
+  isReply?: boolean;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -294,9 +309,9 @@ function CommentItem({
   };
 
   return (
-    <div className="flex gap-2.5 items-start">
-      <Avatar name={comment.author} />
-      
+    <div className="group/comment flex gap-2.5 items-start">
+      <Avatar name={comment.author} size={isReply ? "sm" : "md"} />
+
       <div className="flex-1 min-w-0">
         {/* Header */}
         <div className="flex items-start justify-between gap-2 mb-1">
@@ -312,8 +327,34 @@ function CommentItem({
             </span>
           </div>
 
-          {(canEdit || canDelete) && (
-            <div className="flex items-center gap-1">
+          <div
+            className={`flex items-center gap-1 transition-opacity ${
+              menuOpen ? "opacity-100" : "opacity-0 group-hover/comment:opacity-100 focus-within:opacity-100"
+            }`}
+          >
+            {onReply && (
+              <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    aria-label="ตัวเลือกความเห็น"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={onReply}>
+                    <ReplyIcon className="mr-2 h-4 w-4" />
+                    ตอบกลับ
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {(canEdit || canDelete) && (
+            <>
               {/* {canEdit && (
                 <Button
                   size="icon"
@@ -381,8 +422,9 @@ function CommentItem({
                   </AlertDialogContent>
                 </AlertDialog>
               )}
-            </div>
-          )}
+            </>
+            )}
+          </div>
         </div>
 
         {/* Message */}
@@ -423,7 +465,7 @@ function CommentItem({
             </div>
           </div>
         ) : (
-          <div className="rounded-lg bg-muted/60 px-3 py-2 text-sm whitespace-pre-wrap break-words border">
+          <div className="rounded-2xl bg-muted/60 px-3 py-2 text-sm whitespace-pre-wrap break-words">
             {renderMentions(comment.text, users)}
           </div>
         )}
@@ -530,6 +572,78 @@ function CommentItem({
   );
 }
 
+// ── Reply Composer – กล่องตอบกลับความเห็นแบบเรียบง่าย (ไม่มี mention/ส่งเพื่ออนุมัติ) ──
+function ReplyComposer({
+  onSend,
+  onCancel,
+}: {
+  onSend: (text: string) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const [isSending, setIsSending] = useState(false);
+
+  const handleSend = async () => {
+    const text = draft.trim();
+    if (!text) return;
+    try {
+      setIsSending(true);
+      await onSend(text);
+    } catch (error) {
+      toast.error("ไม่สามารถตอบกลับความเห็นได้", {
+        description: getErrorMessage(error, "กรุณาลองใหม่อีกครั้ง"),
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return (
+    <div className="flex gap-2 items-start">
+      <Textarea
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder="ตอบกลับความเห็นนี้..."
+        rows={2}
+        disabled={isSending}
+        className="resize-none text-sm flex-1"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSend();
+          }
+          if (e.key === "Escape") {
+            e.preventDefault();
+            onCancel();
+          }
+        }}
+      />
+      <div className="flex flex-col gap-1">
+        <Button
+          size="icon"
+          className="h-8 w-8"
+          onClick={handleSend}
+          disabled={!draft.trim() || isSending}
+          aria-label="ส่งการตอบกลับ"
+        >
+          {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8"
+          onClick={onCancel}
+          disabled={isSending}
+          aria-label="ยกเลิกการตอบกลับ"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Modal ────────────────────────────────────────────────────────────
 export default function ThreadModal({
   open,
@@ -553,8 +667,26 @@ export default function ThreadModal({
   const [draft, setDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [sendForApproval, setSendForApproval] = useState(false);
+  const [replyingToId, setReplyingToId] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // จัดกลุ่ม comment: comment หลัก (ไม่มี replyToId) + reply ของแต่ละ comment (ซ้อนได้ชั้นเดียว)
+  const topLevelComments = comments.filter((c) => !c.replyToId);
+  const repliesByParentId = new Map<number, AuditComment[]>();
+  comments.forEach((c) => {
+    if (c.replyToId) {
+      const list = repliesByParentId.get(c.replyToId) ?? [];
+      list.push(c);
+      repliesByParentId.set(c.replyToId, list);
+    }
+  });
+
+  const handleSendReply = async (parentId: number, text: string) => {
+    await onSubmit(text, null, parentId);
+    setReplyingToId(null);
+    toast.success("ตอบกลับความเห็นสำเร็จ");
+  };
 
   // @mention state
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
@@ -650,28 +782,65 @@ export default function ThreadModal({
             </p>
           ) : (
             <div className="space-y-3">
-              {comments.map((c) => (
-                <CommentItem
-                  key={c.id}
-                  comment={c}
-                  users={users}
-                  onApprove={onApprove}
-                  onDelete={onDelete}
-                  canDelete={canDelete}
-                  onEdit={onEdit}
-                  isAuditUnit={isAuditUnit}
-                  canEdit={
-                    canEdit &&
-                    String(currentUserId ?? "") !== "" &&
-                    String(c.userId ?? "") !== "" &&
-                    String(c.userId) === String(currentUserId)
-                  }
-                  canApprove={
-                    !!currentUserCode &&
-                    !!c.requireApprovalFromUserCode &&
-                    currentUserCode === c.requireApprovalFromUserCode
-                  }
-                />
+              {topLevelComments.map((c) => (
+                <div key={c.id} className="space-y-2">
+                  <CommentItem
+                    comment={c}
+                    users={users}
+                    onApprove={onApprove}
+                    onDelete={onDelete}
+                    canDelete={canDelete}
+                    onEdit={onEdit}
+                    isAuditUnit={isAuditUnit}
+                    onReply={canComment ? () => setReplyingToId(c.id) : undefined}
+                    canEdit={
+                      canEdit &&
+                      String(currentUserId ?? "") !== "" &&
+                      String(c.userId ?? "") !== "" &&
+                      String(c.userId) === String(currentUserId)
+                    }
+                    canApprove={
+                      !!currentUserCode &&
+                      !!c.requireApprovalFromUserCode &&
+                      currentUserCode === c.requireApprovalFromUserCode
+                    }
+                  />
+
+                  {(repliesByParentId.get(c.id) ?? []).map((r) => (
+                    <div key={r.id} className="ml-9">
+                      <CommentItem
+                        comment={r}
+                        users={users}
+                        onApprove={onApprove}
+                        onDelete={onDelete}
+                        canDelete={canDelete}
+                        onEdit={onEdit}
+                        isAuditUnit={isAuditUnit}
+                        isReply
+                        canEdit={
+                          canEdit &&
+                          String(currentUserId ?? "") !== "" &&
+                          String(r.userId ?? "") !== "" &&
+                          String(r.userId) === String(currentUserId)
+                        }
+                        canApprove={
+                          !!currentUserCode &&
+                          !!r.requireApprovalFromUserCode &&
+                          currentUserCode === r.requireApprovalFromUserCode
+                        }
+                      />
+                    </div>
+                  ))}
+
+                  {replyingToId === c.id && (
+                    <div className="ml-9">
+                      <ReplyComposer
+                        onSend={(text) => handleSendReply(c.id, text)}
+                        onCancel={() => setReplyingToId(null)}
+                      />
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           )}

@@ -51,6 +51,7 @@ interface auditCommentsComment {
   createdBy: number;
   createdAt: string;
   updatedAt: string;
+  replyToId?: number | null;
   OwnerCommentUser?: {
     fullname: string;
     position?: string;
@@ -174,6 +175,7 @@ export default function NoteCell({
               approverDate: c.approverDate,
               requireApprovalFromUserCode: c.requireApprovalFrom?.userCode,
               requireApprovalFromName: c.requireApprovalFrom?.fullname,
+              replyToId: c.replyToId ?? null,
               createdAt: c.createdAt,
               updatedAt: c.updatedAt,
             })
@@ -193,15 +195,16 @@ export default function NoteCell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openThread, itemId, threadType]);
 
-const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
+const handleSubmit = async (text: string, approverStatus: 0 | null = null, replyToId?: number) => {
   const endpoint = getEndpoint();
- 
+
   const payload = {
     itemId,
     userId: session?.user?.UserID,
     note: text,
     createdBy: session?.user?.UserID,
     approverStatus,
+    ...(replyToId ? { replyToId } : {}),
   };
  
   // 1. Save comment
@@ -340,6 +343,7 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
         approverDate: c.approverDate,
         requireApprovalFromUserCode: c.requireApprovalFrom?.userCode,
         requireApprovalFromName: c.requireApprovalFrom?.fullname,
+        replyToId: c.replyToId ?? null,
         createdAt: c.createdAt,
         updatedAt: c.updatedAt,
       })
@@ -449,6 +453,7 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
           approverDate: c.approverDate,
           requireApprovalFromUserCode: c.requireApprovalFrom?.userCode,
           requireApprovalFromName: c.requireApprovalFrom?.fullname,
+          replyToId: c.replyToId ?? null,
           createdAt: c.createdAt,
           updatedAt: c.updatedAt,
         })
@@ -497,6 +502,7 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
           approverDate: c.approverDate,
           requireApprovalFromUserCode: c.requireApprovalFrom?.userCode,
           requireApprovalFromName: c.requireApprovalFrom?.fullname,
+          replyToId: c.replyToId ?? null,
           createdAt: c.createdAt,
           updatedAt: c.updatedAt,
         })
@@ -545,6 +551,7 @@ const handleSubmit = async (text: string, approverStatus: 0 | null = null) => {
           approverDate: c.approverDate,
           requireApprovalFromUserCode: c.requireApprovalFrom?.userCode,
           requireApprovalFromName: c.requireApprovalFrom?.fullname,
+          replyToId: c.replyToId ?? null,
           createdAt: c.createdAt,
           updatedAt: c.updatedAt,
         })

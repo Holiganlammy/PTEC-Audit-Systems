@@ -22,6 +22,7 @@ import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec
 import { AMItemsService } from '../service/am-item.service';
 import { AAJobsService } from '../service/aa-job.service';
 import { AuditCommentApprovalGmailApiService } from '../../email/audit-comment-approval-gmail-api.service';
+import { CommentReplyGmailApiService } from '../../email/comment-reply-gmail-api.service';
 
 @Controller('am-items')
 export class AMItemAACommentController {
@@ -31,6 +32,7 @@ export class AMItemAACommentController {
     private readonly auditItemsService: AMItemsService,
     private readonly aaJobsService: AAJobsService,
     private readonly auditCommentApprovalGmailService: AuditCommentApprovalGmailApiService,
+    private readonly commentReplyGmailService: CommentReplyGmailApiService,
   ) {}
 
   private async getUserData(userId: number | null) {
@@ -95,6 +97,49 @@ export class AMItemAACommentController {
           }
         } catch (emailError) {
           console.error('Error sending AA approval email:', emailError);
+        }
+      }
+
+      // ==================== ส่งเมลแจ้งเจ้าของ comment เมื่อมีการ reply ====================
+      if (createDto.replyToId) {
+        try {
+          const parentComment = await this.aaCommentService.findOne(
+            createDto.replyToId,
+          );
+
+          if (parentComment && parentComment.userId !== createDto.userId) {
+            const repliedToData = await this.getUserData(parentComment.userId);
+
+            if (repliedToData?.email) {
+              const [replierData, item] = await Promise.all([
+                this.getUserData(createDto.userId),
+                this.auditItemsService.findOne(itemId),
+              ]);
+              const job = (await this.aaJobsService.findOne(
+                item.jobId,
+              )) as unknown as {
+                jobNo: string;
+                branchName?: string;
+              };
+
+              await this.commentReplyGmailService.sendCommentReplyEmail({
+                to: repliedToData.email,
+                repliedToFullname: repliedToData.fullname,
+                replierFullname: replierData?.fullname,
+                originalCommentText: parentComment.note,
+                replyText: createDto.note,
+                itemId,
+                itemName: item.categoryItem?.categoryName,
+                jobNo: job.jobNo,
+                branchName: job.branchName,
+                formType: 'AA',
+              });
+
+              console.log(`✓ Comment reply email sent to ${repliedToData.email}`);
+            }
+          }
+        } catch (replyEmailError) {
+          console.error('Error sending comment reply email:', replyEmailError);
         }
       }
 

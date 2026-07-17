@@ -56,6 +56,9 @@ export class AuditItemOtherComment {
   @Column({ name: 'deleted_reason', type: 'nvarchar', nullable: true })
   deletedReason!: string;
 
+  @Column({ name: 'reply_to_id', type: 'int', nullable: true })
+  replyToId!: number | null;
+
   // Relations
   @ManyToOne(() => AuditItem, (item) => item.otherComments)
   @JoinColumn({ name: 'item_id' })

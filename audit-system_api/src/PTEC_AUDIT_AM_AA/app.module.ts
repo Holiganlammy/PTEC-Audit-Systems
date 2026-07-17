@@ -35,6 +35,7 @@ import { AuditCreateDocGmailApiService } from '../email/audit-create-doc-gmail-a
 import { AuditCommentApprovalGmailApiService } from '../email/audit-comment-approval-gmail-api.service';
 import { MentionEmailService } from '../email/mention-comment-gmail.api.service';
 import { AuditSummaryEmailService } from '../email/audit-sumary-comment-send-items.api.service';
+import { CommentReplyGmailApiService } from '../email/comment-reply-gmail-api.service';
 import { FileAccessService } from './service/file-access.service';
 
 // Controllers
@@ -110,6 +111,7 @@ import { FileAccessController } from './controller/file-access.controller';
     AuditCommentApprovalGmailApiService,
     MentionEmailService,
     AuditSummaryEmailService,
+    CommentReplyGmailApiService,
     FileAccessService,
   ],
 })

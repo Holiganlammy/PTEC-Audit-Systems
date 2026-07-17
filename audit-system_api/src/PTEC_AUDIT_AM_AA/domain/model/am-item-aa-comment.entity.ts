@@ -58,6 +58,9 @@ export class AMItemAAComment {
   @Column({ name: 'deleted_reason', type: 'nvarchar', nullable: true })
   deletedReason!: string;
 
+  @Column({ name: 'reply_to_id', type: 'int', nullable: true })
+  replyToId!: number | null;
+
   @ManyToOne(() => AMItem, (item) => item.aaComments)
   @JoinColumn({ name: 'item_id' })
   item!: AMItem;

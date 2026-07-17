@@ -23,6 +23,7 @@ export class AuditItemOtherCommentService {
       approverStatus: createDto.approverStatus,
       createdBy: createDto.createdBy,
       createdAt: new Date(),
+      replyToId: createDto.replyToId ?? null,
       active: true,
     });
 

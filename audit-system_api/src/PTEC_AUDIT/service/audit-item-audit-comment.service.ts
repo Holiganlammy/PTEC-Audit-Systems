@@ -22,6 +22,7 @@ export class AuditItemAuditCommentService {
       note: createDto.note,
       approverStatus: createDto.approverStatus,
       createdBy: createDto.createdBy,
+      replyToId: createDto.replyToId ?? null,
       active: true,
     });
 

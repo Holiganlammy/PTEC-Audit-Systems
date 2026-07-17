@@ -22,6 +22,7 @@ export class AMItemAACommentService {
       note: createDto.note,
       approverStatus: createDto.approverStatus,
       createdBy: createDto.createdBy,
+      replyToId: createDto.replyToId ?? null,
       active: true,
     });
     return await this.aaCommentRepository.save(comment);
