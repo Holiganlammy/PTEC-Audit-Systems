@@ -372,11 +372,11 @@ export default function AuditJobsListPage() {
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="py-4 sm:py-8">
+    <div className="py-2 sm:py-4">
       <div className="container mx-auto px-4 max-w-[1500px]">
         {/* Header */}
-        <div className="mb-6">
-          <div className="flex flex-col gap-4">
+        <div className="mb-3">
+          <div className="flex flex-col gap-2">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h1 className="text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">Audit Jobs Management</h1>
@@ -400,7 +400,7 @@ export default function AuditJobsListPage() {
             </div>
 
             {/* ── Filter Bar ────────────────────────────────────────────── */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               {/* Row 1: Quick Filters + Advanced Toggle */}
               <div className="flex items-center gap-2 flex-wrap sm:gap-3">
                 {/* Status */}
@@ -664,6 +664,7 @@ export default function AuditJobsListPage() {
               onRowSelectionChange={setSelectedRows}
               onSearchChange={handleSearchChange}
               searchValue={searchQuery}
+              scrollable={false}
             />
             {!isLoading && jobs.length === 0 && (
               <div className="text-center py-8">

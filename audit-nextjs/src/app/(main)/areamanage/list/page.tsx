@@ -286,24 +286,6 @@ export default function AuditJobsListPage() {
 
   const hasActiveFilters = activeFilterCount > 0;
 
-  // ── Fit-to-viewport page height (no page-level scroll, ever) ────────────
-  // แทนที่จะเดาความสูงของ header ด้วย px คงที่ (ซึ่งคลาดเคลื่อนได้เมื่อ filter/tab/draft
-  // card สูงไม่เท่ากัน) ให้วัดตำแหน่ง top จริงของ root element เทียบกับ viewport แล้ว
-  // ล็อกความสูงทั้งหน้าให้พอดี 100dvh - top จากนั้นใช้ flexbox (header shrink-0,
-  // ตาราง flex-1 min-h-0) ให้ตารางเติมพื้นที่ที่เหลือพอดีเป๊ะโดยไม่ต้องเดาความสูง header/pagination เลย
-  const rootRef = useRef<HTMLDivElement>(null);
-  const [rootHeight, setRootHeight] = useState<string>("calc(100dvh - 96px)");
-  useEffect(() => {
-    const updateHeight = () => {
-      if (!rootRef.current) return;
-      const top = rootRef.current.getBoundingClientRect().top;
-      setRootHeight(`calc(100dvh - ${top}px)`);
-    };
-    updateHeight();
-    window.addEventListener("resize", updateHeight);
-    return () => window.removeEventListener("resize", updateHeight);
-  }, []);
-
   // ── Fetch Jobs ──────────────────────────────────────────────────────────
   const fetchJobs = useCallback(async () => {
     if (!isReadyToFetch) return;
@@ -448,12 +430,11 @@ export default function AuditJobsListPage() {
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div ref={rootRef} style={{ height: rootHeight }} className="py-4 sm:py-8 overflow-hidden flex flex-col">
-      <div className="container mx-auto px-4 max-w-[1500px] flex flex-col min-h-0 h-full">
-      <div className="shrink-0">
+    <div className="py-2 sm:py-4">
+      <div className="container mx-auto px-4 max-w-[1500px]">
         {/* Header */}
-        <div className="mb-6">
-          <div className="flex flex-col gap-4">
+        <div className="mb-3">
+          <div className="flex flex-col gap-2">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h1 className="text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">Area Management</h1>
@@ -477,7 +458,7 @@ export default function AuditJobsListPage() {
             </div>
 
             {/* ── AM / AA Tabs ───────────────────────────────────────────── */}
-            <div className="border-b border-border mb-4">
+            <div className="border-b border-border mb-2">
               <div className="flex">
                 {(["AM", "AA"] as FormTab[]).map((tab) => {
                   const isActive = activeTab === tab;
@@ -491,7 +472,7 @@ export default function AuditJobsListPage() {
                       onClick={() => handleTabChange(tab)}
                       disabled={isDisabled}
                       className={cn(
-                        "relative flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors focus-visible:outline-none",
+                        "relative flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none",
                         isDisabled
                           ? "text-muted-foreground/40 cursor-not-allowed"
                           : isActive
@@ -519,7 +500,7 @@ export default function AuditJobsListPage() {
             </div>
 
             {/* ── Filter Bar ────────────────────────────────────────────── */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               {/* Row 1: Quick Filters + Advanced Toggle */}
               <div className="flex items-center gap-2 flex-wrap sm:gap-3">
                 {/* Status */}
@@ -764,10 +745,8 @@ export default function AuditJobsListPage() {
             </CardContent>
           </Card>
         )}
-      </div>
 
         {/* DataTable */}
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {pagination === null && isLoading ? (
           <div className="flex items-center justify-center py-16">
             <div className="text-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-4" /><p className="text-sm text-muted-foreground">Loading jobs...</p></div>
@@ -789,10 +768,10 @@ export default function AuditJobsListPage() {
               onRowSelectionChange={setSelectedRows}
               onSearchChange={handleSearchChange}
               searchValue={searchQuery}
-              fillParent
+              scrollable={false}
             />
             {!isLoading && jobs.length === 0 && (
-              <div className="text-center py-8 shrink-0">
+              <div className="text-center py-8">
                 <p className="text-muted-foreground mb-4">No jobs found</p>
                 {hasActiveFilters ? (
                   <Button variant="outline" onClick={clearFilters} size="sm">Clear Filters</Button>
@@ -805,7 +784,6 @@ export default function AuditJobsListPage() {
             )}
           </>
         )}
-        </div>
 
         {/* Delete Draft Confirmation */}
         <AlertDialog open={showDeleteDraftDialog} onOpenChange={setShowDeleteDraftDialog}>

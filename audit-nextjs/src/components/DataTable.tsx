@@ -72,6 +72,7 @@ interface DataTableProps<TData, TValue> {
    rowIdKey?: string  // ชื่อ field ที่จะใช้เป็น unique id (เช่น 'jobId', 'id', 'userId')
    maxHeight?: string  // ความสูงสูงสุดของ table container (default: 'calc(100vh - 200px)') ใช้เมื่อ fillParent เป็น false
    fillParent?: boolean  // true = ใช้ flexbox เติมความสูงของ parent พอดี (parent ต้องกำหนดความสูงไว้แล้ว) แทนการคำนวณจาก vh
+   scrollable?: boolean  // false = ไม่ครอบ overflow-auto/maxHeight เลย แสดงทุกแถวเต็มความสูงจริง แล้วปล่อยให้หน้าเว็บ scroll เอง (default: true)
 }
 
 function isRowSelectionEqual(a: RowSelectionState, b: RowSelectionState): boolean {
@@ -106,6 +107,7 @@ export function DataTable<TData, TValue>({
    rowIdKey,
    maxHeight = 'calc(100vh - 200px)',
    fillParent = false,
+   scrollable = true,
 }: DataTableProps<TData, TValue>) {
    const [sorting, setSorting] = React.useState<SortingState>([])
    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -304,7 +306,7 @@ export function DataTable<TData, TValue>({
 
    return (
       <div className={fillParent ? "w-full min-w-0 h-full flex flex-col min-h-0" : "w-full min-w-0"}>
-         <div className={fillParent ? "flex flex-wrap gap-2 justify-between items-center py-4 shrink-0" : "flex flex-wrap gap-2 justify-between items-center py-4"}>
+         <div className={fillParent ? "flex flex-wrap gap-2 justify-between items-center py-2 shrink-0" : "flex flex-wrap gap-2 justify-between items-center py-4"}>
             {shouldShowSearch && (
                <Input
                   placeholder={searchPlaceholder}
@@ -351,8 +353,14 @@ export function DataTable<TData, TValue>({
          </div>
 
          <div
-            className={fillParent ? "relative overflow-auto bg-background text-xs xl:text-sm flex-1 min-h-0" : "relative overflow-auto bg-background text-xs xl:text-sm"}
-            style={fillParent ? undefined : { maxHeight }}
+            className={
+               fillParent
+                  ? "relative overflow-auto bg-background text-xs xl:text-sm flex-1 min-h-0"
+                  : scrollable
+                     ? "relative overflow-auto bg-background text-xs xl:text-sm"
+                     : "relative bg-background text-xs xl:text-sm"
+            }
+            style={fillParent || !scrollable ? undefined : { maxHeight }}
          >
             <Table>
                <TableHeader>
@@ -417,7 +425,7 @@ export function DataTable<TData, TValue>({
             )}
          </div>
 
-         <div className={fillParent ? "sm:flex items-center justify-between px-2 pt-4 shrink-0" : "sm:flex items-center justify-between px-2 pt-4"}>
+         <div className={fillParent ? "sm:flex items-center justify-between px-2 pt-2 shrink-0" : "sm:flex items-center justify-between px-2 pt-4"}>
             <div className="text-muted-foreground sm:flex-1 text-xs sm:text-sm sm:ml-4 my-2">
                {isServerSidePagination ? (
                   <>
