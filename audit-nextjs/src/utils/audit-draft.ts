@@ -18,6 +18,7 @@ export interface AuditDraftHeader {
   DistrictManager: string;
   BranchManager?: string;
   AdditionalNotes?: string;
+  BranchAssignment?: string;
   Type: "visit" | "online" | "cctv";
 }
 

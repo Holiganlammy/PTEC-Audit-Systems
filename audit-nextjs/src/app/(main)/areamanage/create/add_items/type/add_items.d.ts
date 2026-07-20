@@ -9,5 +9,6 @@ interface DraftHeader {
   DistrictManager: string;
   BranchManager?: string;
   AdditionalNotes?: string;
+  BranchAssignment?: string;
   RoleFormType: "AM" | "AA";
 }

@@ -149,6 +149,7 @@ export default function ExportDropdown({
                 ["ผู้จัดการเขต", jobData.districtManager?.fullname || "-"],
                 ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
                 ["หมายเหตุเพิ่มเติม", jobData.additionalNotes || "-"],
+                ["มอบหมายงานให้สาขา", jobData.branchAssignment || "-"],
               ]
             : [
                 ["ผู้ตรวจสอบ", jobData.auditor?.fullname || "-"],
@@ -156,6 +157,7 @@ export default function ExportDropdown({
                 ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
                 ["ผู้ทำรายการ", jobData.createdByUser?.fullname || "-"],
                 ["หมายเหตุเพิ่มเติม", jobData.additionalNotes || "-"],
+                ["มอบหมายงานให้สาขา", jobData.branchAssignment || "-"],
               ]),
         ],
         theme: "grid",
@@ -330,6 +332,7 @@ export default function ExportDropdown({
               ["ผู้จัดการเขต", jobData.districtManager?.fullname || "-"],
               ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
               ["หมายเหตุเพิ่มเติม", jobData.additionalNotes || "-"],
+              ["มอบหมายงานให้สาขา", jobData.branchAssignment || "-"],
             ]
           : [
               ["ผู้ตรวจสอบ", jobData.auditor?.fullname || "-"],
@@ -337,6 +340,7 @@ export default function ExportDropdown({
               ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
               ["ผู้ทำรายการ", jobData.createdByUser?.fullname || "-"],
               ["หมายเหตุเพิ่มเติม", jobData.additionalNotes || "-"],
+              ["มอบหมายงานให้สาขา", jobData.branchAssignment || "-"],
             ]),
       ];
       jobInfo.forEach(([label, value]) => {

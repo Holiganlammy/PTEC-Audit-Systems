@@ -277,6 +277,7 @@ export default function AddItemsPage() {
         districtManagerUserId: parseInt(draftHeader.DistrictManager),
         branchManagerUserId: parseInt(branchManager?.UserID || "0"),
         additionalNotes: draftHeader.AdditionalNotes || "",
+        branchAssignment: draftHeader.BranchAssignment || "",
         positionType: draftHeader.RoleFormType,
         status: 1,
         createdBy: session?.user?.UserID,

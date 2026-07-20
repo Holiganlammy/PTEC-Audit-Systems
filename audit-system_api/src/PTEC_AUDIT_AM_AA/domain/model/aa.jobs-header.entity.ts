@@ -103,6 +103,9 @@ export class AAJobHeader {
   @Column({ name: 'additional_notes', type: 'nvarchar', nullable: true })
   additionalNotes!: string;
 
+  @Column({ name: 'branch_assignment', type: 'nvarchar', nullable: true })
+  branchAssignment!: string;
+
   @Column({ name: 'excel_file_name', type: 'nvarchar', nullable: true })
   excelFileName!: string;
 

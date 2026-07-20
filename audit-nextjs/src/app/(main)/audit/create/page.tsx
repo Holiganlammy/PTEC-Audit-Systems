@@ -91,6 +91,7 @@ const formSchema = z.object({
   DistrictManager: z.string().nonempty("กรุณาเลือกผู้จัดการเขต"),
   BranchManager: z.string().optional(),
   AdditionalNotes: z.string().optional(),
+  BranchAssignment: z.string().optional(),
   Type: z.enum(["visit", "online", "cctv"]).refine((val) => val !== undefined, { message: "กรุณาเลือกประเภทการตรวจ" }),
 });
 
@@ -147,6 +148,7 @@ export default function CreateAuditJobPage() {
       DistrictManager: "",
       BranchManager: "",
       AdditionalNotes: "",
+      BranchAssignment: "",
       Type: undefined,
     },
   });
@@ -172,6 +174,7 @@ export default function CreateAuditJobPage() {
         form.setValue("DistrictManager", draft.header.DistrictManager);
         form.setValue("BranchManager", draft.header.BranchManager || "");
         form.setValue("AdditionalNotes", draft.header.AdditionalNotes || "");
+        form.setValue("BranchAssignment", draft.header.BranchAssignment || "");
         form.setValue("Type", draft.header.Type);
 
         const savedFiles = await loadDraftHeaderFiles();
@@ -369,6 +372,7 @@ export default function CreateAuditJobPage() {
         DistrictManager: values.DistrictManager,
         BranchManager: values.BranchManager,
         AdditionalNotes: values.AdditionalNotes,
+        BranchAssignment: values.BranchAssignment,
         Type: values.Type,
       });
       await saveDraftHeaderFiles(jobHeaderFiles);
@@ -996,6 +1000,25 @@ export default function CreateAuditJobPage() {
                           <Textarea
                             {...field}
                             placeholder="กรอกรายละเอียดเพิ่มเติม..."
+                            rows={4}
+                            className="resize-none w-full"
+                          />
+                        </Field>
+                      )}
+                    />
+                  </div>
+
+                  {/* Row 4b: Branch Assignment (Full Width) */}
+                  <div className="grid grid-cols-1">
+                    <Controller
+                      name="BranchAssignment"
+                      control={form.control}
+                      render={({ field }) => (
+                        <Field>
+                          <FieldLabel>มอบหมายงานให้สาขา</FieldLabel>
+                          <Textarea
+                            {...field}
+                            placeholder="ระบุงานที่มอบหมายให้สาขาดำเนินการ..."
                             rows={4}
                             className="resize-none w-full"
                           />

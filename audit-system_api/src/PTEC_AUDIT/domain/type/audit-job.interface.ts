@@ -129,6 +129,7 @@ export interface AuditJobWithUsers {
   statusInfo?: AuditStatusInfo;
   items?: AuditItemWithUsers[];
   additionalNotes?: string;
+  branchAssignment?: string;
 }
 
 // Interface for paginated response

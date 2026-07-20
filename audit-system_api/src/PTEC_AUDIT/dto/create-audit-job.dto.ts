@@ -45,6 +45,10 @@ export class CreateAuditJobDto {
 
   @IsString()
   @IsOptional()
+  branchAssignment?: string;
+
+  @IsString()
+  @IsOptional()
   excelFileName?: string;
 
   @IsString()

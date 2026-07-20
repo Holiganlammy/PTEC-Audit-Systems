@@ -224,6 +224,7 @@ const formSchema = z.object({
   DistrictManager: z.string().nonempty("กรุณาเลือกผู้จัดการเขต"),
   BranchManager: z.string().optional(),
   AdditionalNotes: z.string().optional(),
+  BranchAssignment: z.string().optional(),
 });
 
 export default function EditAuditJobPage() {
@@ -306,6 +307,7 @@ export default function EditAuditJobPage() {
       DistrictManager: "",
       BranchManager: "",
       AdditionalNotes: "",
+      BranchAssignment: "",
     },
   });
 
@@ -352,6 +354,7 @@ export default function EditAuditJobPage() {
       }
       
       form.setValue("AdditionalNotes", jobData.additionalNotes || "");
+      form.setValue("BranchAssignment", jobData.branchAssignment || "");
       setRoleFormTab(jobData.positionType === "AA" ? "AA" : "AM");
  
       setFormData({
@@ -933,6 +936,7 @@ export default function EditAuditJobPage() {
           districtManagerUserId: parseInt(values.DistrictManager),
           branchManagerUserId: parseInt(branchManager?.UserID || "0"),
           additionalNotes: values.AdditionalNotes || "",
+          branchAssignment: values.BranchAssignment || "",
           positionType: roleFormTab,
           updatedBy: session?.user?.UserID,
         };
@@ -1868,9 +1872,9 @@ export default function EditAuditJobPage() {
 
           </fieldset>
 
-          {/* Additional Notes - editable regardless of header lock */}
+          {/* Additional Notes / Branch Assignment - editable regardless of header lock */}
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="pt-6 space-y-6">
               <Controller
                 name="AdditionalNotes"
                 control={form.control}
@@ -1883,6 +1887,25 @@ export default function EditAuditJobPage() {
                       <Textarea
                         {...field}
                         placeholder="กรอกรายละเอียดเพิ่มเติม..."
+                        rows={4}
+                        className="resize-none w-full"
+                      />
+                    )}
+                  </Field>
+                )}
+              />
+              <Controller
+                name="BranchAssignment"
+                control={form.control}
+                render={({ field }) => (
+                  <Field>
+                    <FieldLabel>มอบหมายงานให้สาขา</FieldLabel>
+                    {isLoadingData ? (
+                      <Skeleton className="h-24 w-full" />
+                    ) : (
+                      <Textarea
+                        {...field}
+                        placeholder="ระบุงานที่มอบหมายให้สาขาดำเนินการ..."
                         rows={4}
                         className="resize-none w-full"
                       />

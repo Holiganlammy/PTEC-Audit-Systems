@@ -53,6 +53,7 @@ const formSchema = z.object({
   DistrictManager: z.string().nonempty("กรุณาเลือกผู้อนุมัติ"),
   BranchManager: z.string().optional(),
   AdditionalNotes: z.string().optional(),
+  BranchAssignment: z.string().optional(),
 });
 
 const getFileIcon = (fileName: string) => {
@@ -102,7 +103,7 @@ export default function CreateAMJobPage() {
     defaultValues: {
       Branch: "", Firstname: "", Lastname: "", Date: new Date(),
       PMCode: "", Address: "", Auditor: "", DistrictManager: "",
-      BranchManager: "", AdditionalNotes: "",
+      BranchManager: "", AdditionalNotes: "", BranchAssignment: "",
     },
   });
 
@@ -124,6 +125,7 @@ export default function CreateAMJobPage() {
         form.setValue("DistrictManager", draft.header.DistrictManager);
         form.setValue("BranchManager", draft.header.BranchManager || "");
         form.setValue("AdditionalNotes", draft.header.AdditionalNotes || "");
+        form.setValue("BranchAssignment", draft.header.BranchAssignment || "");
 
         const savedFiles = await loadDraftHeaderFiles(roleFormTab);
         if (isActive) {
@@ -249,6 +251,7 @@ export default function CreateAMJobPage() {
         DistrictManager: values.DistrictManager,
         BranchManager: values.BranchManager,
         AdditionalNotes: values.AdditionalNotes,
+        BranchAssignment: values.BranchAssignment,
         RoleFormType: roleFormTab,
       }, roleFormTab);
       await saveDraftHeaderFiles(jobHeaderFiles, roleFormTab);
@@ -582,6 +585,11 @@ export default function CreateAMJobPage() {
                   {/* Additional Notes */}
                   <Controller name="AdditionalNotes" control={form.control} render={({ field }) => (
                     <Field><FieldLabel>รายละเอียดเพิ่มเติม</FieldLabel><Textarea {...field} placeholder="กรอกรายละเอียดเพิ่มเติม..." rows={4} className="resize-none w-full" /></Field>
+                  )} />
+
+                  {/* Branch Assignment */}
+                  <Controller name="BranchAssignment" control={form.control} render={({ field }) => (
+                    <Field><FieldLabel>มอบหมายงานให้สาขา</FieldLabel><Textarea {...field} placeholder="ระบุงานที่มอบหมายให้สาขาดำเนินการ..." rows={4} className="resize-none w-full" /></Field>
                   )} />
 
                   {/* File Upload */}

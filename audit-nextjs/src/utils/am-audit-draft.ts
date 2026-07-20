@@ -19,6 +19,7 @@ export interface AMAuditDraftHeader {
   DistrictManager: string;
   BranchManager?: string;
   AdditionalNotes?: string;
+  BranchAssignment?: string;
   RoleFormType: "AM" | "AA";
 }
 

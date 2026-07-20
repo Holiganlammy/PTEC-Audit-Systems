@@ -227,6 +227,7 @@ export class AMJobsService {
         pmCode: createDto.pmCode,
         positionType: createDto.positionType,
         additionalNotes: createDto.additionalNotes,
+        branchAssignment: createDto.branchAssignment,
         createdBy: createDto.createdBy,
         status: 1,
 
@@ -508,6 +509,8 @@ export class AMJobsService {
       amJob.positionType = updateDto.positionType;
     if (updateDto.additionalNotes !== undefined)
       amJob.additionalNotes = updateDto.additionalNotes;
+    if (updateDto.branchAssignment !== undefined)
+      amJob.branchAssignment = updateDto.branchAssignment;
     if (updateDto.updatedBy !== undefined)
       amJob.updatedBy = updateDto.updatedBy;
 

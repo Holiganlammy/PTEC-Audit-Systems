@@ -36,6 +36,7 @@ interface AuditStatusInfo {
 interface AuditJobData {
     active: boolean;
     additionalNotes: string;
+    branchAssignment?: string;
     address: string;
     auditDate: string;
     auditType: "visit" | "online";

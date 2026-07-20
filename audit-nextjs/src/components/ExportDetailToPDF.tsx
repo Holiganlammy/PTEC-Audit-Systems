@@ -128,6 +128,7 @@ export default function ExportAuditDetailToPDF({
         ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
         ["ผู้ทำรายการ", jobData.createdByUser?.fullname || "-"],
         ["หมายเหตุเพิ่มเติม", jobData.additionalNotes || "-"],
+        ["มอบหมายงานให้สาขา", jobData.branchAssignment || "-"],
       ];
 
       autoTable(doc, {
