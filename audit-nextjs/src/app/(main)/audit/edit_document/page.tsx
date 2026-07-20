@@ -80,6 +80,7 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import ExportDropdown from "@/components/ExportDropdown";
+import { buildAuditDetailPdf } from "@/lib/pdf/buildAuditDetailPdf";
 
 const getFileIcon = (fileName: string) => {
   const ext = fileName.split('.').pop()?.toLowerCase();
@@ -802,6 +803,11 @@ export default function EditAuditJobPage() {
     auditItems.length > 0 &&
     auditItems.every((item) => item.item_status_edit === 4);
 
+  // เงื่อนไขส่งเมลสรุปผลการตรวจ: รายการตรวจสอบทุกรายการต้องปิดเคสแล้ว (item_status_edit === 4)
+  const canSendSummaryEmail =
+    auditItems.length > 0 &&
+    auditItems.every((item) => item.item_status_edit === 4);
+
   // Handle branch selection
   const handleBranchChange = (value: string) => {
     const branch = branches.find((b) => b.branchid.toString() === value);
@@ -957,11 +963,38 @@ export default function EditAuditJobPage() {
 
       if (!response.data.success) throw new Error("Failed to send email");
 
-      toast.success("ส่งเมลแจ้งเตือนเรียบร้อยแล้ว", {
+      toast.success("ส่งเมลสรุปผลการตรวจเรียบร้อยแล้ว", {
         description: `ส่งแจ้งงาน ${jobData.jobNo} ไปยังผู้ที่เกี่ยวข้องแล้ว`,
       });
 
       await fetchJobData();
+
+      // ส่งเมลสรุปผลการตรวจ (พร้อมแนบ PDF) ไปยังสาขา — แยกจากการส่งข้างต้น
+      // ไม่ให้ความล้มเหลวของขั้นตอนนี้ไปยกเลิกผลสำเร็จของการส่งเมลกลุ่มด้านบน
+      try {
+        const { doc, filename } = await buildAuditDetailPdf(jobData, auditItems, "Audit");
+        const pdfBlob = doc.output("blob");
+        const pdfFile = new File([pdfBlob], filename, { type: "application/pdf" });
+
+        const branchFormData = new FormData();
+        branchFormData.append("pdf", pdfFile);
+        branchFormData.append("jobId", String(jobData.jobId));
+
+        const branchResponse = await client.post(
+          "/audit-email/send-branch-summary",
+          branchFormData,
+          { headers: { ...dataConfig().headers, "Content-Type": "multipart/form-data" } }
+        );
+
+        if (!branchResponse.data.success) throw new Error(branchResponse.data.message || "Failed to send branch email");
+
+        toast.success("ส่งเมลสรุปผลไปยังสาขาเรียบร้อยแล้ว");
+      } catch (branchError) {
+        console.error("Error sending branch summary email:", branchError);
+        toast.error("ส่งเมลสรุปผลไปยังสาขาไม่สำเร็จ", {
+          description: getErrorMessage(branchError, "กรุณาลองใหม่อีกครั้ง"),
+        });
+      }
     } catch (error) {
       console.error("Error sending email:", error);
       toast.error("เกิดข้อผิดพลาด", { description: getErrorMessage(error, "ไม่สามารถส่งเมลได้ กรุณาลองใหม่อีกครั้ง") });
@@ -1144,12 +1177,12 @@ export default function EditAuditJobPage() {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span tabIndex={jobData?.jobCreatedEmailSentAt ? 0 : undefined}>
+                    <span tabIndex={jobData?.jobCreatedEmailSentAt || !canSendSummaryEmail ? 0 : undefined}>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button
                             variant="outline"
-                            disabled={isLoadingData || isSendingEmail || !jobData || !!jobData?.jobCreatedEmailSentAt}
+                            disabled={isLoadingData || isSendingEmail || !jobData || !!jobData?.jobCreatedEmailSentAt || !canSendSummaryEmail}
                             className="gap-2 text-xs sm:text-sm"
                           >
                             {isSendingEmail ? (
@@ -1157,12 +1190,12 @@ export default function EditAuditJobPage() {
                             ) : (
                               <Mail className="h-4 w-4" />
                             )}
-                            ส่งเมลแจ้งเตือน
+                            ส่งเมลสรุปผลการตรวจ
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>ส่งเมลแจ้งเตือน</AlertDialogTitle>
+                            <AlertDialogTitle>ส่งเมลสรุปผลการตรวจ</AlertDialogTitle>
                             <AlertDialogDescription asChild>
                               <div className="space-y-2 text-sm text-muted-foreground">
                                 <p>ระบบจะส่งเมลแจ้งเตือนไปยังผู้ที่เกี่ยวข้องดังนี้:</p>
@@ -1173,7 +1206,8 @@ export default function EditAuditJobPage() {
                                   <li>ผู้จัดการเขต: <strong className="text-foreground">{jobData?.districtManager?.fullname}</strong></li>
                                   <li>ผู้จัดการสาขา: <strong className="text-foreground">{jobData?.branchManager?.fullname}</strong></li>
                                 </ul>
-                                <p className="pt-1">คุณต้องการส่งเมลแจ้งเตือนหรือไม่?</p>
+                                <p className="pt-1">พร้อมกันนี้ระบบจะส่งเมลสรุปผลการตรวจ (แนบไฟล์ PDF) ไปยังอีเมลของสาขาด้วย</p>
+                                <p className="pt-1">คุณต้องการส่งเมลหรือไม่?</p>
                               </div>
                             </AlertDialogDescription>
                           </AlertDialogHeader>
@@ -1192,11 +1226,15 @@ export default function EditAuditJobPage() {
                       </AlertDialog>
                     </span>
                   </TooltipTrigger>
-                  {jobData?.jobCreatedEmailSentAt && (
+                  {jobData?.jobCreatedEmailSentAt ? (
                     <TooltipContent>
                       <p>ส่งเมลไปแล้วเมื่อ {format(new Date(jobData.jobCreatedEmailSentAt), "dd/MM/yyyy HH:mm")}</p>
                     </TooltipContent>
-                  )}
+                  ) : !canSendSummaryEmail ? (
+                    <TooltipContent>
+                      <p>รายการตรวจสอบทั้งหมดต้องมีสถานะ &quot;ปิดเคส&quot; ก่อนจึงจะส่งเมลสรุปผลได้</p>
+                    </TooltipContent>
+                  ) : null}
                 </Tooltip>
               </TooltipProvider>
               )}

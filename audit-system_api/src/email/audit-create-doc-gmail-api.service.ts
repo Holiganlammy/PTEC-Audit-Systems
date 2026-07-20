@@ -76,7 +76,9 @@ export class AuditCreateDocGmailApiService {
     attachments?: Array<{
       filename: string;
       path: string;
-      cid: string;
+      cid?: string;
+      contentType?: string;
+      disposition?: 'inline' | 'attachment';
     }>;
   }) {
     const gmail = this.getGmailClient();
@@ -100,18 +102,22 @@ export class AuditCreateDocGmailApiService {
       params.html,
     ].join('\n');
 
-    // Add inline attachments
+    // Add attachments (inline images by default, or real attachments like PDFs)
     if (params.attachments && params.attachments.length > 0) {
       for (const attachment of params.attachments) {
         try {
           const fileContent = fs.readFileSync(attachment.path);
           const base64Content = fileContent.toString('base64');
+          const contentType = attachment.contentType || 'image/png';
+          const disposition = attachment.disposition || 'inline';
 
           rawMessage += `\n--${boundary}\n`;
-          rawMessage += `Content-Type: image/png; name="${attachment.filename}"\n`;
+          rawMessage += `Content-Type: ${contentType}; name="${attachment.filename}"\n`;
           rawMessage += `Content-Transfer-Encoding: base64\n`;
-          rawMessage += `Content-ID: <${attachment.cid}>\n`;
-          rawMessage += `Content-Disposition: inline; filename="${attachment.filename}"\n`;
+          if (attachment.cid) {
+            rawMessage += `Content-ID: <${attachment.cid}>\n`;
+          }
+          rawMessage += `Content-Disposition: ${disposition}; filename="${attachment.filename}"\n`;
           rawMessage += '\n';
           rawMessage += base64Content;
         } catch (error) {
@@ -358,6 +364,237 @@ export class AuditCreateDocGmailApiService {
         console.log(`✓ Email sent to ${recipientEmail}`);
       } catch (error) {
         console.error(`✗ Failed to send email to ${recipientEmail}:`, error);
+      }
+    }
+  }
+
+  /**
+   * ส่งเมลสรุปผลการตรวจไปยังสาขา พร้อมแนบไฟล์ PDF สรุปรายการ
+   * (ส่งเพิ่มเติมจาก sendAuditJobCreatedEmail — ใช้เมื่อรายการตรวจทุกรายการปิดเคสแล้วเท่านั้น)
+   */
+  async sendBranchSummaryEmail(params: {
+    to: string[];
+    jobNo: string;
+    branchName: string;
+    auditDate: string;
+    createdByFullname?: string;
+    auditorFullname?: string;
+    districtManagerFullname?: string;
+    branchManagerFullname?: string;
+    additionalNotes?: string;
+    branchAssignment?: string;
+    formType?: string; // 'AM' | 'AA' | 'Audit'
+    pdfPath: string;
+    pdfFilename: string;
+  }) {
+    const jobNo = params.jobNo?.trim() || '-';
+    const branchName = params.branchName?.trim() || '-';
+    const auditDate = params.auditDate?.trim() || '-';
+    const createdBy = params.createdByFullname?.trim() || 'ผู้ใช้งานในระบบ';
+    const auditorFullname = params.auditorFullname?.trim() || '-';
+    const districtManagerFullname =
+      params.districtManagerFullname?.trim() || '-';
+    const branchManagerFullname = params.branchManagerFullname?.trim() || '-';
+    const additionalNotes = params.additionalNotes?.trim() || '';
+    const branchAssignment = params.branchAssignment?.trim() || '';
+    const formType = params.formType?.toUpperCase() || 'Audit';
+
+    const formTypeLabel =
+      formType === 'AM'
+        ? 'Area Manager (AM)'
+        : formType === 'AA'
+          ? 'Area Assistant (AA)'
+          : 'Audit';
+
+    const auditorLabel =
+      formType === 'AM'
+        ? 'Area Manager (AM):'
+        : formType === 'AA'
+          ? 'Area Assistant (AA):'
+          : 'ผู้ตรวจสอบ (Auditor):';
+
+    const districtManagerLabel =
+      formType === 'AM'
+        ? 'Regional Manager (RM):'
+        : formType === 'AA'
+          ? 'Area Manager (AM):'
+          : 'ผู้จัดการเขต (AM):';
+
+    const logoPath = path.resolve(process.cwd(), 'src/images/Header_Mail.png');
+
+    const subject = `สรุปผลการตรวจ ${formTypeLabel} สาขา ${branchName}: ${jobNo}`;
+
+    for (const recipientEmail of params.to) {
+      const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: 'Sarabun', Arial, sans-serif;">
+  <table role="presentation" style="width: 100%; border-collapse: collapse;">
+    <tr>
+      <td align="center" style="padding: 40px 0;">
+        <table role="presentation" style="width: 600px; max-width: 90%; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+
+          <!-- Header with Logo -->
+          <tr>
+            <td style="padding: 0; text-align: center; border-radius: 8px 8px 0 0; overflow: hidden;">
+              <img src="cid:header_logo" alt="PTEC Audit System" style="width: 100%; max-width: 600px; height: auto; display: block; border: none;" />
+            </td>
+          </tr>
+
+          <!-- Title Bar -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%); padding: 24px 32px; text-align: center;">
+              <h1 style="margin: 0; color: #000000; font-size: 22px; font-weight: bold;">สรุปผลการตรวจ ${formTypeLabel}</h1>
+              <p style="margin: 6px 0 0; color: #000000; font-size: 13px;">PTEC Audit System</p>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 32px;">
+
+              <!-- Greeting -->
+              <p style="margin: 0 0 24px; font-size: 16px; color: #1F2937;">
+                เรียน <strong>สาขา ${branchName}</strong>
+              </p>
+
+              <!-- Message -->
+              <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #374151;">
+                การตรวจสอบ ${formTypeLabel} ของสาขาท่านดำเนินการเสร็จสิ้นแล้ว<br/>
+                กรุณาตรวจสอบรายละเอียดสรุปผลการตรวจตามไฟล์ PDF ที่แนบมาพร้อมนี้
+              </p>
+
+              <!-- Details Card -->
+              <table role="presentation" style="width: 100%; border: 1px solid #E5E7EB; border-radius: 6px; margin-bottom: 24px;">
+                <tr>
+                  <td style="padding: 16px; background-color: #F9FAFB;">
+                    <table role="presentation" style="width: 100%;">
+                      <tr>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280; width: 140px;">เลขที่เอกสาร:</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937; font-weight: 600;">${jobNo}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">สาขา:</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${branchName}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">วันที่ตรวจสอบ:</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${auditDate}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">${auditorLabel}</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${auditorFullname}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">${districtManagerLabel}</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${districtManagerFullname}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">ผู้จัดการสาขา:</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${branchManagerFullname}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">ผู้สร้างเอกสาร:</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${createdBy}</td>
+                      </tr>
+                      ${
+                        additionalNotes
+                          ? `<tr>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">รายละเอียดเพิ่มเติม:</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${additionalNotes}</td>
+                      </tr>`
+                          : ''
+                      }
+                      ${
+                        branchAssignment
+                          ? `<tr>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">มอบหมายงานให้สาขา:</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${branchAssignment}</td>
+                      </tr>`
+                          : ''
+                      }
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Additional Info -->
+              <p style="margin: 0; font-size: 14px; color: #6B7280; line-height: 1.5;">
+                กรุณาตรวจสอบไฟล์ PDF ที่แนบมาพร้อมเมลนี้เพื่อดูรายละเอียดสรุปผลการตรวจแบบเต็ม หากมีข้อสงสัยกรุณาติดต่อผู้ตรวจสอบโดยตรง
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 32px; background-color: #F9FAFB; border-top: 1px solid #E5E7EB; border-radius: 0 0 8px 8px;">
+              <p style="margin: 0 0 8px; font-size: 12px; color: #9CA3AF; text-align: center;">
+                อีเมลฉบับนี้ถูกส่งโดยอัตโนมัติจากระบบ PTEC Audit System
+              </p>
+              <p style="margin: 0; font-size: 12px; color: #9CA3AF; text-align: center;">
+                กรุณาอย่าตอบกลับอีเมลนี้
+              </p>
+              <p style="margin: 16px 0 0; font-size: 12px; color: #9CA3AF; text-align: center;">
+                © ${new Date().getFullYear()} PURE THAI ENERGY. All rights reserved.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+      `;
+
+      const attachments: Array<{
+        filename: string;
+        path: string;
+        cid?: string;
+        contentType?: string;
+        disposition?: 'inline' | 'attachment';
+      }> = [];
+      try {
+        if (fs.existsSync(logoPath)) {
+          attachments.push({
+            filename: 'Header_Mail.png',
+            path: logoPath,
+            cid: 'header_logo',
+          });
+        } else {
+          console.warn(`Logo not found at: ${logoPath}`);
+        }
+      } catch (error) {
+        console.error('Error checking logo file:', error);
+      }
+
+      attachments.push({
+        filename: params.pdfFilename,
+        path: params.pdfPath,
+        contentType: 'application/pdf',
+        disposition: 'attachment',
+      });
+
+      try {
+        await this.sendHtmlMail({
+          to: recipientEmail,
+          subject,
+          html,
+          attachments,
+        });
+        console.log(`✓ Branch summary email sent to ${recipientEmail}`);
+      } catch (error) {
+        console.error(
+          `✗ Failed to send branch summary email to ${recipientEmail}:`,
+          error,
+        );
+        throw error;
       }
     }
   }

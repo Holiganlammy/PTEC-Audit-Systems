@@ -73,6 +73,18 @@ export class AppService {
     );
   }
 
+  /**
+   * หา user "PTEC" (UserCode ขึ้นต้นด้วย "PTEC") ของสาขาที่ระบุ — ใช้หาอีเมลสาขา
+   * ดึง user ทั้งหมด (เหมือน endpoint /users ที่ไม่ใส่ filter) แล้วกรองด้วยโค้ด
+   * เพราะ stored procedure User_Infomation ไม่รองรับ filter ด้วย branchId
+   */
+  async getUsersByBranch(branchId: number): Promise<User[]> {
+    const users = await this.getUsersFromProcedure(null, null);
+    return users.filter(
+      (u) => u.BranchID === branchId && u.UserCode?.startsWith('PTEC'),
+    );
+  }
+
   async createUser(req: CreateUserDto): Promise<CreateUserResult[]> {
     return this.dbManager.executeStoredProcedure<CreateUserResult>(
       `${databaseConfig.database}.dbo.User_Save_Cloud`,

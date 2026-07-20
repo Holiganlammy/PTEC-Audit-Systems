@@ -6,7 +6,17 @@ import {
   HttpStatus,
   Res,
   ConflictException,
+  BadRequestException,
+  UseInterceptors,
+  UploadedFile,
+  OnModuleInit,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import { existsSync, mkdirSync, unlink } from 'fs';
+import { format } from 'date-fns';
+import { th } from 'date-fns/locale';
 import { AuditCreateDocGmailApiService } from '../../email/audit-create-doc-gmail-api.service';
 import {
   SendAuditJobEmailDto,
@@ -15,22 +25,34 @@ import {
 } from '../dto/send-audit-email.dto';
 import { AMItemsService } from '../service/am-item.service';
 import { AMJobsService } from '../service/audit-job.service';
+import { AAJobsService } from '../service/aa-job.service';
 import { MentionEmailService } from '../../email/mention-comment-gmail.api.service';
 import express from 'express';
 import { AuditJobWithUsers } from '../domain/type/audit-job.interface';
 import { AuditSummaryEmailService } from '../../email/audit-sumary-comment-send-items.api.service';
 import { FileAccessService } from '../service/file-access.service';
+import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec_useright.service';
+
+const TMP_EMAIL_PDF_PATH = join('D:\\files\\Audit_file', 'tmp-email-pdf');
 
 @Controller('am-email')
-export class AuditEmailController {
+export class AuditEmailController implements OnModuleInit {
   constructor(
     private readonly auditCreateDocGmailService: AuditCreateDocGmailApiService,
     private readonly mentionEmailService: MentionEmailService,
     private readonly amItemsService: AMItemsService,
     private readonly auditJobsService: AMJobsService,
+    private readonly aaJobsService: AAJobsService,
     private readonly auditSummaryService: AuditSummaryEmailService,
     private readonly fileAccessService: FileAccessService,
+    private readonly userRightService: UserRightService,
   ) {}
+
+  onModuleInit(): void {
+    if (!existsSync(TMP_EMAIL_PDF_PATH)) {
+      mkdirSync(TMP_EMAIL_PDF_PATH, { recursive: true });
+    }
+  }
 
   @Post('send-job-created')
   @HttpCode(HttpStatus.OK)
@@ -219,6 +241,132 @@ export class AuditEmailController {
         message: 'Failed to send summary email',
         error: error instanceof Error ? error.message : 'Unknown error',
       });
+    }
+  }
+
+  // POST /am-email/send-branch-summary - ส่งเมลสรุปผลการตรวจไปยังสาขา พร้อมแนบ PDF
+  // (ยิงเพิ่มเติมจาก send-job-created หลังทุกรายการปิดเคสแล้วเท่านั้น รองรับทั้ง AM และ AA ผ่าน formType)
+  @Post('send-branch-summary')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(
+    FileInterceptor('pdf', {
+      storage: diskStorage({
+        destination: TMP_EMAIL_PDF_PATH,
+        filename: (req, file, cb) => {
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+      limits: { fileSize: 20 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        if (file.mimetype === 'application/pdf') {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException('Only PDF files are allowed'), false);
+        }
+      },
+    }),
+  )
+  async sendBranchSummaryEmail(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('jobId') jobIdRaw: string,
+    @Body('formType') formType: string | undefined,
+    @Res() res: express.Response,
+  ) {
+    const cleanup = () => {
+      if (file?.path) unlink(file.path, () => {});
+    };
+
+    try {
+      if (!file) {
+        throw new BadRequestException('PDF file is required');
+      }
+
+      const jobId = parseInt(jobIdRaw, 10);
+      if (!jobId) {
+        cleanup();
+        throw new BadRequestException('jobId is required');
+      }
+
+      const isAA = formType?.toUpperCase() === 'AA';
+      const jobService = isAA ? this.aaJobsService : this.auditJobsService;
+
+      const job = (await jobService.findOne(
+        jobId,
+      )) as unknown as AuditJobWithUsers & {
+        jobId: number;
+        jobNo: string;
+        branchId: number;
+        branchName: string;
+        auditDate: string;
+        additionalNotes?: string;
+        branchAssignment?: string;
+      };
+
+      // เช็คซ้ำฝั่ง backend ว่าทุกรายการปิดเคสแล้วจริง (ไม่เชื่อ flag จาก frontend อย่างเดียว)
+      // กรองเฉพาะ item ที่ active เท่านั้น — job.items จาก findOne() ไม่ได้ filter active
+      // มาให้ เลยต้อง filter เองไม่งั้น item ที่ถูกลบ (soft delete, active=false) แต่
+      // itemStatusEdit เดิมไม่ใช่ 4 จะติดเช็คผิดๆ
+      const items = (job.items ?? []).filter(
+        (i) => (i as unknown as { active: boolean }).active,
+      ) as unknown as Array<{
+        itemStatusEdit: number;
+      }>;
+      if (items.length === 0 || !items.every((i) => i.itemStatusEdit === 4)) {
+        cleanup();
+        return res.status(HttpStatus.BAD_REQUEST).json({
+          success: false,
+          message: 'ยังมีรายการตรวจสอบที่ยังไม่ปิดเคส ไม่สามารถส่งเมลสรุปผลได้',
+        });
+      }
+
+      const branchUsers = await this.userRightService.getUsersByBranch(
+        job.branchId,
+      );
+      const branchEmails = branchUsers
+        .map((u) => u.Email)
+        .filter((email): email is string => !!email);
+
+      if (branchEmails.length === 0) {
+        cleanup();
+        return res.status(HttpStatus.NOT_FOUND).json({
+          success: false,
+          message: `ไม่พบอีเมลของสาขา (branchId: ${job.branchId})`,
+        });
+      }
+
+      await this.auditCreateDocGmailService.sendBranchSummaryEmail({
+        to: branchEmails,
+        jobNo: job.jobNo,
+        branchName: job.branchName,
+        auditDate: job.auditDate
+          ? format(new Date(job.auditDate), 'dd MMMM yyyy', { locale: th })
+          : '-',
+        createdByFullname: job.createdByUser?.fullname,
+        auditorFullname: job.auditor?.fullname,
+        districtManagerFullname: job.districtManager?.fullname,
+        branchManagerFullname: job.branchManager?.fullname,
+        additionalNotes: job.additionalNotes,
+        branchAssignment: job.branchAssignment,
+        formType,
+        pdfPath: file.path,
+        pdfFilename: Buffer.from(file.originalname, 'latin1').toString('utf8'),
+      });
+
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        message: `ส่งเมลสรุปผลการตรวจไปยังสาขาสำเร็จ (${branchEmails.length} คน)`,
+      });
+    } catch (error) {
+      console.error('Error sending branch summary email:', error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'ไม่สามารถส่งเมลสรุปผลการตรวจไปยังสาขาได้',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    } finally {
+      cleanup();
     }
   }
 }
