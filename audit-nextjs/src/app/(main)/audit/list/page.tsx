@@ -97,6 +97,9 @@ interface User {
   PositionCode: string;
   BranchID: number;
   BranchName: string;
+  PersonalCode?: string | null;
+  fristName?: string;
+  lastName?: string;
 }
 
 interface FetchJobsParams {
@@ -155,6 +158,7 @@ export default function AuditJobsListPage() {
 
   // ── Users for filter dropdowns ──────────────────────────────────────────
   const [users, setUsers] = useState<User[]>([]);
+  const [userPersonalCodes, setUserPersonalCodes] = useState<User[]>([]);
 
   // ── Draft State ─────────────────────────────────────────────────────────
   const [hasDraft, setHasDraft] = useState(false);
@@ -234,6 +238,18 @@ export default function AuditJobsListPage() {
       .get("/users", { headers: dataConfig().headers })
       .then((res) => {
         if (Array.isArray(res.data)) setUsers(res.data);
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── Fetch PM Codes (สำหรับแสดงชื่อ PM Code ในคอลัมน์ผู้จัดการสาขา) ──────────
+  useEffect(() => {
+    client
+      .get("/users-personal-code", { headers: dataConfig().headers })
+      .then((res) => {
+        if (Array.isArray(res.data)) setUserPersonalCodes(res.data);
+        else if (res.data?.success && Array.isArray(res.data?.data)) setUserPersonalCodes(res.data.data);
+        else if (Array.isArray(res.data?.data)) setUserPersonalCodes(res.data.data);
       })
       .catch(() => {});
   }, []);
@@ -650,7 +666,7 @@ export default function AuditJobsListPage() {
           /* หลัง load ครั้งแรก — DataTable ค้างไว้เสมอ ใช้ skeleton/overlay ใน DataTable แทน */
           <>
             <DataTable
-              columns={createAuditListColumns(setDeleteJobId)}
+              columns={createAuditListColumns(setDeleteJobId, userPersonalCodes)}
               data={jobs}
               searchKey="jobNo"
               searchPlaceholder="ค้นหา Job No, สาขา..."

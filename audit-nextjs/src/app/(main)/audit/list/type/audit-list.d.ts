@@ -10,6 +10,7 @@ interface AuditList {
   branchName: string;
   auditDate: string;
   status: number;
+  pmCode?: string;
   statusInfo?: AuditStatusInfo;
   auditor?: {
     userCode: string;

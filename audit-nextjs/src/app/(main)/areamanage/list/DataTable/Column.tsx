@@ -71,9 +71,16 @@ function ActionsCell({
   );
 }
 
+type PMPersonalCode = {
+  PersonalCode?: string | null;
+  fristName?: string;
+  lastName?: string;
+};
+
 export const createAuditListColumns = (
   onDelete: (jobId: number) => void,
   formType: "AM" | "AA" = "AM",
+  userPersonalCodes: PMPersonalCode[] = [],
 ): ColumnDef<AuditList>[] => [
   {
     id: "select",
@@ -265,13 +272,18 @@ export const createAuditListColumns = (
     },
     cell: ({ row }) => {
       const branchManager = row.original.branchManager;
+      // ชื่อที่แสดงมาจาก PM Code ของ job นี้ (ไม่ใช่ตัวผู้จัดการสาขาจริง เพราะแยกกันแล้ว)
+      const pmUser = userPersonalCodes.find((u) => u.PersonalCode === row.original.pmCode);
+      const pmFullname = pmUser
+        ? [pmUser.fristName, pmUser.lastName].filter(Boolean).join(" ")
+        : "";
       return (
         <div className="text-sm">
           {branchManager ? (
             <div className="flex flex-col">
               <span className="font-medium">{branchManager.userCode}</span>
               <span className="text-xs text-muted-foreground">
-                {branchManager.fullname}
+                {pmFullname || branchManager.fullname}
               </span>
             </div>
           ) : (

@@ -334,8 +334,7 @@ export default function EditAuditJobPage() {
       
       form.setValue("PMCode", jobData.pmCode || "");
       form.setValue("Address", jobData.address || "");
-      form.setValue("Firstname", jobData.branchManager?.firstName || "");
-      form.setValue("Lastname", jobData.branchManager?.lastName || "");
+      // Firstname/Lastname มาจาก PM Code เท่านั้น (sync ใน useEffect ที่รอ userPersonalCodes โหลดเสร็จ)
  
       if (jobData.auditor?.userId) {
         form.setValue("Auditor", jobData.auditor.userId.toString());
@@ -779,6 +778,16 @@ export default function EditAuditJobPage() {
     fetchUserPersonalCodes();
   }, []);
 
+  // Sync Firstname/Lastname จาก PM Code เท่านั้น — ไม่เกี่ยวกับสาขาที่เลือก
+  useEffect(() => {
+    if (!jobData?.pmCode || userPersonalCodes.length === 0) return;
+    const pmUser = userPersonalCodes.find((u) => u.PersonalCode === jobData.pmCode);
+    if (pmUser) {
+      form.setValue("Firstname", pmUser.fristName || "");
+      form.setValue("Lastname", pmUser.lastName || "");
+    }
+  }, [jobData?.pmCode, userPersonalCodes, form]);
+
   // Filter users by position/role
   const auditors = users.filter((u) => ["KKJ", "PWW", "WSR"].includes(u.UserCode));
 
@@ -848,8 +857,7 @@ export default function EditAuditJobPage() {
     try {
       if (canEdit) {
         const selectedBranch = branches.find((b) => b.branchid.toString() === values.Branch);
-        const pmUser = users.find((u) => u.PersonalCode === values.PMCode);
-        const branchManager = branchManagers.find((u) => u.BranchID === pmUser?.BranchID);
+        const branchManager = branchManagers.find((u) => u.BranchID === selectedBranch?.branchid);
 
         const payload = {
           branchId: parseInt(values.Branch),
