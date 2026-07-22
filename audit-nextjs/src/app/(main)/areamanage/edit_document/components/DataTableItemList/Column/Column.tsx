@@ -78,16 +78,19 @@ function BranchScoreCell({
   entry,
   disabled,
   onSubmit,
+  positionType,
 }: {
   item: AuditItem;
   entry?: BranchScoreEntry;
   disabled?: boolean;
   onSubmit?: (itemId: number, score: BranchScoreValue, note?: string) => Promise<void> | void;
+  positionType?: string;
 }) {
   const [open, setOpen] = useState(false);
   const { data: session } = useSession();
 
-  const canEditByRole = [1, 3, 4].includes(Number(session?.user?.role_id ?? -1));
+  const allowedScoreRoles = positionType === "AA" ? [1, 8] : [1, 3, 4];
+  const canEditByRole = allowedScoreRoles.includes(Number(session?.user?.role_id ?? -1));
   const isDisabled = !!disabled || !canEditByRole;
 
   const scoreClassName =
@@ -609,12 +612,12 @@ export const createAuditItemsColumns = (
       cell: ({ row }) => {
         const entry = branchScoresMap[row.original.item_id];
         const isRowClosed = row.original.item_status_edit === 4;
-        return <BranchScoreCell item={row.original} entry={entry} disabled={effectiveLocked || isRowClosed} onSubmit={onBranchScoreSubmit} />;
+        return <BranchScoreCell item={row.original} entry={entry} disabled={effectiveLocked || isRowClosed} onSubmit={onBranchScoreSubmit} positionType={positionType} />;
       },
     },
     {
       id: "note_1",
-      header: positionType === "AA" ? "Audit" : "AM",
+      header: positionType === "AA" ? "AA" : "AM",
       cell: ({ row }) => (
         <NoteCell itemId={row.original.item_id} threadType={1} positionType={positionType} label={positionType === "AA" ? "AA" : "AM (Checker)"} initialComments={row.original.note_1} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 1} highlighted={(row.original.note_1 ?? []).some(c => c.approverStatus === 0)} />
       ),
@@ -623,15 +626,15 @@ export const createAuditItemsColumns = (
       id: "note_2",
       header: positionType === "AA" ? "AM" : "RM",
       cell: ({ row }) => (
-        <NoteCell itemId={row.original.item_id} threadType={2} label={positionType === "AA" ? "AM" : "RM"} initialComments={row.original.note_2} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 2} highlighted={(row.original.note_2 ?? []).some(c => c.approverStatus === 0)} />
+        <NoteCell itemId={row.original.item_id} threadType={2} positionType={positionType} label={positionType === "AA" ? "AM" : "RM"} initialComments={row.original.note_2} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 2} highlighted={(row.original.note_2 ?? []).some(c => c.approverStatus === 0)} />
       ),
     },
     {
       id: "note_3",
       header: "อื่นๆ",
       cell: ({ row }) => (
-        <NoteCell itemId={row.original.item_id} threadType={3} label="Other Agencies" initialComments={row.original.note_3} jobData={jobData} users={users} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} taggedUsers={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 3} highlighted={(row.original.note_3 ?? []).some(c => c.approverStatus === 0)} />
-      ),
+        <NoteCell itemId={row.original.item_id} threadType={3} positionType={positionType} label="Other Agencies" initialComments={row.original.note_3} jobData={jobData} users={users} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} taggedUsers={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 3} highlighted={(row.original.note_3 ?? []).some(c => c.approverStatus === 0)} />
+      ), 
     },
     {
       id: "tagged_users",

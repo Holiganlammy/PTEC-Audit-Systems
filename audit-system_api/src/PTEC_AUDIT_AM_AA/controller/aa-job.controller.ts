@@ -494,7 +494,7 @@ export class AAJobsController implements OnModuleInit {
       const uploadedFiles = await Promise.all(
         files.map((file) =>
           this.amFilesService.uploadFile({
-            fileType: AuditFileType.JOB_HEADER,
+            fileType: AuditFileType.AA_JOB_HEADER,
             referenceId: jobId,
             ...this.extractFileInfo(file),
             uploadedBy: uploadedBy ? parseInt(uploadedBy, 10) : undefined,
@@ -520,7 +520,7 @@ export class AAJobsController implements OnModuleInit {
   async getJobHeaderAttachments(@Param('id', ParseIntPipe) jobId: number) {
     try {
       const files = await this.amFilesService.getFiles(
-        AuditFileType.JOB_HEADER,
+        AuditFileType.AA_JOB_HEADER,
         jobId,
       );
 

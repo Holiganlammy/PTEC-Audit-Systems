@@ -2,11 +2,50 @@
 
 import { Controller, Get, Query, Req, HttpStatus, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { JwtService } from '@nestjs/jwt';
 import { DashboardService } from '../service/dashboard.service';
+import { AuditUserRolesService } from '../../PTEC_USERIGHT/service/audit-user-roles.service';
 
 @Controller('dashboard')
 export class DashboardController {
-  constructor(private readonly dashboardService: DashboardService) {}
+  constructor(
+    private readonly dashboardService: DashboardService,
+    private readonly jwtService: JwtService,
+    private readonly auditUserRolesService: AuditUserRolesService,
+  ) {}
+
+  // req.user is set by AuthMiddleware for both local login and Microsoft SSO
+  private async resolveUserId(req: Request): Promise<number | undefined> {
+    const userCode = req.user;
+    if (!userCode) {
+      return undefined;
+    }
+
+    let userId: number | undefined;
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const decoded = this.jwtService.decode<{ userId?: string }>(
+          authHeader.substring(7),
+        );
+        if (decoded?.userId) {
+          userId = parseInt(decoded.userId, 10);
+        }
+      } catch {
+        // userId is optional — ignore decode errors
+      }
+    }
+    if (req.userId !== undefined && req.userId !== null) {
+      userId = req.userId;
+    }
+    if (userId !== undefined) {
+      return userId;
+    }
+
+    const auditRole =
+      await this.auditUserRolesService.getRoleByUserCode(userCode);
+    return auditRole?.userId;
+  }
 
   /**
    * GET /dashboard/am
@@ -19,7 +58,7 @@ export class DashboardController {
     @Res() res: Response,
   ): Promise<Response> {
     try {
-      const userId = req.user;
+      const userId = await this.resolveUserId(req);
       if (!userId) {
         return res.status(HttpStatus.BAD_REQUEST).json({
           success: false,

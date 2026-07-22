@@ -8,6 +8,8 @@ import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec
 import { UserData, UserInfo } from '../domain/type/audit-job.interface';
 import { AMItemOtherCommentUsersTag } from '../domain/model/am-item-other-comment-users-tag.entity';
 import { AuditCategoryItem } from '../domain/model/audit-category-item.entity';
+import { AMJobHeader } from '../domain/model/am.jobs-header.entity';
+import { AAJobHeader } from '../domain/model/aa.jobs-header.entity';
 
 @Injectable()
 export class AMItemsService {
@@ -131,9 +133,17 @@ export class AMItemsService {
       if (roleId === 1 || roleId === 9) {
         // Role 1 (Admin): เห็นทุก item | Role 9 (SSD): read-only ดูได้ทุก item
       } else if (roleId === 3) {
-        // Role 3 (AM): เห็น item ของ job ที่ตัวเองเป็น AM หรือเป็นคนสร้าง
-        query.andWhere('(job.amUserId = :userId OR job.createdBy = :userId)', {
-          userId,
+        // Role 3 (AM): เห็น item ของ job ในสาขาที่ตนเองรับผิดชอบ (derive จากประวัติ)
+        query.andWhere((qb) => {
+          const subQuery = qb
+            .subQuery()
+            .select('j2.branchId')
+            .from(AMJobHeader, 'j2')
+            .where('(j2.amUserId = :userId OR j2.createdBy = :userId)', {
+              userId,
+            })
+            .getQuery();
+          return `job.branchId IN ${subQuery}`;
         });
       } else if (roleId === 4) {
         // Role 4 (RM): เห็น item ของ job ที่ตัวเองเป็น RM
@@ -221,24 +231,40 @@ export class AMItemsService {
     } else if (isAA) {
       // AA job — แยก permission ตาม role
       if (roleId === 3) {
-        // AM: เห็น item ของ AA job ที่ตัวเองเป็น amManager หรือเป็นคนสร้าง
+        // AM: เห็น item ของ AA job ในสาขาที่ตนเองรับผิดชอบ (derive จากประวัติ)
         query
           .innerJoin(jobAlias, 'job')
           .where('item.jobId = :jobId', { jobId: filters?.jobId })
-          .andWhere(
-            '(job.amManagerUserId = :userId OR job.createdBy = :userId)',
-            { userId },
-          );
+          .andWhere((qb) => {
+            const subQuery = qb
+              .subQuery()
+              .select('j2.branchId')
+              .from(AAJobHeader, 'j2')
+              .where(
+                '(j2.amManagerUserId = :userId OR j2.createdBy = :userId)',
+                { userId },
+              )
+              .getQuery();
+            return `job.branchId IN ${subQuery}`;
+          });
       } else if (roleId === 4) {
         // RM: เห็นทุก item ของ job นี้ (กรอง job ให้เข้าถึงที่หน้า list)
         query.where('item.jobId = :jobId', { jobId: filters?.jobId });
       } else if (roleId === 8) {
-        // AA: เห็น item ของ AA job ที่ตัวเองเป็น aaUser หรือเป็นคนสร้าง
+        // AA: เห็น item ของ AA job ในสาขาที่ตนเองรับผิดชอบ (derive จากประวัติ)
         query
           .innerJoin(jobAlias, 'job')
           .where('item.jobId = :jobId', { jobId: filters?.jobId })
-          .andWhere('(job.aaUserId = :userId OR job.createdBy = :userId)', {
-            userId,
+          .andWhere((qb) => {
+            const subQuery = qb
+              .subQuery()
+              .select('j2.branchId')
+              .from(AAJobHeader, 'j2')
+              .where('(j2.aaUserId = :userId OR j2.createdBy = :userId)', {
+                userId,
+              })
+              .getQuery();
+            return `job.branchId IN ${subQuery}`;
           });
       } else if (roleId === 5) {
         query
@@ -265,12 +291,20 @@ export class AMItemsService {
     } else {
       // AM job permission
       if (roleId === 3) {
-        // AM: เห็น item ของ job ที่ตัวเองเป็น AM หรือเป็นคนสร้าง
+        // AM: เห็น item ของ job ในสาขาที่ตนเองรับผิดชอบ (derive จากประวัติ)
         query
           .innerJoin(jobAlias, 'job')
           .where('item.jobId = :jobId', { jobId: filters?.jobId })
-          .andWhere('(job.amUserId = :userId OR job.createdBy = :userId)', {
-            userId,
+          .andWhere((qb) => {
+            const subQuery = qb
+              .subQuery()
+              .select('j2.branchId')
+              .from(AMJobHeader, 'j2')
+              .where('(j2.amUserId = :userId OR j2.createdBy = :userId)', {
+                userId,
+              })
+              .getQuery();
+            return `job.branchId IN ${subQuery}`;
           });
       } else if (roleId === 4) {
         // RM: เห็นทุก item ของ job นี้ (กรอง job ให้เข้าถึงที่หน้า list)

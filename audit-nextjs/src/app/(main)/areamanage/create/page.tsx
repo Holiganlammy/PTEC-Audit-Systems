@@ -185,8 +185,9 @@ export default function CreateAMJobPage() {
     ["TNM", "PRT"].includes(u.UserCode)
   );
 
-  // AA Users = Area Assistant
+  // AA Users = Area Assistant (แสดงเฉพาะ user ที่ยัง Active เท่านั้น)
   const aaUsers = users.filter((u) =>
+    u.Actived === true &&
     ["PM48000005",
       "PM64000001",
       "PM58000003",
@@ -199,6 +200,7 @@ export default function CreateAMJobPage() {
       "PM64000002",
       "PM62000033",
       "PM59000003",
+      "PM61000026",
     ].includes(u.UserCode)
   );
 

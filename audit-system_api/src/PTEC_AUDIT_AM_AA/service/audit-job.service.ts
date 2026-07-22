@@ -340,9 +340,19 @@ export class AMJobsService {
     } else if (roleId === 9) {
       // SSD: read-only ดูได้ทุก job
     } else if (roleId === 3) {
-      // AM: เห็น job ที่ตัวเองเป็น amUser หรือเป็นคนสร้าง job
-      query.andWhere('(job.amUserId = :userId OR job.createdBy = :userId)', {
-        userId,
+      // AM: เห็นใบงานของ "สาขาที่ตนเองรับผิดชอบ" — คือสาขาที่ตัวเองเคยเป็น amUser
+      // หรือเป็นคนสร้าง job มาก่อน (derive จากประวัติ ไม่ต้องมีตาราง mapping แยก)
+      // เมื่อสาขาไหนกลายเป็น "ของตัวเอง" แล้ว จะเห็นทุก job ของสาขานั้น ไม่ใช่แค่ job ที่ทำเอง
+      query.andWhere((qb) => {
+        const subQuery = qb
+          .subQuery()
+          .select('j2.branchId')
+          .from(AMJobHeader, 'j2')
+          .where('(j2.amUserId = :userId OR j2.createdBy = :userId)', {
+            userId,
+          })
+          .getQuery();
+        return `job.branchId IN ${subQuery}`;
       });
     } else if (roleId === 4) {
       // RM: เห็นเฉพาะ job ที่ตัวเองเป็น rmUser (หัวหน้า)
