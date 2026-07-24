@@ -314,36 +314,19 @@ export class AAJobsService {
     } else if (roleId === 9) {
       // SSD: read-only ดูได้ทุก job
     } else if (roleId === 3) {
-      // AM: เห็นใบงานของ "สาขาที่ตนเองรับผิดชอบ" — คือสาขาที่ตัวเองเคยเป็น amManager
-      // หรือเป็นคนสร้าง job มาก่อน (derive จากประวัติ ไม่ต้องมีตาราง mapping แยก)
-      // เมื่อสาขาไหนกลายเป็น "ของตัวเอง" แล้ว จะเห็นทุก job ของสาขานั้น ไม่ใช่แค่ job ที่ทำเอง
-      query.andWhere((qb) => {
-        const subQuery = qb
-          .subQuery()
-          .select('j2.branchId')
-          .from(AAJobHeader, 'j2')
-          .where('(j2.amManagerUserId = :userId OR j2.createdBy = :userId)', {
-            userId,
-          })
-          .getQuery();
-        return `job.branchId IN ${subQuery}`;
-      });
+      // AM: เห็น job ที่ตัวเองเป็น amManager หรือเป็นคนสร้าง (ไม่ขยายไปทั้งสาขา
+      // เพราะ AM ที่รับผิดชอบสาขาเปลี่ยนคนได้เรื่อยๆ — สาขาเดียวกันแต่คนตรวจคนละคนไม่ควรเห็นกัน)
+      query.andWhere(
+        '(job.amManagerUserId = :userId OR job.createdBy = :userId)',
+        { userId },
+      );
     } else if (roleId === 4) {
       // DM : เห็นทุก job ของ AA
     } else if (roleId === 8) {
-      // AA: เห็นใบงานของ "สาขาที่ตนเองรับผิดชอบ" — คือสาขาที่ตัวเองเคยเป็น aaUser
-      // หรือเป็นคนสร้าง job มาก่อน (derive จากประวัติ ไม่ต้องมีตาราง mapping แยก)
-      // เมื่อสาขาไหนกลายเป็น "ของตัวเอง" แล้ว จะเห็นทุก job ของสาขานั้น ไม่ใช่แค่ job ที่ทำเอง
-      query.andWhere((qb) => {
-        const subQuery = qb
-          .subQuery()
-          .select('j2.branchId')
-          .from(AAJobHeader, 'j2')
-          .where('(j2.aaUserId = :userId OR j2.createdBy = :userId)', {
-            userId,
-          })
-          .getQuery();
-        return `job.branchId IN ${subQuery}`;
+      // AA: เห็น job ที่ตัวเองเป็น aaUser หรือเป็นคนสร้าง (ไม่ขยายไปทั้งสาขา
+      // เพราะคนตรวจของสาขาเปลี่ยนได้เรื่อยๆ — สาขาเดียวกันแต่คนตรวจคนละคนไม่ควรเห็นกัน)
+      query.andWhere('(job.aaUserId = :userId OR job.createdBy = :userId)', {
+        userId,
       });
     } else if (roleId === 5) {
       // User: เห็นเฉพาะ job ที่ถูก tag
