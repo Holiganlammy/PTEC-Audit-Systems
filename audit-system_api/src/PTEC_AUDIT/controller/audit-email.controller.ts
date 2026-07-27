@@ -294,20 +294,26 @@ export class AuditEmailController implements OnModuleInit {
         branchAssignment?: string;
       };
 
-      // เช็คซ้ำฝั่ง backend ว่าทุกรายการปิดเคสแล้วจริง (ไม่เชื่อ flag จาก frontend อย่างเดียว)
+      // เช็คซ้ำฝั่ง backend ว่าทุกรายการมีสถานะแล้วจริง (ไม่เชื่อ flag จาก frontend อย่างเดียว)
+      // ไม่ต้องปิดเคสทั้งหมด แค่ต้องมีสถานะ (itemStatusEdit ไม่ใช่ null/undefined)
       // กรองเฉพาะ item ที่ active เท่านั้น — job.items จาก findOne() ไม่ได้ filter active
       // มาให้ (ต่างจาก /audit-items/job/:jobId ที่ frontend ใช้) เลยต้อง filter เองไม่งั้น
-      // item ที่ถูกลบ (soft delete, active=false) แต่ itemStatusEdit เดิมไม่ใช่ 4 จะติดเช็คผิดๆ
+      // item ที่ถูกลบ (soft delete, active=false) แต่ยังไม่มีสถานะ จะติดเช็คผิดๆ
       const items = (job.items ?? []).filter(
         (i) => (i as unknown as { active: boolean }).active,
       ) as unknown as Array<{
-        itemStatusEdit: number;
+        itemStatusEdit: number | null;
       }>;
-      if (items.length === 0 || !items.every((i) => i.itemStatusEdit === 4)) {
+      if (
+        items.length === 0 ||
+        !items.every(
+          (i) => i.itemStatusEdit !== null && i.itemStatusEdit !== undefined,
+        )
+      ) {
         cleanup();
         return res.status(HttpStatus.BAD_REQUEST).json({
           success: false,
-          message: 'ยังมีรายการตรวจสอบที่ยังไม่ปิดเคส ไม่สามารถส่งเมลสรุปผลได้',
+          message: 'ยังมีรายการตรวจสอบที่ยังไม่มีสถานะ ไม่สามารถส่งเมลสรุปผลได้',
         });
       }
 

@@ -893,10 +893,11 @@ export default function EditAuditJobPage() {
     auditItems.length > 0 &&
     auditItems.every((item) => item.item_status_edit === 4);
 
-  // เงื่อนไขส่งเมลสรุปผลการตรวจ: รายการตรวจสอบทุกรายการต้องปิดเคสแล้ว (item_status_edit === 4)
+  // เงื่อนไขส่งเมลสรุปผลการตรวจ: ทุกรายการตรวจสอบต้องมีสถานะ (item_status_edit) แล้ว
+  // ไม่จำเป็นต้องปิดเคสทั้งหมด แค่ต้องมีสถานะอะไรก็ได้ (ไม่ใช่ null/undefined)
   const canSendSummaryEmail =
     auditItems.length > 0 &&
-    auditItems.every((item) => item.item_status_edit === 4);
+    auditItems.every((item) => item.item_status_edit !== null && item.item_status_edit !== undefined);
 
   // Handle branch selection
   const handleBranchChange = (value: string) => {
@@ -1333,7 +1334,7 @@ export default function EditAuditJobPage() {
                     </TooltipContent>
                   ) : !canSendSummaryEmail ? (
                     <TooltipContent>
-                      <p>รายการตรวจสอบทั้งหมดต้องมีสถานะ &quot;ปิดเคส&quot; ก่อนจึงจะส่งเมลสรุปผลได้</p>
+                      <p>รายการตรวจสอบทั้งหมดต้องมีสถานะก่อนจึงจะส่งเมลสรุปผลได้</p>
                     </TooltipContent>
                   ) : null}
                 </Tooltip>
