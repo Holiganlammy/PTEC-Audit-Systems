@@ -150,6 +150,7 @@ export class AuditCreateDocGmailApiService {
     branchManagerFullname?: string;
     jobUrl?: string;
     additionalNotes?: string;
+    branchAssignment?: string;
     formType?: string; // 'AM' | 'AA' | 'Audit'
   }) {
     const jobNo = params.jobNo?.trim() || '-';
@@ -161,6 +162,7 @@ export class AuditCreateDocGmailApiService {
       params.districtManagerFullname?.trim() || '-';
     const branchManagerFullname = params.branchManagerFullname?.trim() || '-';
     const additionalNotes = params.additionalNotes?.trim() || '';
+    const branchAssignment = params.branchAssignment?.trim() || '';
     const formType = params.formType?.toUpperCase() || 'Audit';
 
     const formTypeLabel =
@@ -286,6 +288,14 @@ export class AuditCreateDocGmailApiService {
                       </tr>`
                           : ''
                       }
+                      ${
+                        branchAssignment
+                          ? `<tr>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">มอบหมายงานให้สาขา:</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${branchAssignment}</td>
+                      </tr>`
+                          : ''
+                      }
                     </table>
                   </td>
                 </tr>
@@ -295,7 +305,7 @@ export class AuditCreateDocGmailApiService {
               <table role="presentation" style="width: 100%; margin-bottom: 24px;">
                 <tr>
                   <td align="center">
-                    <a href="${jobUrl}" 
+                    <a href="${jobUrl}"
                        style="display: inline-block; padding: 12px 32px; background-color: #1E40AF; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px;">
                       เปิดดูเอกสาร
                     </a>

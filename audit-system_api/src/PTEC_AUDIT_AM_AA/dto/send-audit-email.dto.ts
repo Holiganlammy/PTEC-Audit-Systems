@@ -56,6 +56,10 @@ export class SendAuditJobEmailDto {
 
   @IsOptional()
   @IsString()
+  branchAssignment?: string;
+
+  @IsOptional()
+  @IsString()
   formType?: string; // 'AM' | 'AA' | 'Audit'
 }
 

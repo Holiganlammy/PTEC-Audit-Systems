@@ -1047,6 +1047,7 @@ export default function EditAuditJobPage() {
         jobUrl: `${window.location.origin}/areamanage/edit_document?jobNo=${jobData.jobNo}&formType=${roleFormTab}`,
         userby: session?.user?.UserID || 0,
         additionalNotes: jobData.additionalNotes || "",
+        branchAssignment: jobData.branchAssignment || "",
         formType: roleFormTab,
       };
 

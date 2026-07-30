@@ -962,6 +962,7 @@ export default function EditAuditJobPage() {
         jobUrl: `${window.location.origin}/audit/edit_document?jobNo=${jobData.jobNo}`,
         userby: session?.user?.UserID || 0,
         additionalNotes: jobData.additionalNotes || "",
+        branchAssignment: jobData.branchAssignment || "",
       };
 
       const response = await client.post(

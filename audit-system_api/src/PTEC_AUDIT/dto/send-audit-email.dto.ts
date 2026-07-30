@@ -53,6 +53,10 @@ export class SendAuditJobEmailDto {
   @IsOptional()
   @IsString()
   additionalNotes?: string;
+
+  @IsOptional()
+  @IsString()
+  branchAssignment?: string;
 }
 
 export class MentionedUserDto {

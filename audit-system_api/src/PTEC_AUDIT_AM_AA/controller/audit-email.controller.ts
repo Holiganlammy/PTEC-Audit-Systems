@@ -93,6 +93,7 @@ export class AuditEmailController implements OnModuleInit {
       branchManagerFullname: body.branchManagerFullname,
       jobUrl: jobUrlWithFileAccess,
       additionalNotes: body.additionalNotes,
+      branchAssignment: body.branchAssignment,
       formType: body.formType,
     });
 
