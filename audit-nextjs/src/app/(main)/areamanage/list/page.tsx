@@ -535,7 +535,7 @@ export default function AuditJobsListPage() {
                   const isActive = activeTab === tab;
                   const dotColor = tab === "AM" ? "bg-blue-500" : "bg-violet-500";
                   const label = tab === "AM" ? "Area Manager" : "Area Assistant";
-                  const tabAllowed = tab === "AM" ? [1 ,2 , 3, 4, 9, 10] : [1 ,2 , 4, 8, 9];
+                  const tabAllowed = tab === "AM" ? [1 ,2 , 3, 4, 9, 10] : [1 ,2 , 3, 4, 8, 9];
                   const isDisabled = !tabAllowed.includes(roleId ?? -1);
                   return (
                     <button
