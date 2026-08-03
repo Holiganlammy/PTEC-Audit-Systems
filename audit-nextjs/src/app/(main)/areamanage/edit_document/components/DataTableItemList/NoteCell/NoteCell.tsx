@@ -35,6 +35,7 @@ interface NoteCellProps {
   autoOpen?: boolean;
   /** visually highlight this NoteCell (ring/glow) */
   highlighted?: boolean;
+  isOwnJob?: boolean;
 }
 
 interface auditCommentsComment {
@@ -84,6 +85,7 @@ export default function NoteCell({
   isLocked = false,
   autoOpen = false,
   highlighted = false,
+  isOwnJob,
 }: NoteCellProps) {
   const { data: session } = useSession();
   const [comments, setComments] = useState<AuditComment[]>(initialComments);
@@ -109,20 +111,24 @@ export default function NoteCell({
   const [isLoading, setIsLoading] = useState(false);
   const roleId = session?.user?.role_id;
   const allowedRoles = positionType === "AA" ? [1, 4, 8] : [1, 3, 4];
+  // Master AM (role 10): เหมือน role 3 ได้ทุกอย่าง แต่เฉพาะ job ของตัวเองเท่านั้น
+  const hasRole = (roleId ?? -1) === 10
+    ? !!isOwnJob
+    : allowedRoles.includes(roleId ?? -1);
   // Permission logic: - Delete/Edit allowed for role 1, 3, 4 (AM) / 1, 4, 8 (AA) if not locked;
-  const canDelete = allowedRoles.includes(roleId ?? -1) && !isLocked;
-  const canEdit = allowedRoles.includes(roleId ?? -1) && !isLocked;
+  const canDelete = hasRole && !isLocked;
+  const canEdit = hasRole && !isLocked;
   const canMention = false;
 
   // Permission logic for commenting:
   const canComment = (() => {
     if (isLocked) return false;
     // Thread Type 1 (Audit/AA): role 1, 3, 4 (AM) / 1, 4, 8 (AA)
-    if (threadType === 1) return allowedRoles.includes(roleId ?? -1);
+    if (threadType === 1) return hasRole;
     // Thread Type 2 (RM): role 1, 3, 4 (AM) / 1, 4, 8 (AA)
-    if (threadType === 2) return allowedRoles.includes(roleId ?? -1);
+    if (threadType === 2) return hasRole;
     // Thread Type 3 (Other): role 1, 3, 4 (AM) / 1, 4, 8 (AA) หรือคนที่ถูก tag
-    return allowedRoles.includes(roleId ?? -1) || taggedUsers.some(
+    return hasRole || taggedUsers.some(
       (t) => String(t.userId) === String(session?.user?.UserID)
     );
   })();

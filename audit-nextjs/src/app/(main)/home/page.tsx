@@ -29,6 +29,7 @@ export default function HomePage() {
   // Render dashboard based on role
   switch (roleId) {
     case 3: // AM
+    case 10: // Master AM — สูงกว่า AM ต่ำกว่า DM เห็น dashboard AM เหมือนกันแต่ข้อมูลไม่จำกัดสาขา
       return <AMDashboard />;
 
     case 2: // Audit

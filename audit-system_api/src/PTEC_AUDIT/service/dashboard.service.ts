@@ -175,28 +175,33 @@ export class DashboardService {
   /**
    *  Get AM Dashboard Data
    */
-  async getAMDashboardData(userId: number, dateRange: number) {
-    // เห็นเฉพาะ job ที่ตัวเองเป็น amUser หรือเป็นคนสร้าง (ไม่ขยายไปทั้งสาขา
+  async getAMDashboardData(userId: number, dateRange: number, roleId?: number) {
+    // ปกติเห็นเฉพาะ job ที่ตัวเองเป็น amUser หรือเป็นคนสร้าง (ไม่ขยายไปทั้งสาขา
     // เพราะ AM ที่รับผิดชอบสาขาเปลี่ยนคนได้เรื่อยๆ)
-    const stats = await this.getAMDocStats(dateRange, userId);
+    // role 1,2,9 (Admin/Audit/SSD) และ 10 (Master AM) เห็นได้ไม่จำกัด — ทุกสาขาของ AM
+    const isUnrestricted =
+      roleId !== undefined && [1, 2, 9, 10].includes(roleId);
+    const scopeUserId = isUnrestricted ? null : userId;
+
+    const stats = await this.getAMDocStats(dateRange, scopeUserId);
     const recentActivities = await this.getAMRecentActivities(
       dateRange,
-      userId,
+      scopeUserId,
     );
-    const branchIssues = await this.getAMBranchIssues(dateRange, userId);
+    const branchIssues = await this.getAMBranchIssues(dateRange, scopeUserId);
 
     const notCheckedItems = await this.getAMDocItemsByStatus(
       dateRange,
       'NOT_CHECKED',
-      userId,
+      scopeUserId,
     );
-    const activeItems = await this.getActiveAMJobs(dateRange, userId);
+    const activeItems = await this.getActiveAMJobs(dateRange, scopeUserId);
     const pendingCloseCaseItems = await this.getAMDocItemsByStatus(
       dateRange,
       'PENDING_CLOSE_CASE',
-      userId,
+      scopeUserId,
     );
-    const overdueItems = await this.getOverdueAMItems(userId);
+    const overdueItems = await this.getOverdueAMItems(scopeUserId);
 
     return {
       stats: { am: stats },
@@ -296,7 +301,7 @@ export class DashboardService {
 
   private async getAMBranchIssues(
     dateRange: number,
-    userId: number,
+    userId: number | null,
   ): Promise<BranchIssue[]> {
     const startDate = this.getStartDate(dateRange);
 
@@ -324,7 +329,7 @@ export class DashboardService {
       .andWhere('aj.positionType IN (:...positionTypes)', {
         positionTypes: ['AM', 'AA'],
       })
-      .andWhere('(aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
+      .andWhere('(:userId IS NULL OR aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
       .groupBy('aj.branchId')
       .addGroupBy('aj.branchName')
       .having(`COUNT(DISTINCT ${issueScoreCase}) > 0`)
@@ -345,7 +350,7 @@ export class DashboardService {
 
   private async getAMDocStats(
     dateRange: number,
-    userId: number,
+    userId: number | null,
   ): Promise<AuditStats> {
     const startDate = this.getStartDate(dateRange);
 
@@ -362,7 +367,7 @@ export class DashboardService {
       .andWhere('aj.positionType IN (:...positionTypes)', {
         positionTypes: ['AM', 'AA'],
       })
-      .andWhere('(aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
+      .andWhere('(:userId IS NULL OR aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
       .getRawOne<AuditStatsResult>();
 
     const jobResult = await this.amJobRepo
@@ -376,7 +381,7 @@ export class DashboardService {
       .andWhere('aj.positionType IN (:...positionTypes)', {
         positionTypes: ['AM', 'AA'],
       })
-      .andWhere('(aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
+      .andWhere('(:userId IS NULL OR aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
       .getRawOne<{ totalJobs: string; activeJobs: string }>();
 
     const overdueThreshold = new Date();
@@ -391,7 +396,7 @@ export class DashboardService {
       .andWhere('aj.positionType IN (:...positionTypes)', {
         positionTypes: ['AM', 'AA'],
       })
-      .andWhere('(aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
+      .andWhere('(:userId IS NULL OR aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
       .getCount();
 
     return {
@@ -406,7 +411,7 @@ export class DashboardService {
   private async getAMDocItemsByStatus(
     dateRange: number,
     statusType: 'NOT_CHECKED' | 'PENDING_CLOSE_CASE',
-    userId: number,
+    userId: number | null,
   ): Promise<ItemList> {
     const startDate = this.getStartDate(dateRange);
     let whereClause = '';
@@ -431,7 +436,7 @@ export class DashboardService {
       .andWhere('aj.positionType IN (:...positionTypes)', {
         positionTypes: ['AM', 'AA'],
       })
-      .andWhere('(aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
+      .andWhere('(:userId IS NULL OR aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
       .getCount();
 
     const items = await this.amItemRepo
@@ -445,7 +450,7 @@ export class DashboardService {
       .andWhere('aj.positionType IN (:...positionTypes)', {
         positionTypes: ['AM', 'AA'],
       })
-      .andWhere('(aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
+      .andWhere('(:userId IS NULL OR aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
       .orderBy('ai.updatedAt', 'DESC')
       .take(50)
       .getMany();
@@ -473,7 +478,7 @@ export class DashboardService {
 
   private async getActiveAMJobs(
     dateRange: number,
-    userId: number,
+    userId: number | null,
   ): Promise<ItemList> {
     const startDate = this.getStartDate(dateRange);
     const whereClause = '(aj.status IS NULL OR aj.status <> 2)';
@@ -486,7 +491,7 @@ export class DashboardService {
       .andWhere('aj.positionType IN (:...positionTypes)', {
         positionTypes: ['AM', 'AA'],
       })
-      .andWhere('(aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
+      .andWhere('(:userId IS NULL OR aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
       .getCount();
 
     const jobs = await this.amJobRepo
@@ -497,7 +502,7 @@ export class DashboardService {
       .andWhere('aj.positionType IN (:...positionTypes)', {
         positionTypes: ['AM', 'AA'],
       })
-      .andWhere('(aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
+      .andWhere('(:userId IS NULL OR aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
       .orderBy('aj.updatedAt', 'DESC')
       .take(50)
       .getMany();
@@ -518,7 +523,7 @@ export class DashboardService {
     };
   }
 
-  private async getOverdueAMItems(userId: number): Promise<ItemList> {
+  private async getOverdueAMItems(userId: number | null): Promise<ItemList> {
     const overdueThreshold = new Date();
     overdueThreshold.setDate(overdueThreshold.getDate() - 7);
     const whereClause = '(ai.itemStatusEdit IS NULL OR ai.itemStatusEdit <> 4)';
@@ -533,7 +538,7 @@ export class DashboardService {
       .andWhere('aj.positionType IN (:...positionTypes)', {
         positionTypes: ['AM', 'AA'],
       })
-      .andWhere('(aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
+      .andWhere('(:userId IS NULL OR aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
       .getCount();
 
     const items = await this.amItemRepo
@@ -547,7 +552,7 @@ export class DashboardService {
       .andWhere('aj.positionType IN (:...positionTypes)', {
         positionTypes: ['AM', 'AA'],
       })
-      .andWhere('(aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
+      .andWhere('(:userId IS NULL OR aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
       .orderBy('ai.updatedAt', 'ASC')
       .take(50)
       .getMany();
@@ -1405,7 +1410,7 @@ export class DashboardService {
 
   private async getAMRecentActivities(
     dateRange: number,
-    userId: number,
+    userId: number | null,
   ): Promise<Activity[]> {
     const startDate = this.getStartDate(dateRange);
     const activities: Activity[] = [];
@@ -1423,7 +1428,7 @@ export class DashboardService {
         .leftJoinAndSelect('ai.job', 'aj')
         .where('c.createdAt >= :startDate', { startDate })
         .andWhere('c.active = :active', { active: true })
-        .andWhere('(aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
+        .andWhere('(:userId IS NULL OR aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
         .orderBy('c.createdAt', 'DESC')
         .take(5)
         .getMany(),
@@ -1433,7 +1438,7 @@ export class DashboardService {
         .leftJoinAndSelect('ai.job', 'aj')
         .where('c.createdAt >= :startDate', { startDate })
         .andWhere('c.active = :active', { active: true })
-        .andWhere('(aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
+        .andWhere('(:userId IS NULL OR aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
         .orderBy('c.createdAt', 'DESC')
         .take(5)
         .getMany(),
@@ -1443,7 +1448,7 @@ export class DashboardService {
         .leftJoinAndSelect('ai.job', 'aj')
         .where('c.createdAt >= :startDate', { startDate })
         .andWhere('c.active = :active', { active: true })
-        .andWhere('(aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
+        .andWhere('(:userId IS NULL OR aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
         .orderBy('c.createdAt', 'DESC')
         .take(5)
         .getMany(),
@@ -1453,7 +1458,7 @@ export class DashboardService {
         .leftJoinAndSelect('ai.job', 'aj')
         .where('t.createdAt >= :startDate', { startDate })
         .andWhere('t.active = :active', { active: true })
-        .andWhere('(aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
+        .andWhere('(:userId IS NULL OR aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
         .orderBy('t.createdAt', 'DESC')
         .take(5)
         .getMany(),
@@ -1462,7 +1467,7 @@ export class DashboardService {
         .leftJoinAndSelect('ai.job', 'aj')
         .where('ai.headerChecklistAt >= :startDate', { startDate })
         .andWhere('ai.active = :active', { active: true })
-        .andWhere('(aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
+        .andWhere('(:userId IS NULL OR aj.amUserId = :userId OR aj.createdBy = :userId)', { userId })
         .orderBy('ai.headerChecklistAt', 'DESC')
         .take(5)
         .getMany(),

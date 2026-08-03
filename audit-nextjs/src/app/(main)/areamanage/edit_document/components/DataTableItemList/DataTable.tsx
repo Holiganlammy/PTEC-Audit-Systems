@@ -365,11 +365,17 @@ export default function DataTableItemList({
   const handleAMChecklistClick = useCallback((item: AuditItem) => { setSelectedAMChecklistItem(item); setOpenAMChecklistModal(true); }, []);
   const handleAttachmentClick = useCallback((item: AuditItem) => { setSelectedAttachmentItem(item); setOpenAttachmentModal(true); }, []);
 
+  // Master AM (role 10): เห็นทุกสาขาของ AM แต่แก้ไข/ทำ action ได้เฉพาะงานที่ตัวเองเป็น
+  // auditor หรือคนสร้างเท่านั้น (isOwnJob) — งานของ AM คนอื่นดูได้อย่างเดียว
+  const isOwnJob =
+    jobData?.auditor?.userId === session?.user?.UserID ||
+    jobData?.createdByUser?.userId === session?.user?.UserID;
+
   // AM: role 1, 4 can check; AA: role 1, 2, 3, 4 can check
   const isAMChecklistAllowed = (() => {
     const roleId = Number(session?.user?.role_id ?? -1);
     if (positionType === "AA") return [1, 2, 3, 4].includes(roleId);
-    return [1, 4].includes(roleId);
+    return [1, 4].includes(roleId) || (roleId === 10 && isOwnJob);
   })();
 
   const { visibleItems, accessDenied } = useMemo(() => {
@@ -377,8 +383,8 @@ export default function DataTableItemList({
     const roleId = Number(session?.user?.role_id ?? -1);
     const userId = session?.user?.UserID;
     if (!userId) return { visibleItems: [], accessDenied: false };
-    // AM: roles 1,2,3,4 see all items; AA: roles 1,2,4,8,9 see all items
-    const fullAccessRoles = positionType === "AA" ? [1, 2, 4, 8, 9] : [1, 2, 3, 4, 9];
+    // AM: roles 1,2,3,4,10 see all items; AA: roles 1,2,4,8,9 see all items
+    const fullAccessRoles = positionType === "AA" ? [1, 2, 4, 8, 9] : [1, 2, 3, 4, 9, 10];
     if (fullAccessRoles.includes(roleId)) {
       return { visibleItems: orderedItems, accessDenied: false };
     }
@@ -443,8 +449,8 @@ export default function DataTableItemList({
   }, [orderedItems, onItemsChange, session]);
 
   const columns = useMemo(
-    () => createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, (positionType === "AA" ? [1, 4, 8] : [1, 2, 3, 4]).includes(Number(session?.user?.role_id ?? -1)), isDraftMode, attachmentCountsMap, viewport, highlightItemId, highlightThreadType, (positionType === "AA" ? "AA" : "AM")),
-    [handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session, isDraftMode, attachmentCountsMap, viewport, highlightItemId, highlightThreadType, positionType]
+    () => createAuditItemsColumns(handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, (positionType === "AA" ? [1, 4, 8] : [1, 2, 3, 4]).includes(Number(session?.user?.role_id ?? -1)) || (Number(session?.user?.role_id ?? -1) === 10 && isOwnJob), isDraftMode, attachmentCountsMap, viewport, highlightItemId, highlightThreadType, (positionType === "AA" ? "AA" : "AM"), isOwnJob),
+    [handleEdit, handleDelete, onItemsChange, users, taggedUsersMap, handleTagChange, handleCommentsChange, jobData, isLocked, handleAMChecklistClick, handleAttachmentClick, isAMChecklistAllowed, branchScoresMap, handleBranchScoreSubmit, session, isDraftMode, attachmentCountsMap, viewport, highlightItemId, highlightThreadType, positionType, isOwnJob]
   );
 
   // เมื่อโหลดข้อมูลเสร็จและมี highlightItemId ให้ scroll ไปหา row นั้น

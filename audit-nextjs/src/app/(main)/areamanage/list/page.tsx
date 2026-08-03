@@ -267,6 +267,23 @@ export default function AuditJobsListPage() {
   const regionalManagers = users.filter((u) =>
     ["TNM", "PRT"].includes(u.UserCode)
   );
+  // AA tab: auditorUserId -> job.aaUserId (ผู้ช่วยผู้จัดการเขต / AA เอง)
+  const aaAssistants = users.filter((u) =>
+    [
+      "PM48000005",
+      "PM64000001",
+      "PM58000003",
+      "PM61000014",
+      "PM59000001",
+      "PM63000012",
+      "PM65000010",
+      "PM58000011",
+      "PM64000002",
+      "PM62000033",
+      "PM59000003",
+      "PM61000026",
+    ].includes(u.UserCode)
+  );
   const branchManagers = users.filter(
     (u) => u.UserCode.startsWith("PTEC")
   );
@@ -389,6 +406,8 @@ export default function AuditJobsListPage() {
     // AM/AA มีความหมายของ auditor/districtManager filter ต่างกัน (คนละ column ฝั่ง backend) → ล้างทิ้งกันสับสน
     setAuditorFilter("all");
     setDistrictManagerFilter("all");
+    // ผู้จัดการสาขา เป็น filter เฉพาะ AM tab เท่านั้นแล้ว (AA tab ใช้ auditorFilter แทน)
+    setBranchManagerFilter("all");
   };
 
   // ── Handlers ────────────────────────────────────────────────────────────
@@ -463,7 +482,8 @@ export default function AuditJobsListPage() {
       return branch ? branch.name : `สาขา ${value}`;
     }
     if (type === "auditor") {
-      const user = districtManagers.find((u) => u.UserID === value);
+      const list = activeTab === "AA" ? aaAssistants : districtManagers;
+      const user = list.find((u) => u.UserID === value);
       return user ? user.Fullname : value;
     }
     if (type === "dm") {
@@ -515,7 +535,7 @@ export default function AuditJobsListPage() {
                   const isActive = activeTab === tab;
                   const dotColor = tab === "AM" ? "bg-blue-500" : "bg-violet-500";
                   const label = tab === "AM" ? "Area Manager" : "Area Assistant";
-                  const tabAllowed = tab === "AM" ? [1 ,2 , 3, 4, 9] : [1 ,2 , 4, 8, 9];
+                  const tabAllowed = tab === "AM" ? [1 ,2 , 3, 4, 9, 10] : [1 ,2 , 4, 8, 9];
                   const isDisabled = !tabAllowed.includes(roleId ?? -1);
                   return (
                     <button
@@ -599,7 +619,7 @@ export default function AuditJobsListPage() {
                       )}
                       {auditorFilter !== "all" && (
                         <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-destructive/15 hover:text-destructive transition-colors" onClick={() => { setAuditorFilter("all"); setCurrentPage(1); }}>
-                          ผจก.เขต (AM): {getFilterLabel("auditor", auditorFilter)}
+                          {activeTab === "AA" ? "AA: " : "ผจก.เขต (AM): "}{getFilterLabel("auditor", auditorFilter)}
                           <X className="h-3 w-3" />
                         </Badge>
                       )}
@@ -747,15 +767,17 @@ export default function AuditJobsListPage() {
                   </div>
                   )}
 
-                  {/* AM Auditor (ผู้จัดการเขต) — เฉพาะ AM tab, filter ที่ job.amUserId */}
-                  {activeTab === "AM" && !(activeTab === "AM" && isRestrictedRole) && (
+                  {/* Auditor — AM tab: job.amUserId (ผู้จัดการเขต) | AA tab: job.aaUserId (ผู้ช่วยผู้จัดการเขต/AA) */}
+                  {!(activeTab === "AM" && isRestrictedRole) && (
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">ผู้จัดการเขต (AM)</Label>
+                    <Label className="text-xs text-muted-foreground">
+                      {activeTab === "AA" ? "ผู้ช่วยผู้จัดการเขต (AA)" : "ผู้จัดการเขต (AM)"}
+                    </Label>
                     <Select value={auditorFilter} onValueChange={(v) => { setAuditorFilter(v); setCurrentPage(1); }}>
                       <SelectTrigger className="w-full sm:w-[200px]"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">ทั้งหมด</SelectItem>
-                        {districtManagers.map((u) => (
+                        {(activeTab === "AA" ? aaAssistants : districtManagers).map((u) => (
                           <SelectItem key={u.UserID} value={u.UserID}>{u.Fullname}</SelectItem>
                         ))}
                       </SelectContent>
@@ -782,8 +804,8 @@ export default function AuditJobsListPage() {
                   </div>
                   )}
 
-                  {/* Branch Manager — hidden for restricted roles on AM tab */}
-                  {!(activeTab === "AM" && isRestrictedRole) && (
+                  {/* Branch Manager — เฉพาะ AM tab (ฝั่ง AA แทนที่ด้วย filter "ผู้ช่วยผู้จัดการเขต (AA)" ด้านบนแล้ว) */}
+                  {activeTab === "AM" && !isRestrictedRole && (
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">ผู้จัดการสาขา</Label>
                     <Popover open={openBranchManager} onOpenChange={setOpenBranchManager}>

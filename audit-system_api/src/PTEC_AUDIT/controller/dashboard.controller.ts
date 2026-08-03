@@ -16,9 +16,18 @@ export class DashboardController {
 
   // req.user is set by AuthMiddleware for both local login and Microsoft SSO
   private async resolveUserId(req: Request): Promise<number | undefined> {
+    const { userId } = await this.resolveUserAndRole(req);
+    return userId;
+  }
+
+  // เหมือน resolveUserId แต่คืน roleId มาด้วย — ใช้ตอนต้องรู้ว่า role ไหน
+  // เพื่อตัดสินใจ scope ข้อมูล (เช่น Master AM เห็นได้ไม่จำกัด)
+  private async resolveUserAndRole(
+    req: Request,
+  ): Promise<{ userId: number | undefined; roleId: number | undefined }> {
     const userCode = req.user;
     if (!userCode) {
-      return undefined;
+      return { userId: undefined, roleId: undefined };
     }
 
     let userId: number | undefined;
@@ -38,13 +47,14 @@ export class DashboardController {
     if (req.userId !== undefined && req.userId !== null) {
       userId = req.userId;
     }
-    if (userId !== undefined) {
-      return userId;
-    }
 
     const auditRole =
       await this.auditUserRolesService.getRoleByUserCode(userCode);
-    return auditRole?.userId;
+
+    return {
+      userId: userId ?? auditRole?.userId,
+      roleId: auditRole?.roleId,
+    };
   }
 
   /**
@@ -58,7 +68,7 @@ export class DashboardController {
     @Res() res: Response,
   ): Promise<Response> {
     try {
-      const userId = await this.resolveUserId(req);
+      const { userId, roleId } = await this.resolveUserAndRole(req);
       if (!userId) {
         return res.status(HttpStatus.BAD_REQUEST).json({
           success: false,
@@ -69,6 +79,7 @@ export class DashboardController {
       const data = await this.dashboardService.getAMDashboardData(
         userId,
         parseInt(dateRange, 10),
+        roleId,
       );
 
       return res.status(HttpStatus.OK).json({

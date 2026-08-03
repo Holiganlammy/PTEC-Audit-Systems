@@ -79,18 +79,21 @@ function BranchScoreCell({
   disabled,
   onSubmit,
   positionType,
+  isOwnJob,
 }: {
   item: AuditItem;
   entry?: BranchScoreEntry;
   disabled?: boolean;
   onSubmit?: (itemId: number, score: BranchScoreValue, note?: string) => Promise<void> | void;
   positionType?: string;
+  isOwnJob?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const { data: session } = useSession();
 
   const allowedScoreRoles = positionType === "AA" ? [1, 8] : [1, 3, 4];
-  const canEditByRole = allowedScoreRoles.includes(Number(session?.user?.role_id ?? -1));
+  const roleId = Number(session?.user?.role_id ?? -1);
+  const canEditByRole = allowedScoreRoles.includes(roleId) || (roleId === 10 && !!isOwnJob);
   const isDisabled = !!disabled || !canEditByRole;
 
   const scoreClassName =
@@ -235,6 +238,7 @@ function ActionsCell({
   isDraftMode,
   isRowClosed,
   positionType,
+  isOwnJob,
 }: {
   item: AuditItem;
   onEdit: (item: AuditItem) => void;
@@ -243,11 +247,12 @@ function ActionsCell({
   isDraftMode?: boolean;
   isRowClosed?: boolean;
   positionType?: string;
+  isOwnJob?: boolean;
 }) {
   const session = useSession();
   const roleId = Number(session.data?.user.role_id ?? -1);
   const allowedRoles = positionType === "AA" ? [1, 8] : [1, 3, 4];
-  const canAction = allowedRoles.includes(roleId);
+  const canAction = allowedRoles.includes(roleId) || (roleId === 10 && !!isOwnJob);
   return (
     <div className="text-right">
       <DropdownMenu>
@@ -301,14 +306,15 @@ function ActionsCell({
 // SEND EMAIL CELL
 // ══════════════════════════════════════════════════════════════════════════════
 
-function SendEmailCell({ item, isLocked, positionType }: { item: AuditItem; isLocked?: boolean; positionType?: string }) {
+function SendEmailCell({ item, isLocked, positionType, isOwnJob }: { item: AuditItem; isLocked?: boolean; positionType?: string; isOwnJob?: boolean }) {
   const [isSending, setIsSending] = useState(false);
   const [hasSent, setHasSent] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { data: session } = useSession();
 
   const allowedEmailRoles = positionType === "AA" ? [1, 8] : [1, 3, 4];
-  const canSendEmail = allowedEmailRoles.includes(Number(session?.user?.role_id ?? -1));
+  const emailRoleId = Number(session?.user?.role_id ?? -1);
+  const canSendEmail = allowedEmailRoles.includes(emailRoleId) || (emailRoleId === 10 && !!isOwnJob);
 
   const handleSendSummary = async () => {
     try {
@@ -517,6 +523,7 @@ export const createAuditItemsColumns = (
   highlightItemId?: number,
   highlightThreadType?: number,
   positionType: "AM" | "AA" = "AM",
+  isOwnJob?: boolean,
 ): ColumnDef<AuditItem>[] => {
   const effectiveLocked = isLocked || !!isDraftMode;
 
@@ -612,42 +619,42 @@ export const createAuditItemsColumns = (
       cell: ({ row }) => {
         const entry = branchScoresMap[row.original.item_id];
         const isRowClosed = row.original.item_status_edit === 4;
-        return <BranchScoreCell item={row.original} entry={entry} disabled={effectiveLocked || isRowClosed} onSubmit={onBranchScoreSubmit} positionType={positionType} />;
+        return <BranchScoreCell item={row.original} entry={entry} disabled={effectiveLocked || isRowClosed} onSubmit={onBranchScoreSubmit} positionType={positionType} isOwnJob={isOwnJob} />;
       },
     },
     {
       id: "note_1",
       header: positionType === "AA" ? "AA" : "AM",
       cell: ({ row }) => (
-        <NoteCell itemId={row.original.item_id} threadType={1} positionType={positionType} label={positionType === "AA" ? "AA" : "AM (Checker)"} initialComments={row.original.note_1} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 1} highlighted={(row.original.note_1 ?? []).some(c => c.approverStatus === 0)} />
+        <NoteCell itemId={row.original.item_id} threadType={1} positionType={positionType} isOwnJob={isOwnJob} label={positionType === "AA" ? "AA" : "AM (Checker)"} initialComments={row.original.note_1} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 1} highlighted={(row.original.note_1 ?? []).some(c => c.approverStatus === 0)} />
       ),
     },
     {
       id: "note_2",
       header: positionType === "AA" ? "AM" : "RM",
       cell: ({ row }) => (
-        <NoteCell itemId={row.original.item_id} threadType={2} positionType={positionType} label={positionType === "AA" ? "AM" : "RM"} initialComments={row.original.note_2} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 2} highlighted={(row.original.note_2 ?? []).some(c => c.approverStatus === 0)} />
+        <NoteCell itemId={row.original.item_id} threadType={2} positionType={positionType} isOwnJob={isOwnJob} label={positionType === "AA" ? "AM" : "RM"} initialComments={row.original.note_2} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 2} highlighted={(row.original.note_2 ?? []).some(c => c.approverStatus === 0)} />
       ),
     },
     {
       id: "note_3",
       header: "อื่นๆ",
       cell: ({ row }) => (
-        <NoteCell itemId={row.original.item_id} threadType={3} positionType={positionType} label="Other Agencies" initialComments={row.original.note_3} jobData={jobData} users={users} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} taggedUsers={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 3} highlighted={(row.original.note_3 ?? []).some(c => c.approverStatus === 0)} />
+        <NoteCell itemId={row.original.item_id} threadType={3} positionType={positionType} isOwnJob={isOwnJob} label="Other Agencies" initialComments={row.original.note_3} jobData={jobData} users={users} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} taggedUsers={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 3} highlighted={(row.original.note_3 ?? []).some(c => c.approverStatus === 0)} />
       ), 
     },
     {
       id: "tagged_users",
       header: "แท็ก",
       cell: ({ row }) => (
-        <TagCell itemId={row.original.item_id} users={users} initialTags={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []} onTagChange={(tags) => onTagChange?.(row.original.item_id, tags)} isLocked={effectiveLocked || row.original.item_status_edit === 4} positionType={positionType} />
+        <TagCell itemId={row.original.item_id} users={users} initialTags={taggedUsersMap[row.original.item_id] ?? row.original.tagged_users ?? []} onTagChange={(tags) => onTagChange?.(row.original.item_id, tags)} isLocked={effectiveLocked || row.original.item_status_edit === 4} positionType={positionType} isOwnJob={isOwnJob} />
       ),
     },
     ...(canSendEmail ? [{
       id: "send_email",
       header: () => <div className="text-center">อีเมล</div>,
       cell: ({ row }: { row: import("@tanstack/react-table").Row<AuditItem> }) => (
-        <SendEmailCell item={row.original} isLocked={effectiveLocked || row.original.item_status_edit === 4} positionType={positionType} />
+        <SendEmailCell item={row.original} isLocked={effectiveLocked || row.original.item_status_edit === 4} positionType={positionType} isOwnJob={isOwnJob} />
       ),
     } satisfies ColumnDef<AuditItem>] : []),
     {
@@ -689,6 +696,7 @@ export const createAuditItemsColumns = (
             isDraftMode={isDraftMode}
             isRowClosed={row.original.item_status_edit === 4}
             positionType={positionType}
+            isOwnJob={isOwnJob}
           />
         ),
     },

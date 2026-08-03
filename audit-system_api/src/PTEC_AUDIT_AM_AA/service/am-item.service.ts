@@ -128,8 +128,9 @@ export class AMItemsService {
       const roleId = user.role_id;
       const userId = user.user_id;
 
-      if (roleId === 1 || roleId === 9) {
+      if (roleId === 1 || roleId === 9 || roleId === 10) {
         // Role 1 (Admin): เห็นทุก item | Role 9 (SSD): read-only ดูได้ทุก item
+        // Role 10 (Master AM): เห็นทุก item ของ AM ได้ไม่จำกัด
       } else if (roleId === 3) {
         // Role 3 (AM): เห็น item ของ job ที่ตัวเองเป็น AM หรือเป็นคนสร้าง
         query.andWhere('(job.amUserId = :userId OR job.createdBy = :userId)', {
@@ -264,7 +265,10 @@ export class AMItemsService {
       }
     } else {
       // AM job permission
-      if (roleId === 3) {
+      if (roleId === 10) {
+        // Master AM: เห็นทุก item ของ AM job ได้ไม่จำกัด
+        query.where('item.jobId = :jobId', { jobId: filters?.jobId });
+      } else if (roleId === 3) {
         // AM: เห็น item ของ job ที่ตัวเองเป็น AM หรือเป็นคนสร้าง
         query
           .innerJoin(jobAlias, 'job')

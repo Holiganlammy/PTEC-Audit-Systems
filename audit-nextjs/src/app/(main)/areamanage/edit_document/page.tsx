@@ -883,9 +883,16 @@ export default function EditAuditJobPage() {
   const { isDirty } = form.formState;
 
   const isFormLocked = jobData?.status === 2;
+  const currentRoleId = Number(session?.user?.role_id ?? -1);
+  // Master AM (role 10): แก้ไขได้เหมือน AM ปกติเฉพาะ job ของตัวเอง (เป็น auditor หรือคนสร้าง)
+  // ส่วน job ของ AM คนอื่นที่เห็นเพิ่มมา (เพราะเห็นได้ไม่จำกัดสาขา) จะดูได้อย่างเดียว
+  const isOwnJob =
+    jobData?.auditor?.userId === session?.user?.UserID ||
+    jobData?.createdByUser?.userId === session?.user?.UserID;
   const canEdit = roleFormTab === "AA"
-    ? [1, 8].includes(Number(session?.user?.role_id ?? -1))
-    : [1, 3, 4].includes(Number(session?.user?.role_id ?? -1));
+    ? [1, 8].includes(currentRoleId)
+    : [1, 3, 4].includes(currentRoleId) ||
+      (currentRoleId === 10 && isOwnJob);
 
   const canConfirm =
     !isLoadingItems &&
