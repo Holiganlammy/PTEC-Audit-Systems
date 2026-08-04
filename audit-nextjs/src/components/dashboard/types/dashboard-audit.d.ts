@@ -1,6 +1,7 @@
 // types/dashboard-audit.ts
 
 import type { PaginatedActionItems, ActivityData } from "./dashboard-common";
+import type { PendingChecklistJob } from "@/components/dashboard/pending-checklist-widget";
 
 export interface AuditStats {
   totalJobs: number;
@@ -19,4 +20,5 @@ export interface AuditDashboardResponse {
   pendingCloseCaseItems: PaginatedActionItems;
   overdueItems: PaginatedActionItems;
   recentActivities: ActivityData[];
+  pendingChecklist?: PendingChecklistJob[];
 }

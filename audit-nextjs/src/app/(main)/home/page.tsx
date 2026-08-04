@@ -4,6 +4,7 @@
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { AMDashboard } from "./am-dashboard";
+import { AADashboard } from "./aa-dashboard";
 import { AuditDashboard } from "./audit-dashboard";
 import { UserDashboard } from "./user-dashboard";
 // import { ManagerDashboard } from "./manager-dashboard";
@@ -31,6 +32,9 @@ export default function HomePage() {
     case 3: // AM
     case 10: // Master AM — สูงกว่า AM ต่ำกว่า DM เห็น dashboard AM เหมือนกันแต่ข้อมูลไม่จำกัดสาขา
       return <AMDashboard />;
+
+    case 8: // AA
+      return <AADashboard />;
 
     case 2: // Audit
       return <AuditDashboard />;

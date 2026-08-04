@@ -109,6 +109,22 @@ interface BranchIssueResult {
   totalCount: string;
 }
 
+interface PendingChecklistJob {
+  jobId: number;
+  jobNo: string;
+  branchName: string;
+  pendingCount: number;
+  totalCount: number;
+}
+
+interface PendingChecklistResult {
+  jobId: number;
+  jobNo: string;
+  branchName: string;
+  pendingCount: string;
+  totalCount: string;
+}
+
 interface AMChartData {
   date: string;
   passed: number;
@@ -202,6 +218,7 @@ export class DashboardService {
       scopeUserId,
     );
     const overdueItems = await this.getOverdueAMItems(scopeUserId);
+    const pendingChecklist = await this.getAMPendingChecklist(scopeUserId);
 
     return {
       stats: { am: stats },
@@ -211,7 +228,110 @@ export class DashboardService {
       overdueItems,
       recentActivities,
       branchIssues,
+      pendingChecklist,
     };
+  }
+
+  /**
+   * รายการใบงาน AM ที่งานเสร็จแล้ว (item_status_edit = 4) แต่ยังไม่ผ่าน checklist
+   * (header_checklist_status ยังว่าง/ยังไม่ทำ) — จัดอันดับตามจำนวนที่ค้างมากสุด
+   */
+  private async getAMPendingChecklist(
+    userId: number | null,
+  ): Promise<PendingChecklistJob[]> {
+    // AMItem.job และ AMItem.aaJob ผูกกับคอลัมน์ job_id เดียวกัน (คนละตาราง) —
+    // ต้องกันไม่ให้ item ฝั่ง AA (jobSource='AA') หลุดมานับปนกับ AM เพราะ job_id ชนกันได้
+    const notAA = "(ai.jobSource IS NULL OR UPPER(ai.jobSource) <> 'AA')";
+    const scopeUser =
+      '(:userId IS NULL OR aj.amUserId = :userId OR aj.createdBy = :userId)';
+    const pendingCase = `CASE WHEN (ai.headerChecklistStatus IS NULL OR ai.headerChecklistStatus = 0) THEN ai.itemId END`;
+
+    const rows = await this.amItemRepo
+      .createQueryBuilder('ai')
+      .select('aj.jobId', 'jobId')
+      .addSelect('aj.jobNo', 'jobNo')
+      .addSelect('aj.branchName', 'branchName')
+      .addSelect(`COUNT(DISTINCT ${pendingCase})`, 'pendingCount')
+      .addSelect('COUNT(DISTINCT ai.itemId)', 'totalCount')
+      .innerJoin('ai.job', 'aj')
+      .where('ai.itemStatusEdit = :closedStatus', { closedStatus: 4 })
+      .andWhere('ai.active = :active', { active: true })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere(notAA)
+      .andWhere(scopeUser, { userId })
+      .groupBy('aj.jobId')
+      .addGroupBy('aj.jobNo')
+      .addGroupBy('aj.branchName')
+      .having(`COUNT(DISTINCT ${pendingCase}) > 0`)
+      .orderBy('pendingCount', 'DESC')
+      .getRawMany<PendingChecklistResult>();
+
+    return rows.map((row) => ({
+      jobId: row.jobId,
+      jobNo: row.jobNo,
+      branchName: row.branchName,
+      pendingCount: parseInt(row.pendingCount, 10),
+      totalCount: parseInt(row.totalCount, 10),
+    }));
+  }
+
+  /**
+   *  Get AA Dashboard Data
+   */
+  async getAADashboardData(userId: number, roleId?: number) {
+    // role 1,2,9 (Admin/Audit/SSD) เห็นได้ไม่จำกัด ส่วน AA (role 8) เห็นเฉพาะ job ของตัวเอง
+    const isUnrestricted =
+      roleId !== undefined && [1, 2, 9].includes(roleId);
+    const scopeUserId = isUnrestricted ? null : userId;
+
+    const pendingChecklist = await this.getAAPendingChecklist(scopeUserId);
+
+    return {
+      pendingChecklist,
+    };
+  }
+
+  /**
+   * รายการใบงาน AA ที่งานเสร็จแล้ว (item_status_edit = 4) แต่ยังไม่ผ่าน checklist
+   * (header_checklist_status ยังว่าง/ยังไม่ทำ) — จัดอันดับตามจำนวนที่ค้างมากสุด
+   */
+  private async getAAPendingChecklist(
+    userId: number | null,
+  ): Promise<PendingChecklistJob[]> {
+    // AMItem.job และ AMItem.aaJob ผูกกับคอลัมน์ job_id เดียวกัน (คนละตาราง) —
+    // ต้องกรองเฉพาะ item ฝั่ง AA จริงๆ ไม่งั้นจะไปปนกับ AM ที่ job_id ชนกันได้
+    const isAA = "UPPER(ai.jobSource) = 'AA'";
+    const scopeUser =
+      '(:userId IS NULL OR aj.aaUserId = :userId OR aj.createdBy = :userId)';
+    const pendingCase = `CASE WHEN (ai.headerChecklistStatus IS NULL OR ai.headerChecklistStatus = 0) THEN ai.itemId END`;
+
+    const rows = await this.amItemRepo
+      .createQueryBuilder('ai')
+      .select('aj.jobId', 'jobId')
+      .addSelect('aj.jobNo', 'jobNo')
+      .addSelect('aj.branchName', 'branchName')
+      .addSelect(`COUNT(DISTINCT ${pendingCase})`, 'pendingCount')
+      .addSelect('COUNT(DISTINCT ai.itemId)', 'totalCount')
+      .innerJoin('ai.aaJob', 'aj')
+      .where('ai.itemStatusEdit = :closedStatus', { closedStatus: 4 })
+      .andWhere('ai.active = :active', { active: true })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere(isAA)
+      .andWhere(scopeUser, { userId })
+      .groupBy('aj.jobId')
+      .addGroupBy('aj.jobNo')
+      .addGroupBy('aj.branchName')
+      .having(`COUNT(DISTINCT ${pendingCase}) > 0`)
+      .orderBy('pendingCount', 'DESC')
+      .getRawMany<PendingChecklistResult>();
+
+    return rows.map((row) => ({
+      jobId: row.jobId,
+      jobNo: row.jobNo,
+      branchName: row.branchName,
+      pendingCount: parseInt(row.pendingCount, 10),
+      totalCount: parseInt(row.totalCount, 10),
+    }));
   }
 
   /**
@@ -231,6 +351,7 @@ export class DashboardService {
       'PENDING_CLOSE_CASE',
     );
     const overdueItems = await this.getOverdueAuditItems();
+    const pendingChecklist = await this.getAuditPendingChecklist();
 
     return {
       stats: { audit: stats },
@@ -239,7 +360,42 @@ export class DashboardService {
       pendingCloseCaseItems,
       overdueItems,
       recentActivities,
+      pendingChecklist,
     };
+  }
+
+  /**
+   * รายการใบงาน Audit ที่งานเสร็จแล้ว (item_status_edit = 4) แต่ยังไม่ผ่าน checklist
+   * (am_checklist_status ยังว่าง/ยังไม่ทำ) — จัดอันดับตามจำนวนที่ค้างมากสุด
+   */
+  private async getAuditPendingChecklist(): Promise<PendingChecklistJob[]> {
+    const pendingCase = `CASE WHEN (ai.amChecklistStatus IS NULL OR ai.amChecklistStatus = 0) THEN ai.itemId END`;
+
+    const rows = await this.auditItemRepo
+      .createQueryBuilder('ai')
+      .select('aj.jobId', 'jobId')
+      .addSelect('aj.jobNo', 'jobNo')
+      .addSelect('aj.branchName', 'branchName')
+      .addSelect(`COUNT(DISTINCT ${pendingCase})`, 'pendingCount')
+      .addSelect('COUNT(DISTINCT ai.itemId)', 'totalCount')
+      .innerJoin('ai.job', 'aj')
+      .where('ai.itemStatusEdit = :closedStatus', { closedStatus: 4 })
+      .andWhere('ai.active = :active', { active: true })
+      .andWhere('aj.active = :active', { active: true })
+      .groupBy('aj.jobId')
+      .addGroupBy('aj.jobNo')
+      .addGroupBy('aj.branchName')
+      .having(`COUNT(DISTINCT ${pendingCase}) > 0`)
+      .orderBy('pendingCount', 'DESC')
+      .getRawMany<PendingChecklistResult>();
+
+    return rows.map((row) => ({
+      jobId: row.jobId,
+      jobNo: row.jobNo,
+      branchName: row.branchName,
+      pendingCount: parseInt(row.pendingCount, 10),
+      totalCount: parseInt(row.totalCount, 10),
+    }));
   }
 
   /**

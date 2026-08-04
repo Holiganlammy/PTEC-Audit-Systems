@@ -18,6 +18,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { MonthPicker, formatMonthLabel } from "@/components/ui/month-picker";
 import { Plus, Loader2, X, Trash2, Edit, FileText, CalendarIcon, Filter, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import client from "@/lib/axios/interceptors";
@@ -37,7 +38,7 @@ import { Badge } from "@/components/ui/badge";
 import { useSession } from "next-auth/react";
 import ExportListDropdown from "@/components/ExportListDropdown";
 import { loadDraft, clearDraft, getDraftInfo, type AMDraftFormType } from "@/utils/am-audit-draft";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth, isSameDay } from "date-fns";
 import { th } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import {
@@ -162,6 +163,7 @@ export default function AuditJobsListPage() {
   const [bmSearch, setBmSearch] = useState("");
   const [openBranchFilter, setOpenBranchFilter] = useState(false);
   const [branchSearch, setBranchSearch] = useState("");
+  const [openMonthFilter, setOpenMonthFilter] = useState(false);
 
   // ── Users for filter dropdowns ──────────────────────────────────────────
   const [users, setUsers] = useState<User[]>([]);
@@ -395,6 +397,23 @@ export default function AuditJobsListPage() {
   useEffect(() => {
     fetchJobs();
   }, [fetchJobs]);
+
+  // ── Month Filter (ตัวช่วยตั้ง dateFrom/dateTo ทั้งเดือนในคลิกเดียว) ──────────
+  // ใช้ dateFrom/dateTo state เดิม ไม่ต้องเพิ่ม param ใหม่ฝั่ง backend
+  const selectedMonth =
+    dateFrom && dateTo &&
+    isSameDay(dateFrom, startOfMonth(dateFrom)) &&
+    isSameDay(dateTo, endOfMonth(dateFrom))
+      ? dateFrom
+      : undefined;
+
+  const handleMonthSelect = (date: Date | undefined) => {
+    if (!date) return;
+    setDateFrom(startOfMonth(date));
+    setDateTo(endOfMonth(date));
+    setCurrentPage(1);
+    setOpenMonthFilter(false);
+  };
 
   // ── Tab Switch: reset pagination & selection ────────────────────────────
   const handleTabChange = (tab: FormTab) => {
@@ -669,6 +688,22 @@ export default function AuditJobsListPage() {
               {/* Row 2: Advanced Filters (Collapsible) */}
               {showAdvancedFilters && (
                 <div className="flex flex-col gap-3 p-3 rounded-lg border bg-muted/30 sm:flex-row sm:flex-wrap sm:items-end sm:p-4">
+                  {/* Month — เลือกทั้งเดือนในคลิกเดียว (ตั้ง dateFrom/dateTo ให้อัตโนมัติ) */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">เดือน</Label>
+                    <Popover open={openMonthFilter} onOpenChange={setOpenMonthFilter}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn("w-full sm:w-[160px] justify-start text-left font-normal", !selectedMonth && "text-muted-foreground")}>
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {selectedMonth ? formatMonthLabel(selectedMonth) : "เลือกเดือน"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <MonthPicker selected={selectedMonth} onSelect={handleMonthSelect} />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
                   {/* Date From */}
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">วันที่เริ่มต้น</Label>

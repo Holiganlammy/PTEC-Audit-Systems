@@ -1,5 +1,7 @@
 // types/dashboard.ts
 
+import type { PendingChecklistJob } from "@/components/dashboard/pending-checklist-widget";
+
 export interface DashboardKPI {
   title: string;
   value: string | number;
@@ -98,4 +100,5 @@ export interface DashboardResponse {
   activeItems?: PaginatedActionItems;
   pendingCloseCaseItems?: PaginatedActionItems;
   overdueItems?: PaginatedActionItems;
+  pendingChecklist?: PendingChecklistJob[];
 }

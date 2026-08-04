@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import { ActionItemsDialog } from "@/components/dashboard/action-items-dialog";
+import { PendingChecklistWidget } from "@/components/dashboard/pending-checklist-widget";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { AuditStatusChart } from "@/components/dashboard/audit-status-chart";
@@ -176,10 +177,16 @@ export function AuditDashboard() {
           triggerIcon={<AlertTriangle className="h-4 w-4 mr-2" />}
           triggerClassName="w-full h-20 text-red-600 dark:text-red-400 border-red-300 dark:border-red-700"
         />
+
       </div>
 
-      {/* Recent Activities */}
-      <div className="grid grid-cols-1 gap-6">
+      {/* รอ Checklist + Recent Activities */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <PendingChecklistWidget
+          jobs={dashboardData?.pendingChecklist || []}
+          basePath="/audit/edit_document"
+        />
+
         <RecentActivity
           activities={
             dashboardData?.recentActivities?.map((activity) => ({

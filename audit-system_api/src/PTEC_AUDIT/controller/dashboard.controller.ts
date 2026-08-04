@@ -98,6 +98,44 @@ export class DashboardController {
   }
 
   /**
+   * GET /dashboard/aa
+   * AA Dashboard data (role_id = 8)
+   */
+  @Get('aa')
+  async getAADashboard(
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<Response> {
+    try {
+      const { userId, roleId } = await this.resolveUserAndRole(req);
+      if (!userId) {
+        return res.status(HttpStatus.BAD_REQUEST).json({
+          success: false,
+          message: 'User ID is required',
+        });
+      }
+
+      const data = await this.dashboardService.getAADashboardData(
+        userId,
+        roleId,
+      );
+
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        data,
+      });
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('❌ Error fetching AA dashboard:', error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Failed to fetch AA dashboard',
+        error: error.message,
+      });
+    }
+  }
+
+  /**
    * GET /dashboard/audit
    * Audit Dashboard data (role_id = 2)
    */

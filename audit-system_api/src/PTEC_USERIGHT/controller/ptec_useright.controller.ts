@@ -81,7 +81,18 @@ export class AppController {
           user.Actived == true,
       )
       .map(({ ...user }) => user);
-    return filterOutUsers;
+
+    // กัน PersonalCode ซ้ำ (เช่น user เดียวกันมีมากกว่า 1 record ใน stored procedure)
+    // ไม่งั้น dropdown เลือก PM Code ฝั่ง frontend จะเห็นชื่อเดียวกันขึ้นซ้ำสองอัน
+    const seenPersonalCodes = new Set<string>();
+    const dedupedUsers = filterOutUsers.filter((user) => {
+      const code = user.PersonalCode?.toUpperCase();
+      if (!code || seenPersonalCodes.has(code)) return false;
+      seenPersonalCodes.add(code);
+      return true;
+    });
+
+    return dedupedUsers;
   }
 
   @Post('login')

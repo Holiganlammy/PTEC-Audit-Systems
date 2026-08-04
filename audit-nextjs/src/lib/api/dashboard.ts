@@ -42,6 +42,16 @@ export const dashboardApi = {
   },
 
   /**
+   * Fetch AA dashboard data
+   */
+  async getAADashboard() {
+    const response = await client.get(`/dashboard/aa`, {
+      headers: dataConfig().headers,
+    });
+    return response.data.data;
+  },
+
+  /**
    * Fetch User dashboard data
    */
   async getUserDashboard(userId: string, dateRange: string = "30") {

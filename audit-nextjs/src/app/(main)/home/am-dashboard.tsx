@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import { ActionItemsDialog } from "@/components/dashboard/action-items-dialog";
+import { PendingChecklistWidget } from "@/components/dashboard/pending-checklist-widget";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { AuditStatusChart } from "@/components/dashboard/audit-status-chart";
@@ -195,10 +196,11 @@ export function AMDashboard() {
           basePath="/areamanage/edit_document"
           formType="AM"
         />
+
       </div>
 
-      {/* สาขาที่มีปัญหา + Recent Activities */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* สาขาที่มีปัญหา + รอ Checklist + Recent Activities */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* สาขาที่มีปัญหา */}
         <Card>
           <CardHeader>
@@ -241,6 +243,13 @@ export function AMDashboard() {
             </div>
           </CardContent>
         </Card>
+
+        {/* รอ Checklist */}
+        <PendingChecklistWidget
+          jobs={dashboardData?.pendingChecklist || []}
+          basePath="/areamanage/edit_document"
+          formType="AM"
+        />
 
         {/* Recent Activities */}
         <RecentActivity
