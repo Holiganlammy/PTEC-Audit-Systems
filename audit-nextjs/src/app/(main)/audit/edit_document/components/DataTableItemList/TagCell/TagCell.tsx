@@ -95,6 +95,8 @@ export default function TagCell({
     ? users
         .filter(
           (u) =>
+            // ตัด user สาขา (UserCode ขึ้นต้นด้วย PTEC) ออกจาก tag ทั้งหมด
+            !u.UserCode.toUpperCase().startsWith("PTEC") &&
             !tags.some((t) => String(t.userId) === String(u.UserID)) &&
             (u.UserCode.toLowerCase().includes(search.toLowerCase()) ||
               u.Fullname.toLowerCase().includes(search.toLowerCase()))

@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Injectable } from '@nestjs/common';
 import { google } from 'googleapis';
+import { escapeHtml } from './html-escape.util';
 
 interface GoogleCredentials {
   installed: {
@@ -142,12 +143,18 @@ export class AuditCommentApprovalGmailApiService {
     AuditCommentMail?: boolean;
     formType?: string; // 'AM' | 'AA' | 'Audit'
   }) {
-    const approverName = params.approverFullname?.trim() || 'ผู้อนุมัติ';
-    const commenterName = params.commenterFullname?.trim() || 'ผู้ใช้งาน';
-    const commenterPosition = params.commenterPosition?.trim() || '';
-    const commentText = params.commentText?.trim() || '-';
+    const approverName = escapeHtml(
+      params.approverFullname?.trim() || 'ผู้อนุมัติ',
+    );
+    const commenterName = escapeHtml(
+      params.commenterFullname?.trim() || 'ผู้ใช้งาน',
+    );
+    const commenterPosition = escapeHtml(
+      params.commenterPosition?.trim() || '',
+    );
+    const commentText = escapeHtml(params.commentText?.trim() || '-');
     const jobNo = params.jobNo?.trim() || '-';
-    const categoryName = params.categoryName?.trim() || '-';
+    const categoryName = escapeHtml(params.categoryName?.trim() || '-');
     const itemId = params.itemId || 0;
     const formType = params.formType?.toUpperCase() || 'Audit';
     const formTypeLabel =
@@ -342,13 +349,17 @@ export class AuditCommentApprovalGmailApiService {
     formType?: string; // 'AM' | 'AA' | 'Audit' | 'Other'
   }) {
     const isApproved = params.resultStatus === 1;
-    const requesterName = params.requesterFullname?.trim() || 'ผู้ใช้งาน';
-    const approverName = params.approverFullname?.trim() || 'ผู้อนุมัติ';
-    const approverPosition = params.approverPosition?.trim() || '';
-    const commentText = params.commentText?.trim() || '-';
-    const approverNote = params.approverNote?.trim() || '';
+    const requesterName = escapeHtml(
+      params.requesterFullname?.trim() || 'ผู้ใช้งาน',
+    );
+    const approverName = escapeHtml(
+      params.approverFullname?.trim() || 'ผู้อนุมัติ',
+    );
+    const approverPosition = escapeHtml(params.approverPosition?.trim() || '');
+    const commentText = escapeHtml(params.commentText?.trim() || '-');
+    const approverNote = escapeHtml(params.approverNote?.trim() || '');
     const jobNo = params.jobNo?.trim() || '-';
-    const categoryName = params.categoryName?.trim() || '-';
+    const categoryName = escapeHtml(params.categoryName?.trim() || '-');
     const itemId = params.itemId || 0;
     const formType = params.formType?.toUpperCase() || 'AUDIT';
     const formTypeLabel =

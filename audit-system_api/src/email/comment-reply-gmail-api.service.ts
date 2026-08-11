@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Injectable } from '@nestjs/common';
 import { google } from 'googleapis';
+import { escapeHtml } from './html-escape.util';
 
 interface GoogleCredentials {
   installed: {
@@ -137,11 +138,17 @@ export class CommentReplyGmailApiService {
     auditItemUrl?: string;
     formType?: string; // 'AM' | 'AA' | 'Audit'
   }) {
-    const repliedToName = params.repliedToFullname?.trim() || 'ผู้ใช้งาน';
-    const replierName = params.replierFullname?.trim() || 'ผู้ใช้งานในระบบ';
-    const itemName = params.itemName?.trim() || 'รายการตรวจสอบ';
+    const repliedToName = escapeHtml(
+      params.repliedToFullname?.trim() || 'ผู้ใช้งาน',
+    );
+    const replierName = escapeHtml(
+      params.replierFullname?.trim() || 'ผู้ใช้งานในระบบ',
+    );
+    const itemName = escapeHtml(params.itemName?.trim() || 'รายการตรวจสอบ');
     const jobNo = params.jobNo?.trim() || '-';
-    const branchName = params.branchName?.trim() || '-';
+    const branchName = escapeHtml(params.branchName?.trim() || '-');
+    const originalCommentText = escapeHtml(params.originalCommentText);
+    const replyText = escapeHtml(params.replyText);
     const formType = params.formType?.toUpperCase() || 'Audit';
     const formTypeLabel =
       formType === 'AM'
@@ -224,11 +231,11 @@ export class CommentReplyGmailApiService {
                       </tr>
                       <tr>
                         <td style="padding: 8px 0; font-size: 14px; color: #6B7280; vertical-align: top;">ความคิดเห็นของคุณ:</td>
-                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280; font-style: italic;">${params.originalCommentText}</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #6B7280; font-style: italic;">${originalCommentText}</td>
                       </tr>
                       <tr>
                         <td style="padding: 8px 0; font-size: 14px; color: #6B7280; vertical-align: top;">ข้อความตอบกลับ:</td>
-                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${params.replyText}</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${replyText}</td>
                       </tr>
                     </table>
                   </td>

@@ -7,6 +7,7 @@ import { Injectable } from '@nestjs/common';
 import { google } from 'googleapis';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
+import { escapeHtml } from './html-escape.util';
 
 interface GoogleCredentials {
   installed: {
@@ -188,12 +189,14 @@ export class MentionEmailService {
     auditDate: string;
     formType?: string; // 'AM' | 'AA' | 'Audit'
   }) {
-    const recipientName = params.recipientFullname?.trim() || 'ผู้รับ';
-    const senderName = params.senderName?.trim() || 'ผู้ใช้งาน';
-    const commentText = params.commentText?.trim() || '-';
+    const recipientName = escapeHtml(
+      params.recipientFullname?.trim() || 'ผู้รับ',
+    );
+    const senderName = escapeHtml(params.senderName?.trim() || 'ผู้ใช้งาน');
+    const commentText = escapeHtml(params.commentText?.trim() || '-');
     const jobNo = params.jobNo?.trim() || '-';
-    const branchName = params.branchName?.trim() || '-';
-    const categoryName = params.categoryName?.trim() || '-';
+    const branchName = escapeHtml(params.branchName?.trim() || '-');
+    const categoryName = escapeHtml(params.categoryName?.trim() || '-');
     const formType = params.formType?.toUpperCase() || 'Audit';
 
     const threadTypeText = (() => {

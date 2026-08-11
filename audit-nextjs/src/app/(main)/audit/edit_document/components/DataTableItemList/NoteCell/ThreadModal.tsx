@@ -24,13 +24,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, CheckCircle2, XCircle, Clock, Trash2, Pencil, MoreHorizontal, Reply as ReplyIcon, X } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Send, Loader2, CheckCircle2, XCircle, Clock, Trash2, Pencil, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -243,7 +237,6 @@ function CommentItem({
   /** true = เป็น reply (avatar เล็กลง ตามสไตล์ Facebook) */
   isReply?: boolean;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -334,31 +327,8 @@ function CommentItem({
           </div>
 
           <div
-            className={`flex items-center gap-1 transition-opacity ${
-              menuOpen ? "opacity-100" : "opacity-0 group-hover/comment:opacity-100 focus-within:opacity-100"
-            }`}
+            className="flex items-center gap-1 transition-opacity opacity-0 group-hover/comment:opacity-100 focus-within:opacity-100"
           >
-            {onReply && (
-              <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                    aria-label="ตัวเลือกความเห็น"
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={onReply}>
-                    <ReplyIcon className="mr-2 h-4 w-4" />
-                    ตอบกลับ
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-
             {(canEdit || canDelete) && (
             <>
               {/* {canEdit && (
@@ -474,6 +444,17 @@ function CommentItem({
           <div className="rounded-2xl bg-muted/60 px-3 py-2 text-sm whitespace-pre-wrap break-words">
             {renderMentions(comment.text, users)}
           </div>
+        )}
+
+        {/* Reply link — สไตล์เดียวกับ Facebook เขียนไว้ใต้ comment เลย */}
+        {onReply && !isEditing && (
+          <button
+            type="button"
+            onClick={onReply}
+            className="mt-1 ml-1 text-xs font-semibold text-muted-foreground hover:text-foreground hover:underline"
+          >
+            ตอบกลับ
+          </button>
         )}
 
         {/* Status Card */}

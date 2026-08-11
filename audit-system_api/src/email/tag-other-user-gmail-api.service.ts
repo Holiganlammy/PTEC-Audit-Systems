@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Injectable } from '@nestjs/common';
 import { google } from 'googleapis';
+import { escapeHtml } from './html-escape.util';
 
 interface GoogleCredentials {
   installed: {
@@ -138,13 +139,17 @@ export class TagOtherUserGmailApiService {
     Branch_Name_User?: string;
     formType?: string; // 'AM' | 'AA' | 'Audit'
   }) {
-    const safeName = params.taggedUserFullname?.trim() || 'ผู้ใช้งาน';
-    const itemName = params.itemName?.trim() || 'รายการตรวจสอบ';
+    const safeName = escapeHtml(
+      params.taggedUserFullname?.trim() || 'ผู้ใช้งาน',
+    );
+    const itemName = escapeHtml(params.itemName?.trim() || 'รายการตรวจสอบ');
     const jobNo = params.jobNo?.trim() || '-';
-    const branchName = params.branchName?.trim() || '-';
-    const taggedBy = params.taggedByFullname?.trim() || 'ผู้ใช้งานในระบบ';
-    const AM_Name_user = params.AM_Name_user?.trim() || '-';
-    const Branch_Name_User = params.Branch_Name_User?.trim() || '-';
+    const branchName = escapeHtml(params.branchName?.trim() || '-');
+    const taggedBy = escapeHtml(
+      params.taggedByFullname?.trim() || 'ผู้ใช้งานในระบบ',
+    );
+    const AM_Name_user = escapeHtml(params.AM_Name_user?.trim() || '-');
+    const Branch_Name_User = escapeHtml(params.Branch_Name_User?.trim() || '-');
     const formType = params.formType?.toUpperCase() || 'Audit';
     const formTypeLabel =
       formType === 'AM'

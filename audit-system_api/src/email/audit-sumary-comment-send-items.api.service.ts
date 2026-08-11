@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
+import { escapeHtml } from './html-escape.util';
 
 interface CommentData {
   author: string;
@@ -128,14 +129,14 @@ export class AuditSummaryEmailService {
             (comment, index) => `
         <div style="background-color: ${index % 2 === 0 ? '#F0F9FF' : '#FFFFFF'}; padding: 16px; border-radius: 4px; margin-bottom: 12px; border-left: 3px solid #3B82F6;">
           <div style="margin-bottom: 8px;">
-            <span style="font-weight: 600; color: #1E293B; font-size: 14px;">${comment.author}</span>
-            <span style="color: #64748B; font-size: 12px; margin-left: 8px;">(${comment.authorUserCode})</span>
+            <span style="font-weight: 600; color: #1E293B; font-size: 14px;">${escapeHtml(comment.author)}</span>
+            <span style="color: #64748B; font-size: 12px; margin-left: 8px;">(${escapeHtml(comment.authorUserCode)})</span>
           </div>
-          
+
           <div style="font-size: 14px; color: #1E293B; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; margin-bottom: 8px;">
-${comment.text}
+${escapeHtml(comment.text)}
           </div>
-          
+
           <div style="font-size: 12px; color: #78716C;">
             ${format(new Date(comment.createdAt), 'd MMMM yyyy · HH:mm น.', { locale: th })}
           </div>
@@ -160,14 +161,14 @@ ${comment.text}
             (comment, index) => `
         <div style="background-color: ${index % 2 === 0 ? '#FAF5FF' : '#FFFFFF'}; padding: 16px; border-radius: 4px; margin-bottom: 12px; border-left: 3px solid #8B5CF6;">
           <div style="margin-bottom: 8px;">
-            <span style="font-weight: 600; color: #1E293B; font-size: 14px;">${comment.author}</span>
-            <span style="color: #64748B; font-size: 12px; margin-left: 8px;">(${comment.authorUserCode})</span>
+            <span style="font-weight: 600; color: #1E293B; font-size: 14px;">${escapeHtml(comment.author)}</span>
+            <span style="color: #64748B; font-size: 12px; margin-left: 8px;">(${escapeHtml(comment.authorUserCode)})</span>
           </div>
-          
+
           <div style="font-size: 14px; color: #1E293B; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; margin-bottom: 8px;">
-${comment.text}
+${escapeHtml(comment.text)}
           </div>
-          
+
           <div style="font-size: 12px; color: #78716C;">
             ${format(new Date(comment.createdAt), 'd MMMM yyyy · HH:mm น.', { locale: th })}
           </div>
