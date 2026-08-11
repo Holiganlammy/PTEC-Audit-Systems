@@ -471,8 +471,8 @@ export default function EditAuditJobPage() {
     useEffect(() => {
     const roleId = session?.user?.role_id;
  
-    // Role 1, 2 → เห็นไฟล์เสมอ
-    if (roleId === 1 || roleId === 2) {
+    // Role 1, 2, 9 (SSD: read-only ดูได้ทุกอย่าง) → เห็นไฟล์เสมอ
+    if (roleId === 1 || roleId === 2 || roleId === 9) {
       setCanViewFiles(true);
       return;
     }
