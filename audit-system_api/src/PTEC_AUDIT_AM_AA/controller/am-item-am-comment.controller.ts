@@ -21,6 +21,7 @@ import {
 import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec_useright.service';
 import { AuditCommentApprovalGmailApiService } from '../../email/audit-comment-approval-gmail-api.service';
 import { CommentReplyGmailApiService } from '../../email/comment-reply-gmail-api.service';
+import { isSelfReplyTestUser } from '../../email/self-reply-test-users';
 import { AMItemsService } from '../service/am-item.service';
 import { AMJobsService } from '../service/audit-job.service';
 
@@ -110,30 +111,36 @@ export class AMItemAMCommentsController {
             createDto.replyToId,
           );
 
-          if (parentComment && parentComment.userId !== createDto.userId) {
-            const repliedToData = await this.getUserData(parentComment.userId);
+          if (parentComment) {
+            const replierData = await this.getUserData(createDto.userId);
+            const isSelfReply = parentComment.userId === createDto.userId;
 
-            if (repliedToData?.email) {
-              const [replierData, item] = await Promise.all([
-                this.getUserData(createDto.userId),
-                this.auditItemsService.findOne(itemId),
-              ]);
-              const job = await this.auditJobsService.findOne(item.jobId);
+            if (!isSelfReply || isSelfReplyTestUser(replierData?.userCode)) {
+              const repliedToData = isSelfReply
+                ? replierData
+                : await this.getUserData(parentComment.userId);
 
-              await this.commentReplyGmailService.sendCommentReplyEmail({
-                to: repliedToData.email,
-                repliedToFullname: repliedToData.fullname,
-                replierFullname: replierData?.fullname,
-                originalCommentText: parentComment.note,
-                replyText: createDto.note,
-                itemId,
-                itemName: item.categoryItem?.categoryName,
-                jobNo: job.jobNo,
-                branchName: item.job?.branchName,
-                formType: 'AM',
-              });
+              if (repliedToData?.email) {
+                const item = await this.auditItemsService.findOne(itemId);
+                const job = await this.auditJobsService.findOne(item.jobId);
 
-              console.log(`✓ Comment reply email sent to ${repliedToData.email}`);
+                await this.commentReplyGmailService.sendCommentReplyEmail({
+                  to: repliedToData.email,
+                  repliedToFullname: repliedToData.fullname,
+                  replierFullname: replierData?.fullname,
+                  originalCommentText: parentComment.note,
+                  replyText: createDto.note,
+                  itemId,
+                  itemName: item.categoryItem?.categoryName,
+                  jobNo: job.jobNo,
+                  branchName: item.job?.branchName,
+                  formType: 'AM',
+                });
+
+                console.log(
+                  `✓ Comment reply email sent to ${repliedToData.email}`,
+                );
+              }
             }
           }
         } catch (replyEmailError) {

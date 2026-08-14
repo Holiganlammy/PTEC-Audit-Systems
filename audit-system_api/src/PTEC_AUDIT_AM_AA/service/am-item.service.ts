@@ -179,6 +179,7 @@ export class AMItemsService {
       where: { itemId: id },
       relations: [
         'job',
+        'aaJob',
         'categoryItem',
         'itemStatusRelation',
         'itemStatusEditRelation',
@@ -221,7 +222,10 @@ export class AMItemsService {
       query.where('item.jobId = :jobId', { jobId: filters?.jobId });
     } else if (isAA) {
       // AA job — แยก permission ตาม role
-      if (roleId === 3) {
+      if (roleId === 10) {
+        // Master Area: เห็นทุก item ของ AA job ได้ไม่จำกัด
+        query.where('item.jobId = :jobId', { jobId: filters?.jobId });
+      } else if (roleId === 3) {
         // AM: เห็น item ของ AA job ที่ตัวเองเป็น amManager หรือเป็นคนสร้าง
         query
           .innerJoin(jobAlias, 'job')

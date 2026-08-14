@@ -432,7 +432,7 @@ export default function CreateAMJobPage() {
                   >
                     <TabsList className="grid w-full grid-cols-2">
                       <TabsTrigger value="AM" disabled={![1, 3, 10].includes(Number(session?.user?.role_id ?? -1))}>AM Form</TabsTrigger>
-                      <TabsTrigger value="AA" disabled={![1, 8].includes(Number(session?.user?.role_id ?? -1))}>AA Form</TabsTrigger>
+                      <TabsTrigger value="AA" disabled={![1, 8, 10].includes(Number(session?.user?.role_id ?? -1))}>AA Form</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="AM" className="mt-4">

@@ -8,7 +8,7 @@ import { randomUUID } from "crypto";
 
 let isTokenExpired = false;
 
-const SESSION_MAX_AGE = 240; // 4 ชั่วโมง = 240 นาที
+const SESSION_MAX_AGE = 240 * 60; // 4 ชั่วโมง (วินาที)
 export const authOptions: AuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   providers: [
@@ -182,7 +182,7 @@ export const authOptions: AuthOptions = {
           user.depid = userData.depid;
           user.access_token = sessionToken;
           user.loginMethod = 'microsoft';
-          user.accessTokenExpires = Date.now() + (SESSION_MAX_AGE * 60 * 1000);
+          user.accessTokenExpires = Date.now() + (SESSION_MAX_AGE * 1000);
 
           isTokenExpired = false;
           return true;
@@ -210,7 +210,7 @@ export const authOptions: AuthOptions = {
         token.depid = user.depid;
         token.loginMethod = 'sso';
         token.role_name = user.role_name;
-        token.accessTokenExpires = Date.now() + 240 * 60 * 1000; // 4 hours
+        token.accessTokenExpires = Date.now() + SESSION_MAX_AGE * 1000;
         isTokenExpired = false;
       }
 
@@ -228,7 +228,7 @@ export const authOptions: AuthOptions = {
         token.depid = user.depid;
         token.loginMethod = user.loginMethod;
         token.role_name = user.role_name;
-        token.accessTokenExpires = Date.now() + 240 * 60 * 1000; // 4 ชั่วโมง
+        token.accessTokenExpires = Date.now() + SESSION_MAX_AGE * 1000;
       }
 
       if (token.accessTokenExpires && Date.now() > (token.accessTokenExpires as number)) {
@@ -342,7 +342,7 @@ export const authOptions: AuthOptions = {
 
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 60, // 30 minutes
+    maxAge: SESSION_MAX_AGE,
   },
 
   pages: {

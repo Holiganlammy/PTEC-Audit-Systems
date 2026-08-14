@@ -99,7 +99,8 @@ export default function LoginPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (status === "authenticated" && session) {
+    const isTokenExpired = (session as { error?: string } | null)?.error === "TokenExpired";
+    if (status === "authenticated" && session && !isTokenExpired) {
       window.location.href = redirectWithHash;
     }
   }, [status, session, redirectPath]);
@@ -288,7 +289,8 @@ export default function LoginPage() {
     }
   };
 
-  if (status === "loading" || status === "authenticated") {
+  const isTokenExpired = (session as { error?: string } | null)?.error === "TokenExpired";
+  if (status === "loading" || (status === "authenticated" && !isTokenExpired)) {
     return <PageLoading />;
   }
 

@@ -171,7 +171,7 @@ export class TagOtherUserGmailApiService {
     // Logo path
     const logoPath = path.resolve(process.cwd(), 'src/images/Header_Mail.png');
 
-    const subject = `คุณถูกแท็กในรายการเอกสาร ${formTypeLabel} JobNo #${params.jobNo}`;
+    const subject = `คุณถูกแท็กในรายการเอกสาร ${formTypeLabel} JobNo #${jobNo}`;
     const html = `
 <!DOCTYPE html>
 <html>

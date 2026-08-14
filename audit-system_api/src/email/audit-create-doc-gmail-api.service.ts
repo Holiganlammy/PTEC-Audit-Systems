@@ -198,7 +198,7 @@ export class AuditCreateDocGmailApiService {
     // Logo path
     const logoPath = path.resolve(process.cwd(), 'src/images/Header_Mail.png');
 
-    const subject = `เอกสาร ${formTypeLabel} ถูกสร้างใหม่: ${jobNo}`;
+    const subject = `เอกสาร ${formTypeLabel} ถูกสร้างใหม่: ${jobNo} - ${branchName}`;
 
     // รวม recipients ทั้งหมด
     const allRecipients = [
@@ -432,7 +432,7 @@ export class AuditCreateDocGmailApiService {
 
     const logoPath = path.resolve(process.cwd(), 'src/images/Header_Mail.png');
 
-    const subject = `สรุปผลการตรวจ ${formTypeLabel} สาขา ${branchName}: ${jobNo}`;
+    const subject = `สรุปผลการตรวจ ${formTypeLabel}: ${jobNo} - ${branchName}`;
 
     for (const recipientEmail of params.to) {
       const html = `
