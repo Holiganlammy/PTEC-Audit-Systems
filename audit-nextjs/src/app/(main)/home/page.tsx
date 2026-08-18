@@ -30,6 +30,21 @@ function AdminAuditDashboard() {
   );
 }
 
+// Master Area (10): เห็นได้ทั้ง AM และ AA — สลับดูผ่าน tab
+function MasterAreaDashboard() {
+  const [tab, setTab] = useState("am");
+  return (
+    <Tabs value={tab} onValueChange={setTab} className="w-full">
+      <TabsList>
+        <TabsTrigger value="am">AM</TabsTrigger>
+        <TabsTrigger value="aa">AA</TabsTrigger>
+      </TabsList>
+      <TabsContent value="am"><AMDashboard /></TabsContent>
+      <TabsContent value="aa"><AADashboard /></TabsContent>
+    </Tabs>
+  );
+}
+
 export default function HomePage() {
   const { data: session, status } = useSession();
 
@@ -49,8 +64,10 @@ export default function HomePage() {
   // Render dashboard based on role
   switch (roleId) {
     case 3: // AM
-    case 10: // Master AM — สูงกว่า AM ต่ำกว่า DM เห็น dashboard AM เหมือนกันแต่ข้อมูลไม่จำกัดสาขา
       return <AMDashboard />;
+
+    case 10: // Master Area — สูงกว่า AM ต่ำกว่า DM เห็นได้ทั้ง AM และ AA (สลับผ่าน tab) ข้อมูลไม่จำกัดสาขา
+      return <MasterAreaDashboard />;
 
     case 8: // AA
       return <AADashboard />;

@@ -15,7 +15,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 const PUBLIC_ROUTES = ['/login', '/forget-password', '/reset-password'];
-const HAD_SESSION_KEY = "audit_had_session";
+// เก็บ export ไว้ให้ logout() เคลียร์ flag นี้ตอนกด logout เอง — กัน dialog "เซสชันหมดอายุ" ขึ้นมาผิดๆ
+export const HAD_SESSION_KEY = "audit_had_session";
 
 interface CheckSessionProps {
   children: React.ReactNode;

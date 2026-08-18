@@ -688,6 +688,19 @@ export default function AuditJobsListPage() {
               {/* Row 2: Advanced Filters (Collapsible) */}
               {showAdvancedFilters && (
                 <div className="flex flex-col gap-3 p-3 rounded-lg border bg-muted/30 sm:flex-row sm:flex-wrap sm:items-end sm:p-4">
+                  {/* สถานะเอกสาร */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">สถานะเอกสาร</Label>
+                    <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}>
+                      <SelectTrigger className="w-full sm:w-[160px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">ทั้งหมด</SelectItem>
+                        <SelectItem value="1">กำลังดำเนินการ</SelectItem>
+                        <SelectItem value="2">ดำเนินการเสร็จสิ้น</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {/* Month — เลือกทั้งเดือนในคลิกเดียว (ตั้ง dateFrom/dateTo ให้อัตโนมัติ) */}
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">เดือน</Label>

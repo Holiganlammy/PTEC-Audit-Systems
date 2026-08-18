@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
+import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -34,7 +36,14 @@ interface Role {
   roleName: string;
 }
 
+// เข้าหน้านี้ได้เฉพาะ role Admin (1) และ Audit (2) เท่านั้น
+const ALLOWED_ROLES = [1, 2];
+
 export default function PermissionsPage() {
+  const { data: session, status } = useSession();
+  const roleId = Number(session?.user?.role_id);
+  const isAllowed = ALLOWED_ROLES.includes(roleId);
+
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -51,6 +60,7 @@ export default function PermissionsPage() {
 
   // Fetch roles for filter dropdown
   useEffect(() => {
+    if (!isAllowed) return;
     const fetchRoles = async () => {
       try {
         const response = await client.get("/audit-user-roles/roles", {
@@ -67,9 +77,10 @@ export default function PermissionsPage() {
       }
     };
     fetchRoles();
-  }, []);
+  }, [isAllowed]);
 
   const fetchUserRoles = useCallback(async () => {
+    if (!isAllowed) return;
     try {
       setIsLoading(true);
       const params: { page: number; limit: number; active: string; roleId?: string } = {
@@ -96,7 +107,7 @@ export default function PermissionsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, pageSize, roleFilter, activeFilter]);
+  }, [pageIndex, pageSize, roleFilter, activeFilter, isAllowed]);
 
   useEffect(() => {
     fetchUserRoles();
@@ -144,6 +155,14 @@ export default function PermissionsPage() {
   };
 
   const columns = createPermissionColumns(handleEdit, handleDelete, handleReactivate);
+
+  if (status === "loading") {
+    return null;
+  }
+
+  if (!isAllowed) {
+    redirect("/unauthorized");
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
