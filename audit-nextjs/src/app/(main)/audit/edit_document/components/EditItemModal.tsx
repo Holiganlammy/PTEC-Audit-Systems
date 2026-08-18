@@ -47,6 +47,7 @@ interface EditItemModalProps {
   onOpenChange: (open: boolean) => void;
   item: AuditItem | null;
   jobData?: AuditJobData;
+  hasBranchScore?: boolean;
   onItemUpdated: () => void;
 }
 
@@ -67,6 +68,7 @@ export default function EditItemModal({
   onOpenChange,
   item,
   jobData,
+  hasBranchScore = false,
   onItemUpdated,
 }: EditItemModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -130,6 +132,12 @@ export default function EditItemModal({
     if (values.itemStatusEdit === "4" && hasPendingApprovals) {
       toast.error("ไม่สามารถปิดเคสได้", {
         description: "ยังมีความเห็นที่รออนุมัติ — กรุณาอนุมัติให้ครบก่อน",
+      });
+      return;
+    }
+    if (values.itemStatusEdit === "4" && !hasBranchScore) {
+      toast.error("ไม่สามารถปิดเคสได้", {
+        description: "กรุณาให้คะแนนสาขา (branch score) ก่อนปิดเคส",
       });
       return;
     }
@@ -326,7 +334,7 @@ export default function EditItemModal({
                       <SelectItem
                         key={s.value}
                         value={s.value}
-                        disabled={s.value === "4" && hasPendingApprovals}
+                        disabled={s.value === "4" && (hasPendingApprovals || !hasBranchScore)}
                       >
                         {s.label}
                       </SelectItem>
@@ -336,6 +344,11 @@ export default function EditItemModal({
                 {hasPendingApprovals && (
                   <p className="text-xs text-amber-600 mt-1">
                     ยังมีความเห็นที่รออนุมัติ — ต้องอนุมัติให้ครบก่อนจึงจะสามารถปิดเคสได้
+                  </p>
+                )}
+                {!hasPendingApprovals && !hasBranchScore && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    ยังไม่ได้ให้คะแนนสาขา — ต้องให้คะแนน (branch score) ก่อนจึงจะสามารถปิดเคสได้
                   </p>
                 )}
                 {fieldState.error && (

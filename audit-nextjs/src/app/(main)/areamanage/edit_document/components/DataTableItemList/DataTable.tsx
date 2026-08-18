@@ -614,7 +614,7 @@ export default function DataTableItemList({
 
       {/* Modals */}
       <AddItemModal open={openAddModal} onOpenChange={setOpenAddModal} jobNo={jobNo} jobId={jobId} jobData={jobData || undefined} isDraftMode={isDraftMode} inspectionDate={inspectionDate} positionType={positionType} onDraftItemAdd={isDraftMode ? handleDraftItemAdd : undefined} onItemAdded={() => { setOpenAddModal(false); onItemsChange(); }} />
-      <EditItemModal open={openEditModal} onOpenChange={setOpenEditModal} item={selectedItem} jobData={jobData} onItemUpdated={() => { setOpenEditModal(false); onItemsChange(); }} />
+      <EditItemModal open={openEditModal} onOpenChange={setOpenEditModal} item={selectedItem} jobData={jobData} hasBranchScore={!!selectedItem && !!branchScoresMap[selectedItem.item_id]} onItemUpdated={() => { setOpenEditModal(false); onItemsChange(); }} />
       <AMChecklistModal open={openAMChecklistModal} onOpenChange={setOpenAMChecklistModal} item={selectedAMChecklistItem} onUpdated={() => { setOpenAMChecklistModal(false); onItemsChange(); }} />
       <ItemAttachmentModal open={openAttachmentModal} onOpenChange={setOpenAttachmentModal} item={selectedAttachmentItem} readOnly={selectedAttachmentItem?.item_status_edit === 4} onUpdated={() => { onItemsChange(); fetchAttachmentCounts().catch(() => {}); }} />
 

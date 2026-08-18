@@ -1,6 +1,7 @@
 // app/home/page.tsx
 "use client";
 
+import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { AMDashboard } from "./am-dashboard";
@@ -10,6 +11,24 @@ import { UserDashboard } from "./user-dashboard";
 // import { ManagerDashboard } from "./manager-dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ManagerDashboard } from "./manager-dashboard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+// Admin (1) / Audit (2): เห็น dashboard ได้ทั้ง Audit, AM, AA — สลับดูผ่าน tab
+function AdminAuditDashboard() {
+  const [tab, setTab] = useState("audit");
+  return (
+    <Tabs value={tab} onValueChange={setTab} className="w-full">
+      <TabsList>
+        <TabsTrigger value="audit">Audit</TabsTrigger>
+        <TabsTrigger value="am">AM</TabsTrigger>
+        <TabsTrigger value="aa">AA</TabsTrigger>
+      </TabsList>
+      <TabsContent value="audit"><AuditDashboard /></TabsContent>
+      <TabsContent value="am"><AMDashboard /></TabsContent>
+      <TabsContent value="aa"><AADashboard /></TabsContent>
+    </Tabs>
+  );
+}
 
 export default function HomePage() {
   const { data: session, status } = useSession();
@@ -36,17 +55,17 @@ export default function HomePage() {
     case 8: // AA
       return <AADashboard />;
 
-    case 2: // Audit
-      return <AuditDashboard />;
- 
+    case 2: // Audit — เห็นได้ทั้ง Audit, AM, AA (สลับผ่าน tab)
+      return <AdminAuditDashboard />;
+
     case 5: // User
       return <UserDashboard />;
- 
+
     case 4: // Manager (DM)
       return <ManagerDashboard />;
- 
-    case 1: // Admin - can see Audit dashboard
-      return <AuditDashboard />;
+
+    case 1: // Admin — เห็นได้ทั้ง Audit, AM, AA (สลับผ่าน tab)
+      return <AdminAuditDashboard />;
   }
 }
 

@@ -20,6 +20,7 @@ import {
     FieldLabel,
 } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn, getErrorMessage } from "@/lib/utils";
 import { toast } from "sonner";
 import { Save } from "lucide-react";
@@ -42,6 +43,7 @@ type BranchAddScoreProps = {
     onClose: () => void;
     itemId?: number;
     itemName?: string;
+    itemStatus?: number | null;
     initialScore?: -1 | 0 | 1 | null;
     initialNote?: string;
     onSubmit?: (payload: {
@@ -58,10 +60,24 @@ export default function BranchAddScore({
     onClose,
     itemId,
     itemName,
+    itemStatus,
     initialScore = null,
     initialNote = "",
     onSubmit,
 }: BranchAddScoreProps) {
+    // item_status: 1 = ปกติ → เลือกได้แค่ +1, 3 = ผิดปกติ → เลือกได้แค่ 0 กับ -1
+    const isNormal = itemStatus === 1;
+    const isAbnormal = itemStatus === 3;
+    const isScoreDisabled = (score: ScoreValue) => {
+        if (isNormal) return score !== 1;
+        if (isAbnormal) return score === 1;
+        return false;
+    };
+    const disabledReason = isNormal
+        ? "รายการนี้มีสถานะปกติ เลือกได้เฉพาะ +1 เท่านั้น"
+        : isAbnormal
+        ? "รายการนี้มีสถานะผิดปกติ เลือกได้เฉพาะ 0 หรือ -1 เท่านั้น"
+        : "";
     const form = useForm<FormValues>({
         resolver: zodResolver(FormSchema),
         mode: "onChange",
@@ -147,49 +163,53 @@ export default function BranchAddScore({
                                             className="gap-2"
                                             disabled={isSubmitting}
                                         >
-                                            <label
-                                                className={cn(
-                                                    "flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors",
-                                                    field.value === 1 && "border-ring bg-muted"
-                                                )}
-                                            >
-                                                <RadioGroupItem value="1" aria-invalid={!!form.formState.errors.score} />
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-medium">+1 (เพิ่มคะแนน)</span>
-                                                    <span className="text-xs text-muted-foreground">ผ่าน / เป็นไปตามข้อกำหนด</span>
-                                                </div>
-                                            </label>
-
-                                            <label
-                                                className={cn(
-                                                    "flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors",
-                                                    field.value === 0 && "border-ring bg-muted"
-                                                )}
-                                            >
-                                                <RadioGroupItem value="0" aria-invalid={!!form.formState.errors.score} />
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-medium">0 (ไม่คิดคะแนน)</span>
-                                                    <span className="text-xs text-muted-foreground">ไม่ผ่าน / ไม่เป็นไปตามข้อกำหนด</span>
-                                                </div>
-                                            </label>
-
-                                            <label
-                                                className={cn(
-                                                    "flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors",
-                                                    field.value === -1 && "border-ring bg-muted"
-                                                )}
-                                            >
-                                                <RadioGroupItem value="-1" aria-invalid={!!form.formState.errors.score} />
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-medium">-1 (หักคะแนน)</span>
-                                                    <span className="text-xs text-muted-foreground">มีผลกระทบ</span>
-                                                </div>
-                                            </label>
+                                            {[
+                                                { value: 1 as ScoreValue, title: "+1 (เพิ่มคะแนน)", desc: "ผ่าน / เป็นไปตามข้อกำหนด" },
+                                                { value: 0 as ScoreValue, title: "0 (ไม่คิดคะแนน)", desc: "ไม่ผ่าน / ไม่เป็นไปตามข้อกำหนด" },
+                                                { value: -1 as ScoreValue, title: "-1 (หักคะแนน)", desc: "มีผลกระทบ" },
+                                            ].map((opt) => {
+                                                const optDisabled = isScoreDisabled(opt.value);
+                                                const optionLabel = (
+                                                    <label
+                                                        key={opt.value}
+                                                        className={cn(
+                                                            "flex items-start gap-3 rounded-md border p-3 transition-colors",
+                                                            optDisabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
+                                                            field.value === opt.value && "border-ring bg-muted"
+                                                        )}
+                                                    >
+                                                        <RadioGroupItem
+                                                            value={String(opt.value)}
+                                                            disabled={optDisabled}
+                                                            aria-invalid={!!form.formState.errors.score}
+                                                        />
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-medium">{opt.title}</span>
+                                                            <span className="text-xs text-muted-foreground">{opt.desc}</span>
+                                                        </div>
+                                                    </label>
+                                                );
+                                                if (!optDisabled) return optionLabel;
+                                                return (
+                                                    <TooltipProvider key={opt.value} delayDuration={200}>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>{optionLabel}</TooltipTrigger>
+                                                            <TooltipContent>{disabledReason}</TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                );
+                                            })}
                                         </RadioGroup>
                                     )}
                                 />
 
-                                <FieldDescription>เลือกได้ 3 ค่า: -1, 0, 1</FieldDescription>
+                                <FieldDescription>
+                                    {isNormal
+                                        ? "สถานะปกติ — เลือกได้เฉพาะ +1"
+                                        : isAbnormal
+                                        ? "สถานะผิดปกติ — เลือกได้เฉพาะ 0 หรือ -1"
+                                        : "เลือกได้ 3 ค่า: -1, 0, 1"}
+                                </FieldDescription>
 
                                 <FieldError errors={[form.formState.errors.score]} />
                             </FieldContent>

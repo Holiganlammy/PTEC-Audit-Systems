@@ -44,9 +44,10 @@ export const dashboardApi = {
   /**
    * Fetch AA dashboard data
    */
-  async getAADashboard() {
+  async getAADashboard(dateRange: string = "30") {
     const response = await client.get(`/dashboard/aa`, {
       headers: dataConfig().headers,
+      params: { dateRange },
     });
     return response.data.data;
   },
@@ -103,6 +104,17 @@ export const dashboardApi = {
     return response.data.data;
   },
  
+  /**
+   * Fetch AA Chart Data
+   */
+  async getAAChart(dateRange: string = "7") {
+    const response = await client.get(`/dashboard/aa/chart`, {
+      headers: dataConfig().headers,
+      params: { dateRange },
+    });
+    return response.data.data;
+  },
+
   /**
    * Fetch Manager Chart Data
    */

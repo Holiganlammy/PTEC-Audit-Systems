@@ -24,6 +24,15 @@ export interface DashboardStats {
     overdueItems: number;
   };
 
+  // AA Stats
+  aa?: {
+    totalJobs: number;
+    activeJobs: number;
+    closedJobs: number;
+    pendingCloseCase: number;
+    overdueItems: number;
+  };
+
   // Audit Stats
   audit?: {
     totalJobs: number;

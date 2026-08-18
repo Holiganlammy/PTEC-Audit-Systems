@@ -103,6 +103,7 @@ export class DashboardController {
    */
   @Get('aa')
   async getAADashboard(
+    @Query('dateRange') dateRange = '30',
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<Response> {
@@ -118,6 +119,7 @@ export class DashboardController {
       const data = await this.dashboardService.getAADashboardData(
         userId,
         roleId,
+        parseInt(dateRange, 10),
       );
 
       return res.status(HttpStatus.OK).json({
@@ -276,6 +278,31 @@ export class DashboardController {
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: 'Failed to fetch AM chart data',
+        error: error.message,
+      });
+    }
+  }
+
+  @Get('aa/chart')
+  async getAAChartData(
+    @Query('dateRange') dateRange = '7',
+    @Res() res: Response,
+  ): Promise<Response> {
+    try {
+      const data = await this.dashboardService.getAAChartData(
+        parseInt(dateRange, 10),
+      );
+
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        data,
+      });
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('❌ Error fetching AA chart data:', error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Failed to fetch AA chart data',
         error: error.message,
       });
     }

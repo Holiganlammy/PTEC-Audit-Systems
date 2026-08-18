@@ -187,6 +187,7 @@ function BranchScoreCell({
         onClose={() => setOpen(false)}
         itemId={item.item_id}
         itemName={item.category_name}
+        itemStatus={item.item_status}
         initialScore={entry?.score ?? null}
         initialNote={entry?.note ?? ""}
         onSubmit={({ score, note }) => {

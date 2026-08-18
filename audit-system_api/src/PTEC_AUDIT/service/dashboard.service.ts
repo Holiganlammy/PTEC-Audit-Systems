@@ -15,6 +15,8 @@ import { AMItemAMComment } from '../../PTEC_AUDIT_AM_AA/domain/model/am-item-am-
 import { AMItemAMCheckerComment } from '../../PTEC_AUDIT_AM_AA/domain/model/am-item-am-checker-comment.entity';
 import { AMItemOtherComment } from '../../PTEC_AUDIT_AM_AA/domain/model/am-item-other-comment.entity';
 import { AMItemOtherCommentUsersTag } from '../../PTEC_AUDIT_AM_AA/domain/model/am-item-other-comment-users-tag.entity';
+import { AAJobHeader } from '../../PTEC_AUDIT_AM_AA/domain/model/aa.jobs-header.entity';
+import { AMItemAAComment } from '../../PTEC_AUDIT_AM_AA/domain/model/am-item-aa-comment.entity';
 import { AppService as UserRightService } from '../../PTEC_USERIGHT/service/ptec_useright.service';
 import {
   // AMChartData,
@@ -181,6 +183,12 @@ export class DashboardService {
     @InjectRepository(AMItemOtherCommentUsersTag)
     private readonly amTagRepo: Repository<AMItemOtherCommentUsersTag>,
 
+    @InjectRepository(AAJobHeader)
+    private readonly aaJobRepo: Repository<AAJobHeader>,
+
+    @InjectRepository(AMItemAAComment)
+    private readonly aaCommentRepo: Repository<AMItemAAComment>,
+
     private readonly userRightService: UserRightService,
   ) {}
 
@@ -278,15 +286,45 @@ export class DashboardService {
   /**
    *  Get AA Dashboard Data
    */
-  async getAADashboardData(userId: number, roleId?: number) {
+  async getAADashboardData(
+    userId: number,
+    roleId?: number,
+    dateRange: number = 30,
+  ) {
     // role 1,2,9 (Admin/Audit/SSD) เห็นได้ไม่จำกัด ส่วน AA (role 8) เห็นเฉพาะ job ของตัวเอง
     const isUnrestricted =
       roleId !== undefined && [1, 2, 9].includes(roleId);
     const scopeUserId = isUnrestricted ? null : userId;
 
+    const stats = await this.getAADocStats(dateRange, scopeUserId);
+    const recentActivities = await this.getAARecentActivities(
+      dateRange,
+      scopeUserId,
+    );
+    const branchIssues = await this.getAABranchIssues(dateRange, scopeUserId);
+
+    const notCheckedItems = await this.getAADocItemsByStatus(
+      dateRange,
+      'NOT_CHECKED',
+      scopeUserId,
+    );
+    const activeItems = await this.getActiveAAJobs(dateRange, scopeUserId);
+    const pendingCloseCaseItems = await this.getAADocItemsByStatus(
+      dateRange,
+      'PENDING_CLOSE_CASE',
+      scopeUserId,
+    );
+    const overdueItems = await this.getOverdueAAItems(scopeUserId);
     const pendingChecklist = await this.getAAPendingChecklist(scopeUserId);
 
     return {
+      stats: { aa: stats },
+      notCheckedItems,
+      activeItems,
+      pendingCloseCaseItems,
+      overdueItems,
+      recentActivities,
+      branchIssues,
       pendingChecklist,
     };
   }
@@ -332,6 +370,395 @@ export class DashboardService {
       pendingCount: parseInt(row.pendingCount, 10),
       totalCount: parseInt(row.totalCount, 10),
     }));
+  }
+
+  private async getAABranchIssues(
+    dateRange: number,
+    userId: number | null,
+  ): Promise<BranchIssue[]> {
+    const startDate = this.getStartDate(dateRange);
+    const isAA = "UPPER(ai.jobSource) = 'AA'";
+    const issueScoreCase = `CASE WHEN bs.score IN (0, -1) THEN ai.itemId END`;
+
+    const result = await this.amItemRepo
+      .createQueryBuilder('ai')
+      .select('aj.branchId', 'branchId')
+      .addSelect('aj.branchName', 'branchName')
+      .addSelect(`COUNT(DISTINCT ${issueScoreCase})`, 'issueCount')
+      .addSelect('COUNT(DISTINCT ai.itemId)', 'totalCount')
+      .innerJoin('ai.aaJob', 'aj')
+      .innerJoin('ai.branchAmScores', 'bs', 'bs.active = :bsActive', {
+        bsActive: true,
+      })
+      .where('bs.createdAt >= :startDate', { startDate })
+      .andWhere('ai.active = :active', { active: true })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere(isAA)
+      .andWhere('(:userId IS NULL OR aj.aaUserId = :userId OR aj.createdBy = :userId)', { userId })
+      .groupBy('aj.branchId')
+      .addGroupBy('aj.branchName')
+      .having(`COUNT(DISTINCT ${issueScoreCase}) > 0`)
+      .orderBy('issueCount', 'DESC')
+      .limit(5)
+      .getRawMany<BranchIssueResult>();
+
+    return result.map((row) => ({
+      branchId: row.branchId,
+      branchName: row.branchName,
+      issueCount: parseInt(row.issueCount, 10),
+      totalCount: parseInt(row.totalCount, 10),
+      failureRate: Math.round(
+        (parseInt(row.issueCount, 10) / parseInt(row.totalCount, 10)) * 100,
+      ),
+    }));
+  }
+
+  private async getAADocStats(
+    dateRange: number,
+    userId: number | null,
+  ): Promise<AuditStats> {
+    const startDate = this.getStartDate(dateRange);
+    const isAA = "UPPER(ai.jobSource) = 'AA'";
+    const scopeUser =
+      '(:userId IS NULL OR aj.aaUserId = :userId OR aj.createdBy = :userId)';
+
+    const result = await this.amItemRepo
+      .createQueryBuilder('ai')
+      .select([
+        'COUNT(CASE WHEN ai.itemStatusEdit = 4 THEN 1 END) AS closedJobs',
+        'COUNT(CASE WHEN ai.itemStatusEdit IS NULL OR ai.itemStatusEdit = 2 THEN 1 END) AS pendingCloseCase',
+      ])
+      .innerJoin('ai.aaJob', 'aj')
+      .where('ai.updatedAt >= :startDate', { startDate })
+      .andWhere('ai.active = :active', { active: true })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere(isAA)
+      .andWhere(scopeUser, { userId })
+      .getRawOne<AuditStatsResult>();
+
+    const jobResult = await this.aaJobRepo
+      .createQueryBuilder('aj')
+      .select([
+        'COUNT(*) AS totalJobs',
+        'COUNT(CASE WHEN aj.status IS NULL OR aj.status <> 2 THEN 1 END) AS activeJobs',
+      ])
+      .where('aj.updatedAt >= :startDate', { startDate })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere('(:userId IS NULL OR aj.aaUserId = :userId OR aj.createdBy = :userId)', { userId })
+      .getRawOne<{ totalJobs: string; activeJobs: string }>();
+
+    const overdueThreshold = new Date();
+    overdueThreshold.setDate(overdueThreshold.getDate() - 7);
+    const overdueItems = await this.amItemRepo
+      .createQueryBuilder('ai')
+      .innerJoin('ai.aaJob', 'aj')
+      .where('(ai.itemStatusEdit IS NULL OR ai.itemStatusEdit <> 4)')
+      .andWhere('ai.updatedAt <= :overdueThreshold', { overdueThreshold })
+      .andWhere('ai.active = :active', { active: true })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere(isAA)
+      .andWhere(scopeUser, { userId })
+      .getCount();
+
+    return {
+      totalJobs: parseInt(jobResult?.totalJobs || '0', 10),
+      activeJobs: parseInt(jobResult?.activeJobs || '0', 10),
+      closedJobs: parseInt(result?.closedJobs || '0', 10),
+      pendingCloseCase: parseInt(result?.pendingCloseCase || '0', 10),
+      overdueItems,
+    };
+  }
+
+  private async getAADocItemsByStatus(
+    dateRange: number,
+    statusType: 'NOT_CHECKED' | 'PENDING_CLOSE_CASE',
+    userId: number | null,
+  ): Promise<ItemList> {
+    const startDate = this.getStartDate(dateRange);
+    const isAA = "UPPER(ai.jobSource) = 'AA'";
+    let whereClause = '';
+
+    switch (statusType) {
+      case 'NOT_CHECKED':
+        whereClause =
+          '(ai.itemStatusEdit IS NULL OR ai.itemStatusEdit <> 4 OR ai.headerChecklistStatus IS NULL OR ai.headerChecklistStatus = 0)';
+        break;
+      case 'PENDING_CLOSE_CASE':
+        whereClause = '(ai.itemStatusEdit IS NULL OR ai.itemStatusEdit = 2)';
+        break;
+    }
+
+    const totalCount = await this.amItemRepo
+      .createQueryBuilder('ai')
+      .innerJoin('ai.aaJob', 'aj')
+      .where(whereClause)
+      .andWhere('ai.updatedAt >= :startDate', { startDate })
+      .andWhere('ai.active = :active', { active: true })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere(isAA)
+      .andWhere('(:userId IS NULL OR aj.aaUserId = :userId OR aj.createdBy = :userId)', { userId })
+      .getCount();
+
+    const items = await this.amItemRepo
+      .createQueryBuilder('ai')
+      .leftJoinAndSelect('ai.aaJob', 'aj')
+      .leftJoinAndSelect('ai.categoryItem', 'cat')
+      .where(whereClause)
+      .andWhere('ai.updatedAt >= :startDate', { startDate })
+      .andWhere('ai.active = :active', { active: true })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere(isAA)
+      .andWhere('(:userId IS NULL OR aj.aaUserId = :userId OR aj.createdBy = :userId)', { userId })
+      .orderBy('ai.updatedAt', 'DESC')
+      .take(50)
+      .getMany();
+
+    return {
+      items: items.map((item) => ({
+        id: item.itemId,
+        jobNo: item.aaJob?.jobNo || '',
+        branchName: item.aaJob?.branchName || '',
+        categoryName: item.categoryItem?.categoryName || '',
+        categoryCode: item.categoryItem?.categoryCode ?? null,
+        status: this.getAuditItemStatusText(
+          item.itemStatusEdit,
+          item.headerChecklistStatus,
+        ),
+        daysAgo: this.calculateDaysAgo(item.updatedAt),
+        statusColor: this.getAuditItemStatusColor(
+          item.itemStatusEdit,
+          item.headerChecklistStatus,
+        ),
+      })),
+      totalCount,
+    };
+  }
+
+  private async getActiveAAJobs(
+    dateRange: number,
+    userId: number | null,
+  ): Promise<ItemList> {
+    const startDate = this.getStartDate(dateRange);
+    const whereClause = '(aj.status IS NULL OR aj.status <> 2)';
+    const scopeUser =
+      '(:userId IS NULL OR aj.aaUserId = :userId OR aj.createdBy = :userId)';
+
+    const totalCount = await this.aaJobRepo
+      .createQueryBuilder('aj')
+      .where(whereClause)
+      .andWhere('aj.updatedAt >= :startDate', { startDate })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere(scopeUser, { userId })
+      .getCount();
+
+    const jobs = await this.aaJobRepo
+      .createQueryBuilder('aj')
+      .where(whereClause)
+      .andWhere('aj.updatedAt >= :startDate', { startDate })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere(scopeUser, { userId })
+      .orderBy('aj.updatedAt', 'DESC')
+      .take(50)
+      .getMany();
+
+    return {
+      items: jobs.map((job) => ({
+        id: job.jobId,
+        jobNo: job.jobNo || '',
+        branchName: job.branchName || '',
+        categoryName: null,
+        categoryCode: null,
+        status:
+          job.status === 2 ? 'ดำเนินการเสร็จสิ้น' : 'อยู่ระหว่างดำเนินการ',
+        daysAgo: this.calculateDaysAgo(job.updatedAt),
+        statusColor: job.status === 2 ? 'default' : 'secondary',
+      })),
+      totalCount,
+    };
+  }
+
+  private async getOverdueAAItems(userId: number | null): Promise<ItemList> {
+    const overdueThreshold = new Date();
+    overdueThreshold.setDate(overdueThreshold.getDate() - 7);
+    const isAA = "UPPER(ai.jobSource) = 'AA'";
+    const whereClause = '(ai.itemStatusEdit IS NULL OR ai.itemStatusEdit <> 4)';
+    const scopeUser =
+      '(:userId IS NULL OR aj.aaUserId = :userId OR aj.createdBy = :userId)';
+
+    const totalCount = await this.amItemRepo
+      .createQueryBuilder('ai')
+      .innerJoin('ai.aaJob', 'aj')
+      .where(whereClause)
+      .andWhere('ai.updatedAt <= :overdueThreshold', { overdueThreshold })
+      .andWhere('ai.active = :active', { active: true })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere(isAA)
+      .andWhere(scopeUser, { userId })
+      .getCount();
+
+    const items = await this.amItemRepo
+      .createQueryBuilder('ai')
+      .leftJoinAndSelect('ai.aaJob', 'aj')
+      .leftJoinAndSelect('ai.categoryItem', 'cat')
+      .where(whereClause)
+      .andWhere('ai.updatedAt <= :overdueThreshold', { overdueThreshold })
+      .andWhere('ai.active = :active', { active: true })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere(isAA)
+      .andWhere(scopeUser, { userId })
+      .orderBy('ai.updatedAt', 'ASC')
+      .take(50)
+      .getMany();
+
+    return {
+      items: items.map((item) => ({
+        id: item.itemId,
+        jobNo: item.aaJob?.jobNo || '',
+        branchName: item.aaJob?.branchName || '',
+        categoryName: item.categoryItem?.categoryName || '',
+        categoryCode: item.categoryItem?.categoryCode ?? null,
+        status: this.getAuditItemStatusText(
+          item.itemStatusEdit,
+          item.headerChecklistStatus,
+        ),
+        daysAgo: this.calculateDaysAgo(item.updatedAt),
+        statusColor: this.getAuditItemStatusColor(
+          item.itemStatusEdit,
+          item.headerChecklistStatus,
+        ),
+      })),
+      totalCount,
+    };
+  }
+
+  private async getAARecentActivities(
+    dateRange: number,
+    userId: number | null,
+  ): Promise<Activity[]> {
+    const startDate = this.getStartDate(dateRange);
+    const activities: Activity[] = [];
+    const scopeUser =
+      '(:userId IS NULL OR aj.aaUserId = :userId OR aj.createdBy = :userId)';
+
+    const [aaComments, otherComments, tagEvents, checklistUpdates] =
+      await Promise.all([
+        this.aaCommentRepo
+          .createQueryBuilder('c')
+          .leftJoinAndSelect('c.item', 'ai')
+          .leftJoinAndSelect('ai.aaJob', 'aj')
+          .where('c.createdAt >= :startDate', { startDate })
+          .andWhere('c.active = :active', { active: true })
+          .andWhere(scopeUser, { userId })
+          .orderBy('c.createdAt', 'DESC')
+          .take(5)
+          .getMany(),
+        this.amOtherCommentRepo
+          .createQueryBuilder('c')
+          .leftJoinAndSelect('c.item', 'ai')
+          .leftJoinAndSelect('ai.aaJob', 'aj')
+          .where('c.createdAt >= :startDate', { startDate })
+          .andWhere('c.active = :active', { active: true })
+          .andWhere(scopeUser, { userId })
+          .orderBy('c.createdAt', 'DESC')
+          .take(5)
+          .getMany(),
+        this.amTagRepo
+          .createQueryBuilder('t')
+          .leftJoinAndSelect('t.item', 'ai')
+          .leftJoinAndSelect('ai.aaJob', 'aj')
+          .where('t.createdAt >= :startDate', { startDate })
+          .andWhere('t.active = :active', { active: true })
+          .andWhere(scopeUser, { userId })
+          .orderBy('t.createdAt', 'DESC')
+          .take(5)
+          .getMany(),
+        this.amItemRepo
+          .createQueryBuilder('ai')
+          .leftJoinAndSelect('ai.aaJob', 'aj')
+          .where('ai.headerChecklistAt >= :startDate', { startDate })
+          .andWhere('ai.active = :active', { active: true })
+          .andWhere(scopeUser, { userId })
+          .orderBy('ai.headerChecklistAt', 'DESC')
+          .take(5)
+          .getMany(),
+      ]);
+
+    const uniqueUserIds = [
+      ...new Set(
+        [
+          ...aaComments.map((c) => c.userId),
+          ...otherComments.map((c) => c.userId),
+          ...tagEvents.map((t) => t.createdBy),
+          ...checklistUpdates.map((i) => i.headerChecklistBy),
+        ].filter((id): id is number => id !== null && id !== undefined),
+      ),
+    ];
+
+    const userDataList = await Promise.all(
+      uniqueUserIds.map((id) => this.getUserData(id)),
+    );
+    const userMap = new Map(
+      uniqueUserIds.map((id, idx) => [id, userDataList[idx]]),
+    );
+
+    aaComments.forEach((comment) => {
+      const userData = comment.userId ? userMap.get(comment.userId) : null;
+      activities.push({
+        id: `aa-${comment.aaDetailId}`,
+        user: userData?.userCode || 'Unknown',
+        userCode: userData?.userCode || '',
+        action: 'Comment ใน AA Unit',
+        jobNo: comment.item?.aaJob?.jobNo || '',
+        timestamp: new Date(comment.createdAt),
+        type: 'comment',
+      });
+    });
+
+    otherComments.forEach((comment) => {
+      const userData = comment.userId ? userMap.get(comment.userId) : null;
+      activities.push({
+        id: `aa-other-${comment.otherDetailId}`,
+        user: userData?.userCode || 'Unknown',
+        userCode: userData?.userCode || '',
+        action: 'Comment ใน หน่วยงานที่เกี่ยวข้อง',
+        jobNo: comment.item?.aaJob?.jobNo || '',
+        timestamp: new Date(comment.createdAt),
+        type: 'comment',
+      });
+    });
+
+    tagEvents.forEach((tag) => {
+      const userData = tag.createdBy ? userMap.get(tag.createdBy) : null;
+      activities.push({
+        id: `aa-tag-${tag.taggedUserId}`,
+        user: userData?.userCode || 'Unknown',
+        userCode: userData?.userCode || '',
+        action: 'แท็กผู้ใช้ในรายการ',
+        jobNo: tag.item?.aaJob?.jobNo || '',
+        timestamp: new Date(tag.createdAt),
+        type: 'create',
+      });
+    });
+
+    checklistUpdates.forEach((item) => {
+      if (!item.headerChecklistAt) return;
+      const userData = item.headerChecklistBy
+        ? userMap.get(item.headerChecklistBy)
+        : null;
+      activities.push({
+        id: `aa-checklist-${item.itemId}`,
+        user: userData?.userCode || 'Unknown',
+        userCode: userData?.userCode || '',
+        action: 'อัพเดท Checklist',
+        jobNo: item.aaJob?.jobNo || '',
+        timestamp: new Date(item.headerChecklistAt),
+        type: 'update',
+      });
+    });
+
+    return activities
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+      .slice(0, 8);
   }
 
   /**
@@ -1916,6 +2343,42 @@ export class DashboardService {
       .andWhere('aj.positionType IN (:...positionTypes)', {
         positionTypes: ['AM', 'AA'],
       })
+      .groupBy("FORMAT(ai.updatedAt, 'yyyy-MM-dd')")
+      .orderBy('date', 'ASC')
+      .getRawMany<{
+        date: string;
+        active: string;
+        closed: string;
+        waitingAM: string;
+      }>();
+
+    return result.map((row) => ({
+      date: row.date,
+      active: parseInt(row.active || '0', 10),
+      closed: parseInt(row.closed || '0', 10),
+      waitingAM: parseInt(row.waitingAM || '0', 10),
+    }));
+  }
+
+  async getAAChartData(dateRange: number): Promise<AuditChartData[]> {
+    const startDate = this.getStartDate(dateRange);
+    const isAA = "UPPER(ai.jobSource) = 'AA'";
+
+    const result = await this.amItemRepo
+      .createQueryBuilder('ai')
+      .select([
+        "FORMAT(ai.updatedAt, 'yyyy-MM-dd') as date",
+        'SUM(CASE WHEN ai.itemStatusEdit = 2 THEN 1 ELSE 0 END) as active',
+        'SUM(CASE WHEN ai.itemStatusEdit = 4 THEN 1 ELSE 0 END) as closed',
+        `SUM(CASE WHEN ai.itemStatusEdit = 4
+        AND (ai.headerChecklistStatus IS NULL OR ai.headerChecklistStatus IN (0, 1))
+        THEN 1 ELSE 0 END) as waitingAM`,
+      ])
+      .innerJoin('ai.aaJob', 'aj')
+      .where('ai.updatedAt >= :startDate', { startDate })
+      .andWhere('ai.active = :active', { active: true })
+      .andWhere('aj.active = :active', { active: true })
+      .andWhere(isAA)
       .groupBy("FORMAT(ai.updatedAt, 'yyyy-MM-dd')")
       .orderBy('date', 'ASC')
       .getRawMany<{
