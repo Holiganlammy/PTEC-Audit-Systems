@@ -139,13 +139,8 @@ export const authOptions: AuthOptions = {
           console.log('[Microsoft]  Login successful');
           console.log('[Microsoft] Email:', email);
 
-          // sessionToken is a small UUID stored in the cookie instead of the large Microsoft token
           const sessionToken = randomUUID();
-
-          // เรียก backend เพื่อเก็บ Microsoft token และดึงข้อมูล user
-          // ใช้ INTERNAL_API_URL เพราะ signIn callback รัน server-side (ใน Docker ต้องชี้ไป service name)
-          const apiUrl = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_URL;
-          const response = await fetch(`${apiUrl}/microsoft-session/save`, {
+          const response = await fetch(`${process.env.NEXT_SERVER_API_URL}/microsoft-session/save`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
