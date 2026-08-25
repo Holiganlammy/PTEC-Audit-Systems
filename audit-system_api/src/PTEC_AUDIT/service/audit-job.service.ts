@@ -406,8 +406,8 @@ export class AuditJobsService {
           .getQuery();
         return `EXISTS ${subQuery}`;
       });
-    } else if (roleId === 6) {
-      // Role 6 (Branch Manager): เห็นเฉพาะ job ที่ตัวเองเป็น branch_manager
+    } else if (roleId === 6 || roleId === 10) {
+      // Role 6 (Branch Manager) / Role 10 (Master AM): เห็นเฉพาะ job ที่ตัวเองเป็น branch_manager (สาขาที่รับผิดชอบ)
       query.andWhere('job.branchManagerUserId = :userId', { userId });
     } else {
       // ไม่ใช่ role ที่กำหนด → ไม่เห็นอะไร

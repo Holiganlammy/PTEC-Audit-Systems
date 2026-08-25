@@ -120,8 +120,8 @@ export class AuditItemsService {
             .getQuery();
           return `EXISTS ${subQuery}`;
         });
-      } else if (roleId === 6) {
-        // Role 6: เห็น item ของ job ที่เป็น branch_manager
+      } else if (roleId === 6 || roleId === 10) {
+        // Role 6 (Branch Manager) / Role 10 (Master AM): เห็น item ของ job ที่เป็น branch_manager (สาขาที่รับผิดชอบ)
         query.andWhere('job.branchManagerUserId = :userId', { userId });
       } else {
         // ไม่ใช่ role ที่กำหนด
@@ -202,8 +202,8 @@ export class AuditItemsService {
             .getQuery();
           return `EXISTS ${subQuery}`;
         });
-    } else if (roleId === 6) {
-      // เห็น item ถ้าเป็น branch_manager ของ job
+    } else if (roleId === 6 || roleId === 10) {
+      // Role 6 (Branch Manager) / Role 10 (Master AM): เห็น item ถ้าเป็น branch_manager ของ job (สาขาที่รับผิดชอบ)
       query
         .innerJoin('item.job', 'job')
         .where('item.jobId = :jobId', { jobId: filters?.jobId })
