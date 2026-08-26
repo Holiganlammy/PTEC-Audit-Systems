@@ -95,8 +95,9 @@ export class AuditItemsService {
       const roleId = user.role_id;
       const userId = user.user_id;
 
-      if (roleId === 1 || roleId === 2 || roleId === 9) {
+      if (roleId === 1 || roleId === 2 || roleId === 9 || roleId === 10) {
         // Role 1, 2: เห็นทุก item | Role 9 (SSD): read-only ดูได้ทุก item
+        // Role 10 (Master AM): เห็นทุก item แบบไม่จำกัด (แก้ไขได้เฉพาะ item ของ job ที่ตัวเองเป็น district_manager — คุมที่ NoteCell/canComment)
       } else if (roleId === 3) {
         // Role 3: เห็น item ของ job ที่เป็น district_manager
         query.andWhere('job.districtManagerUserId = :userId', { userId });
@@ -120,8 +121,8 @@ export class AuditItemsService {
             .getQuery();
           return `EXISTS ${subQuery}`;
         });
-      } else if (roleId === 6 || roleId === 10) {
-        // Role 6 (Branch Manager) / Role 10 (Master AM): เห็น item ของ job ที่เป็น branch_manager (สาขาที่รับผิดชอบ)
+      } else if (roleId === 6) {
+        // Role 6: เห็น item ของ job ที่เป็น branch_manager
         query.andWhere('job.branchManagerUserId = :userId', { userId });
       } else {
         // ไม่ใช่ role ที่กำหนด
@@ -175,8 +176,9 @@ export class AuditItemsService {
 
     // console.log('🔒 Filtering items:', { roleId, userId, filters });
 
-    if (roleId === 1 || roleId === 2 || roleId === 9) {
+    if (roleId === 1 || roleId === 2 || roleId === 9 || roleId === 10) {
       // เห็นทุก item | Role 9 (SSD): read-only ดูได้ทุก item
+      // Role 10 (Master AM): เห็นทุก item แบบไม่จำกัด (แก้ไขได้เฉพาะ job ที่ตัวเองเป็น district_manager — คุมที่ NoteCell/canComment)
       query.where('item.jobId = :jobId', { jobId: filters?.jobId });
     } else if (roleId === 3) {
       // เห็น item ถ้าเป็น district_manager ของ job
@@ -202,8 +204,8 @@ export class AuditItemsService {
             .getQuery();
           return `EXISTS ${subQuery}`;
         });
-    } else if (roleId === 6 || roleId === 10) {
-      // Role 6 (Branch Manager) / Role 10 (Master AM): เห็น item ถ้าเป็น branch_manager ของ job (สาขาที่รับผิดชอบ)
+    } else if (roleId === 6) {
+      // เห็น item ถ้าเป็น branch_manager ของ job
       query
         .innerJoin('item.job', 'job')
         .where('item.jobId = :jobId', { jobId: filters?.jobId })

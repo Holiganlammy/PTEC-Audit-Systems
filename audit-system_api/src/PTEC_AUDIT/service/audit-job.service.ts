@@ -379,8 +379,9 @@ export class AuditJobsService {
     const roleId = user.role_id;
     const userId = user.user_id;
 
-    if (roleId === 1 || roleId === 2 || roleId === 9) {
+    if (roleId === 1 || roleId === 2 || roleId === 9 || roleId === 10) {
       // Role 1, 2: เห็นทุก job | Role 9 (SSD): read-only ดูได้ทุก job
+      // Role 10 (Master AM): เห็นทุก job แบบไม่จำกัด (แก้ไขได้เฉพาะ job ที่ตัวเองเป็น district_manager เท่านั้น — คุมที่ item-level)
       // ไม่ต้อง filter
     } else if (roleId === 3) {
       // Role 3 (District Manager): เห็นเฉพาะ job ที่ตัวเองเป็น district_manager
@@ -406,8 +407,8 @@ export class AuditJobsService {
           .getQuery();
         return `EXISTS ${subQuery}`;
       });
-    } else if (roleId === 6 || roleId === 10) {
-      // Role 6 (Branch Manager) / Role 10 (Master AM): เห็นเฉพาะ job ที่ตัวเองเป็น branch_manager (สาขาที่รับผิดชอบ)
+    } else if (roleId === 6) {
+      // Role 6 (Branch Manager): เห็นเฉพาะ job ที่ตัวเองเป็น branch_manager
       query.andWhere('job.branchManagerUserId = :userId', { userId });
     } else {
       // ไม่ใช่ role ที่กำหนด → ไม่เห็นอะไร

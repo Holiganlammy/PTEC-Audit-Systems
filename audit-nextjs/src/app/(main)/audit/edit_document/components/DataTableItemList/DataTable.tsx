@@ -377,7 +377,7 @@ export default function DataTableItemList({
     const roleId = Number(session?.user?.role_id ?? -1);
     const userId = session?.user?.UserID;
     if (!userId) return { visibleItems: [], accessDenied: false };
-    const fullAccessRoles = [1, 2, 4, 9];
+    const fullAccessRoles = [1, 2, 4, 9, 10];
     if (fullAccessRoles.includes(roleId)) return { visibleItems: orderedItems, accessDenied: false };
     if (roleId === 3) {
       const isJobMember = userId == jobData?.districtManager?.userId;

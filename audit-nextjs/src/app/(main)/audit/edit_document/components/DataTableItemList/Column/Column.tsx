@@ -608,7 +608,7 @@ export const createAuditItemsColumns = (
       id: "note_2",
       header: "AM",
       cell: ({ row }) => (
-        <NoteCell itemId={row.original.item_id} threadType={2} label="AM Unit" initialComments={row.original.note_2} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 2} highlighted={(row.original.note_2 ?? []).some(c => c.approverStatus === 0)} />
+        <NoteCell itemId={row.original.item_id} threadType={2} label="AM Unit" initialComments={row.original.note_2} jobData={jobData} onRefresh={onRefresh} onTagChange={onTagChange} onCommentsChange={onCommentsChange} users={users} isLocked={effectiveLocked || row.original.item_status_edit === 4} autoOpen={highlightItemId === row.original.item_id && highlightThreadType === 2} highlighted={(row.original.note_2 ?? []).some(c => c.approverStatus === 0)} />
       ),
     },
     {
