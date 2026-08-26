@@ -265,7 +265,7 @@ export class AuditJobsService {
       //     groupEmails: [
       //       // 'npc@rpcthai.com',
       //       'ptaudit@rpcthai.com', // Group 1: PURE_GroupAM
-      //       'groupssd@rpcthai.com', // Group 2: PTEC-Dept-SSD
+      //       'groupccs@rpcthai.com', // Group 2: PTEC-Dept-SSD
       //     ],
       //     additionalRecipients: [
       //       'swp@rpcthai.com', // บุคคลเพิ่มเติม

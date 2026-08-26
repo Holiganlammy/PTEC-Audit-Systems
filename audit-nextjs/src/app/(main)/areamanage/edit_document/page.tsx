@@ -1041,7 +1041,7 @@ export default function EditAuditJobPage() {
       );
 
       const emailPayload = {
-        groupEmails: ['ptaudit@rpcthai.com', 'groupssd@rpcthai.com'],
+        groupEmails: ['ptaudit@rpcthai.com', 'groupccs@rpcthai.com'],
         additionalRecipients: ['swp@rpcthai.com'],
         jobNo: jobData.jobNo,
         jobId: jobData.jobId,

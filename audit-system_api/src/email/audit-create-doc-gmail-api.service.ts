@@ -139,7 +139,7 @@ export class AuditCreateDocGmailApiService {
    * @param params - ข้อมูลสำหรับส่งเมล
    */
   async sendAuditJobCreatedEmail(params: {
-    groupEmails: string[]; // ['ptaudit@rpcthai.com', 'groupssd@rpcthai.com']
+    groupEmails: string[]; // ['ptaudit@rpcthai.com', 'groupccs@rpcthai.com']
     additionalRecipients: string[]; // ['swp@rpcthai.com']
     jobNo: string;
     branchName: string;

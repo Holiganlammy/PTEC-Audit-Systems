@@ -11,7 +11,7 @@ export class SendAuditJobEmailDto {
 
   @IsOptional()
   @IsString({ each: true })
-  groupEmails!: string[]; // ['ptaudit@rpcthai.com', 'groupssd@rpcthai.com']
+  groupEmails!: string[]; // ['ptaudit@rpcthai.com', 'groupccs@rpcthai.com']
 
   @IsOptional()
   @IsString({ each: true })
