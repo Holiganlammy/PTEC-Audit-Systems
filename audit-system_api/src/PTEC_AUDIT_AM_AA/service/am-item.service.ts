@@ -460,10 +460,13 @@ export class AMItemsService {
   }
 
   // Soft delete
+  // ใช้ .update() แบบ partial แทน findOne + .save(entity) ทั้งก้อน — เพราะ entity มี relation
+  // job/aaJob ที่ join คอลัมน์จริง job_id ร่วมกัน (ดูคอมเมนต์ใน am-item.entity.ts) ถ้า save()
+  // ทั้ง entity ฝั่ง relation ที่ join ไม่เจอ (null) จะเขียนทับ job_id เป็น NULL แล้วชน
+  // NOT NULL constraint ทำให้ลบไม่ได้
   async remove(id: number): Promise<void> {
-    const AMItem = await this.findOne(id);
-    AMItem.active = false;
-    await this.AMItemsRepository.save(AMItem);
+    await this.findOne(id); // ตรวจสอบว่ามี item จริง (throw NotFoundException ถ้าไม่เจอ)
+    await this.AMItemsRepository.update(id, { active: false });
   }
 
   // Hard delete
@@ -474,11 +477,11 @@ export class AMItemsService {
     }
   }
 
-  // Update item status
+  // Update item status — partial update ด้วยเหตุผลเดียวกับ remove() ด้านบน
   async updateStatus(id: number, status: number): Promise<AMItem> {
-    const AMItem = await this.findOne(id);
-    AMItem.itemStatus = status;
-    return await this.AMItemsRepository.save(AMItem);
+    await this.findOne(id);
+    await this.AMItemsRepository.update(id, { itemStatus: status });
+    return await this.findOne(id);
   }
 
   // async updateBranchScore(id: number, score: number): Promise<AMItem> {

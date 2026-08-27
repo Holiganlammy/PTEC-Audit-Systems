@@ -84,6 +84,13 @@ export class AMItem {
   headerChecklistAt!: Date | null;
 
   // Relations
+  // ⚠️ job และ aaJob ใช้คอลัมน์จริง 'job_id' ร่วมกัน (item หนึ่งแถวเป็นได้แค่ของ AM หรือ AA
+  // อย่างใดอย่างหนึ่ง แยกด้วย job_source) — TypeORM ไม่รองรับ insert:false/update:false บน
+  // @JoinColumn/RelationOptions ของ ManyToOne เลยแก้ที่ entity ตรงๆ ไม่ได้ ต้องระวังฝั่ง service:
+  // ห้าม findOne(...) ที่ join ทั้ง job และ aaJob แล้ว .save() ทั้ง entity เด็ดขาด เพราะฝั่งที่
+  // join ไม่เจอ (เป็น null) จะไปเขียนทับ job_id เป็น NULL แทนค่าจริง (Cannot insert the value
+  // NULL into column 'job_id' ... UPDATE fails) — ให้ใช้ .update(id, { field }) แบบ partial
+  // update แทนเสมอสำหรับ field เดี่ยว ๆ (ดู remove()/updateStatus() ด้านล่าง)
   @ManyToOne(() => AMJobHeader, (job) => job.items)
   @JoinColumn({ name: 'job_id' })
   job!: AMJobHeader;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -91,6 +91,9 @@ export default function AddItemModal({
 }: AddItemModalProps) {
   const { data: session } = useSession();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // ref แยกไว้กันการ submit ซ้ำจากดับเบิลคลิก/enter รัว ๆ — state เพียงอย่างเดียวอัปเดตแบบ async
+  // เผื่อกด 2 ครั้งรวดในช่วงก่อน re-render เลยเช็คไม่ทัน ทำให้เพิ่มรายการซ้ำ (โดยเฉพาะโหมด draft ที่ไม่มี network call มาถ่วงเวลา)
+  const isSubmittingRef = useRef(false);
   const [categories, setCategories] = useState<AMCategory[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [openCombobox, setOpenCombobox] = useState(false);
@@ -133,10 +136,17 @@ export default function AddItemModal({
       });
       setCategorySearch("");
       setOpenCombobox(false);
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
     }
   }, [open, form, jobData, positionType]); 
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    // กันดับเบิลคลิก/enter รัว ๆ ยิง submit ซ้ำ — เช็คจาก ref (sync) ไม่ใช่ state (async)
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+
     // Draft mode: add items locally without API call
     if (isDraftMode && onDraftItemAdd) {
       const draftItems: DraftAddItem[] = values.categoryItemIds.map((categoryItemId) => {
@@ -156,11 +166,12 @@ export default function AddItemModal({
       onDraftItemAdd(draftItems);
       onOpenChange(false);
       toast.success(`เพิ่ม ${values.categoryItemIds.length} รายการสำเร็จ`);
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
       return;
     }
 
     try {
-      setIsSubmitting(true);
 
       const isAA = (positionType ?? jobData?.positionType) === "visit";
 
@@ -216,6 +227,7 @@ export default function AddItemModal({
         description: errorMessage || "กรุณาลองใหม่อีกครั้ง",
       });
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };

@@ -290,10 +290,17 @@ export class AMItemsController {
         message: `Audit item ${id} has been deactivated`,
       });
     } catch (error) {
-      console.error('Error removing audit item:', error);
+      console.error(`Error removing audit item ${id}:`, error);
+      if (error instanceof NotFoundException) {
+        return res.status(HttpStatus.NOT_FOUND).json({
+          success: false,
+          message: `ไม่พบรายการตรวจสอบ (itemId: ${id}) — อาจถูกลบไปแล้วหรือ id ไม่ถูกต้อง`,
+        });
+      }
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: 'Error removing audit item',
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
