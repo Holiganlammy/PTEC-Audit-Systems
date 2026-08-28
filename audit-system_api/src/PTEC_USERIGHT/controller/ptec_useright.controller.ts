@@ -211,7 +211,7 @@ export class AppController {
         message: message ?? 'Login failed',
       });
     } catch (error: unknown) {
-      // console.error('Login error:', error);
+      console.error('Login error:', error);
 
       if (error && typeof error === 'object' && 'isAxiosError' in error) {
         const axiosError = error as AxiosError<PortalLoginResponse>;
@@ -246,11 +246,19 @@ export class AppController {
             message: 'Request timeout',
           });
         }
+
+        // axios error อื่น ๆ ที่ไม่มี response กลับมา (เช่น ETIMEDOUT, ENOTFOUND, ECONNRESET)
+        // — บอก code จริงแทนข้อความ generic เดิม จะได้รู้ต้นตอ
+        return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+          success: false,
+          message: `Login failed: ${axiosError.code ?? axiosError.message ?? 'Unknown error'}`,
+        });
       }
 
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: 'Login failed',
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   }
