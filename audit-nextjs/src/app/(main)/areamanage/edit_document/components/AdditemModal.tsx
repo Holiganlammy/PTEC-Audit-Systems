@@ -116,7 +116,12 @@ export default function AddItemModal({
     const fetchCategories = async () => {
       try {
         setIsLoadingCategories(true);
-        const filtered = await amCategoriesApi.getForSelect("visit");
+        // แก้จาก hardcode "visit" (เป็นค่าของ Type การตรวจของโมดูล Audit ทั่วไป คนละความหมายกับ
+        // positionType ของโมดูล AM/AA) — ต้องใช้ positionType จริง (AM/AA) ไม่งั้น backend filter
+        // ด้วย cat.positionType = 'visit' ซึ่งไม่มีข้อมูลจริงตรงเงื่อนไขนี้เลย ทำให้ dropdown ว่างเปล่า
+        // เพิ่มรายการไม่ได้ทั้ง AM และ AA
+        const resolvedPositionType = positionType ?? jobData?.positionType;
+        const filtered = await amCategoriesApi.getForSelect(resolvedPositionType);
         setCategories(filtered);
       } catch (error) {
         console.error("Error fetching categories:", error);
