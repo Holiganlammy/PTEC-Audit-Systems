@@ -79,13 +79,19 @@ interface BranchIssue {
   issueCount: number;
   totalCount: number;
   failureRate: number;
+  rawRate: number; // % ที่นับจริงไม่ผ่าน shrinkage — ใช้เทียบกับ failureRate (ค่าปรับ) ตอน sample น้อย
+  isLowSample: boolean; // totalCount < เกณฑ์ขั้นต่ำ → failureRate เป็นค่าปรับ ไม่ใช่ % ที่นับได้ตรงๆ
+  items: ActionItem[]; // ตัวอย่างรายการที่ itemStatus=3 จริง ให้กดดูย้อนไปที่เอกสารได้
 }
 
 interface BranchRanking {
   branchId: number;
   branchName: string;
   score: number;
+  rawRate: number;
+  isLowSample: boolean;
   issueCount: number;
+  totalCount: number;
   rank: number;
 }
 
@@ -102,13 +108,6 @@ interface AuditStatsResult {
 
 interface CountResult {
   count: string;
-}
-
-interface BranchIssueResult {
-  branchId: number;
-  branchName: string;
-  issueCount: string;
-  totalCount: string;
 }
 
 interface PendingChecklistJob {
@@ -375,22 +374,23 @@ export class DashboardService {
   private async getAABranchIssues(
     dateRange: number,
     userId: number | null,
+    limit = 5,
   ): Promise<BranchIssue[]> {
     const startDate = this.getStartDate(dateRange);
     const isAA = "UPPER(ai.jobSource) = 'AA'";
-    const issueScoreCase = `CASE WHEN bs.score IN (0, -1) THEN ai.itemId END`;
 
+    // ความเสี่ยง = item ที่ itemStatus = 3 (ผิดปกติ) เทียบเป็น % จาก item ทั้งหมด (สูตรเดียวกับ Manager/Audit/AM)
+    // กรองด้วย aj.auditDate (วันที่ตรวจของใบงาน) ไม่ใช่ ai.updatedAt (วันที่แก้ item ล่าสุด)
+    // เพราะ item ที่ยังไม่มีใครแก้ไขหลังสร้าง (ปกติส่วนใหญ่ไม่ถูกแตะ) จะมี updatedAt เก่ากว่ารายการที่เพิ่งถูกมาร์คว่าผิดปกติ
+    // ถ้ากรองด้วย updatedAt จะทำให้ item ปกติหลุดตัวหารไปทั้งที่ยังอยู่ในใบงานเดียวกัน ทำให้ % เพี้ยนสูงเกินจริง
     const result = await this.amItemRepo
       .createQueryBuilder('ai')
       .select('aj.branchId', 'branchId')
       .addSelect('aj.branchName', 'branchName')
-      .addSelect(`COUNT(DISTINCT ${issueScoreCase})`, 'issueCount')
-      .addSelect('COUNT(DISTINCT ai.itemId)', 'totalCount')
+      .addSelect('COUNT(*) as totalCount')
+      .addSelect('COUNT(CASE WHEN ai.itemStatus = 3 THEN 1 END) as riskCount')
       .innerJoin('ai.aaJob', 'aj')
-      .innerJoin('ai.branchAmScores', 'bs', 'bs.active = :bsActive', {
-        bsActive: true,
-      })
-      .where('bs.createdAt >= :startDate', { startDate })
+      .where('aj.auditDate >= :startDate', { startDate })
       .andWhere('ai.active = :active', { active: true })
       .andWhere('aj.active = :active', { active: true })
       .andWhere(isAA)
@@ -400,19 +400,71 @@ export class DashboardService {
       )
       .groupBy('aj.branchId')
       .addGroupBy('aj.branchName')
-      .having(`COUNT(DISTINCT ${issueScoreCase}) > 0`)
-      .orderBy('issueCount', 'DESC')
-      .limit(5)
-      .getRawMany<BranchIssueResult>();
+      .getRawMany<{
+        branchId: number;
+        branchName: string;
+        totalCount: string;
+        riskCount: string;
+      }>();
 
-    return result.map((row) => ({
+    const rows = result.map((row) => ({
       branchId: row.branchId,
       branchName: row.branchName,
-      issueCount: parseInt(row.issueCount, 10),
-      totalCount: parseInt(row.totalCount, 10),
-      failureRate: Math.round(
-        (parseInt(row.issueCount, 10) / parseInt(row.totalCount, 10)) * 100,
-      ),
+      total: parseInt(row.totalCount, 10),
+      riskCount: parseInt(row.riskCount, 10),
+    }));
+
+    const ranked = this.rankBranchesByRisk(rows, limit);
+
+    // ดึงตัวอย่างรายการ "ผิดปกติ" แยกทีละสาขา กัน query รวมแล้วตัด take เดียวแย่ง slot กันข้ามสาขา
+    const itemsByBranch = new Map<number, ActionItem[]>();
+    await Promise.all(
+      ranked.map(async (row) => {
+        const riskItems = await this.amItemRepo
+          .createQueryBuilder('ai')
+          .leftJoinAndSelect('ai.aaJob', 'aj')
+          .leftJoinAndSelect('ai.categoryItem', 'cat')
+          .where('ai.itemStatus = :risk', { risk: 3 })
+          .andWhere('aj.auditDate >= :startDate', { startDate })
+          .andWhere('ai.active = :active', { active: true })
+          .andWhere('aj.active = :active', { active: true })
+          .andWhere(isAA)
+          .andWhere('aj.branchId = :branchId', { branchId: row.branchId })
+          .andWhere(
+            '(:userId IS NULL OR aj.aaUserId = :userId OR aj.createdBy = :userId)',
+            { userId },
+          )
+          .orderBy('ai.updatedAt', 'DESC')
+          .take(5)
+          .getMany();
+
+        itemsByBranch.set(
+          row.branchId,
+          riskItems
+            .filter((item) => item.aaJob)
+            .map((item) => ({
+              id: item.itemId,
+              jobNo: item.aaJob.jobNo || '',
+              branchName: item.aaJob.branchName || '',
+              categoryName: item.categoryItem?.categoryName || null,
+              categoryCode: item.categoryItem?.categoryCode ?? null,
+              status: 'ผิดปกติ',
+              daysAgo: this.calculateDaysAgo(item.updatedAt),
+              statusColor: 'destructive',
+            })),
+        );
+      }),
+    );
+
+    return ranked.map((row) => ({
+      branchId: row.branchId,
+      branchName: row.branchName,
+      issueCount: row.riskCount,
+      totalCount: row.total,
+      failureRate: row.riskPercent,
+      rawRate: row.rawPercent,
+      isLowSample: row.isLowSample,
+      items: itemsByBranch.get(row.branchId) ?? [],
     }));
   }
 
@@ -779,6 +831,7 @@ export class DashboardService {
   async getAuditDashboardData(userId: string, dateRange: number) {
     const stats = await this.getAuditStats(dateRange);
     const recentActivities = await this.getRecentActivities(dateRange);
+    const branchIssues = await this.getAuditBranchIssues(dateRange);
 
     const notCheckedItems = await this.getAuditItemsByStatus(
       dateRange,
@@ -799,6 +852,7 @@ export class DashboardService {
       pendingCloseCaseItems,
       overdueItems,
       recentActivities,
+      branchIssues,
       pendingChecklist,
     };
   }
@@ -834,6 +888,96 @@ export class DashboardService {
       branchName: row.branchName,
       pendingCount: parseInt(row.pendingCount, 10),
       totalCount: parseInt(row.totalCount, 10),
+    }));
+  }
+
+  /**
+   * สาขาเสี่ยงสุดฝั่ง Audit — item ที่ itemStatus = 3 (ผิดปกติ) เทียบเป็น %
+   * สูตรเดียวกับ Manager/AM/AA
+   */
+  private async getAuditBranchIssues(
+    dateRange: number,
+    limit = 5,
+  ): Promise<BranchIssue[]> {
+    const startDate = this.getStartDate(dateRange);
+
+    // กรองด้วย aj.auditDate (วันที่ตรวจของใบงาน) ไม่ใช่ ai.updatedAt (วันที่แก้ item ล่าสุด)
+    // เพราะ item ปกติที่ไม่มีใครแตะหลังสร้างจะมี updatedAt เก่ากว่ารายการที่เพิ่งถูกมาร์คว่าผิดปกติ —
+    // ถ้ากรองด้วย updatedAt รายการปกติจะหลุดตัวหารไปทั้งที่ยังอยู่ในใบงานเดียวกัน ทำให้ % เพี้ยนสูงเกินจริง
+    const result = await this.auditItemRepo
+      .createQueryBuilder('ai')
+      .select('aj.branchId', 'branchId')
+      .addSelect('aj.branchName', 'branchName')
+      .addSelect('COUNT(*) as totalCount')
+      .addSelect('COUNT(CASE WHEN ai.itemStatus = 3 THEN 1 END) as riskCount')
+      .innerJoin('ai.job', 'aj')
+      .where('aj.auditDate >= :startDate', { startDate })
+      .andWhere('ai.active = :active', { active: true })
+      .andWhere('aj.active = :active', { active: true })
+      .groupBy('aj.branchId')
+      .addGroupBy('aj.branchName')
+      .getRawMany<{
+        branchId: number;
+        branchName: string;
+        totalCount: string;
+        riskCount: string;
+      }>();
+
+    const rows = result.map((row) => ({
+      branchId: row.branchId,
+      branchName: row.branchName,
+      total: parseInt(row.totalCount, 10),
+      riskCount: parseInt(row.riskCount, 10),
+    }));
+
+    const ranked = this.rankBranchesByRisk(rows, limit);
+
+    // ดึงตัวอย่างรายการ "ผิดปกติ" แยกทีละสาขา (ไม่ query รวมกันแล้วตัด take เดียว)
+    // เพราะถ้า query รวมแล้วเรียง updatedAt ทั้งหมดก่อนตัด อาจมีสาขาที่กิจกรรมเก่ากว่าโดนสาขาอื่นแย่ง slot ไป
+    // ทำให้จำนวนรายการที่โชว์ใน modal น้อยกว่าที่นับจริงใน issueCount (บั๊กที่เจอจริง)
+    const itemsByBranch = new Map<number, ActionItem[]>();
+    await Promise.all(
+      ranked.map(async (row) => {
+        const riskItems = await this.auditItemRepo
+          .createQueryBuilder('ai')
+          .leftJoinAndSelect('ai.job', 'aj')
+          .leftJoinAndSelect('ai.categoryItem', 'cat')
+          .where('ai.itemStatus = :risk', { risk: 3 })
+          .andWhere('aj.auditDate >= :startDate', { startDate })
+          .andWhere('ai.active = :active', { active: true })
+          .andWhere('aj.active = :active', { active: true })
+          .andWhere('aj.branchId = :branchId', { branchId: row.branchId })
+          .orderBy('ai.updatedAt', 'DESC')
+          .take(5)
+          .getMany();
+
+        itemsByBranch.set(
+          row.branchId,
+          riskItems
+            .filter((item) => item.job)
+            .map((item) => ({
+              id: item.itemId,
+              jobNo: item.job.jobNo || '',
+              branchName: item.job.branchName || '',
+              categoryName: item.categoryItem?.categoryName || null,
+              categoryCode: item.categoryItem?.categoryCode ?? null,
+              status: 'ผิดปกติ',
+              daysAgo: this.calculateDaysAgo(item.updatedAt),
+              statusColor: 'destructive',
+            })),
+        );
+      }),
+    );
+
+    return ranked.map((row) => ({
+      branchId: row.branchId,
+      branchName: row.branchName,
+      issueCount: row.riskCount,
+      totalCount: row.total,
+      failureRate: row.riskPercent,
+      rawRate: row.rawPercent,
+      isLowSample: row.isLowSample,
+      items: itemsByBranch.get(row.branchId) ?? [],
     }));
   }
 
@@ -890,6 +1034,32 @@ export class DashboardService {
     };
   }
 
+  /**
+   * การ์ด "สาขาความเสี่ยงสูงสุด" มีตัวกรองช่วงวันที่เป็นของตัวเอง แยกจาก KPI card อื่นๆ ในหน้าเดียวกัน
+   * ใช้สูตรเดียวกับ dashboard หลัก แต่ดึง Top 10 เสมอ
+   */
+  async getBranchRiskRanking(
+    moduleType: 'audit' | 'am' | 'aa',
+    dateRange: number,
+    userId: number | null,
+    roleId?: number,
+  ): Promise<BranchIssue[]> {
+    const isUnrestricted =
+      roleId !== undefined && [1, 2, 9, 10].includes(roleId);
+    const scopeUserId = isUnrestricted ? null : userId;
+    const limit = 10;
+
+    switch (moduleType) {
+      case 'am':
+        return this.getAMBranchIssues(dateRange, scopeUserId, limit);
+      case 'aa':
+        return this.getAABranchIssues(dateRange, scopeUserId, limit);
+      case 'audit':
+      default:
+        return this.getAuditBranchIssues(dateRange, limit);
+    }
+  }
+
   // ==========================================
   // AM Stats & Items
   // ==========================================
@@ -897,52 +1067,99 @@ export class DashboardService {
   private async getAMBranchIssues(
     dateRange: number,
     userId: number | null,
+    limit = 5,
   ): Promise<BranchIssue[]> {
     const startDate = this.getStartDate(dateRange);
 
-    // ใช้ Branch_Am_Scores (คะแนนที่ให้ครั้งแรกตอนตรวจ) แทน headerChecklistStatus
-    // เพราะแม้ภายหลังจะมีการแก้ไข checklist status คะแนนแรกที่เจอปัญหาก็ยังคงสำคัญ
-    // ใช้ LEFT JOIN + COUNT(DISTINCT ... CASE) แทน COUNT(CASE WHEN EXISTS(...))
-    // เพราะ SQL Server ไม่อนุญาตให้ aggregate ครอบ subquery ซ้อนกันแบบนั้น (error 130)
-    // กรองช่วงวันที่ด้วย "วันที่ให้คะแนน" (bs.createdAt) ไม่ใช่ ai.updatedAt
-    // เพราะ item ที่ให้คะแนนแล้วไม่มีใครแก้ไขต่อจะหลุดจากตัวหารถ้าใช้ updatedAt
-    const issueScoreCase = `CASE WHEN bs.score IN (0, -1) THEN ai.itemId END`;
+    // ความเสี่ยง = item ที่ itemStatus = 3 (ผิดปกติ) เทียบเป็น % จาก item ทั้งหมด (สูตรเดียวกับ Manager/Audit/AA)
+    // กรอง jobSource กัน item ฝั่ง AA หลุดมานับปนกับ AM เพราะ job_id ชนกันได้ (เหมือน getAMPendingChecklist)
+    const notAA = "(ai.jobSource IS NULL OR UPPER(ai.jobSource) <> 'AA')";
 
+    // กรองด้วย aj.auditDate (วันที่ตรวจของใบงาน) ไม่ใช่ ai.updatedAt (วันที่แก้ item ล่าสุด)
+    // เพราะ item ปกติที่ไม่มีใครแตะหลังสร้างจะมี updatedAt เก่ากว่ารายการที่เพิ่งถูกมาร์คว่าผิดปกติ —
+    // ถ้ากรองด้วย updatedAt รายการปกติจะหลุดตัวหารไปทั้งที่ยังอยู่ในใบงานเดียวกัน ทำให้ % เพี้ยนสูงเกินจริง
     const result = await this.amItemRepo
       .createQueryBuilder('ai')
       .select('aj.branchId', 'branchId')
       .addSelect('aj.branchName', 'branchName')
-      .addSelect(`COUNT(DISTINCT ${issueScoreCase})`, 'issueCount')
-      .addSelect('COUNT(DISTINCT ai.itemId)', 'totalCount')
+      .addSelect('COUNT(*) as totalCount')
+      .addSelect('COUNT(CASE WHEN ai.itemStatus = 3 THEN 1 END) as riskCount')
       .innerJoin('ai.job', 'aj')
-      .innerJoin('ai.branchAmScores', 'bs', 'bs.active = :bsActive', {
-        bsActive: true,
-      })
-      .where('bs.createdAt >= :startDate', { startDate })
+      .where('aj.auditDate >= :startDate', { startDate })
       .andWhere('ai.active = :active', { active: true })
       .andWhere('aj.active = :active', { active: true })
-      .andWhere('aj.positionType IN (:...positionTypes)', {
-        positionTypes: ['AM', 'AA'],
-      })
+      .andWhere(notAA)
       .andWhere(
         '(:userId IS NULL OR aj.amUserId = :userId OR aj.createdBy = :userId)',
         { userId },
       )
       .groupBy('aj.branchId')
       .addGroupBy('aj.branchName')
-      .having(`COUNT(DISTINCT ${issueScoreCase}) > 0`)
-      .orderBy('issueCount', 'DESC')
-      .limit(5)
-      .getRawMany<BranchIssueResult>();
+      .getRawMany<{
+        branchId: number;
+        branchName: string;
+        totalCount: string;
+        riskCount: string;
+      }>();
 
-    return result.map((row) => ({
+    const rows = result.map((row) => ({
       branchId: row.branchId,
       branchName: row.branchName,
-      issueCount: parseInt(row.issueCount, 10),
-      totalCount: parseInt(row.totalCount, 10),
-      failureRate: Math.round(
-        (parseInt(row.issueCount, 10) / parseInt(row.totalCount, 10)) * 100,
-      ),
+      total: parseInt(row.totalCount, 10),
+      riskCount: parseInt(row.riskCount, 10),
+    }));
+
+    const ranked = this.rankBranchesByRisk(rows, limit);
+
+    // ดึงตัวอย่างรายการ "ผิดปกติ" แยกทีละสาขา กัน query รวมแล้วตัด take เดียวแย่ง slot กันข้ามสาขา
+    const itemsByBranch = new Map<number, ActionItem[]>();
+    await Promise.all(
+      ranked.map(async (row) => {
+        const riskItems = await this.amItemRepo
+          .createQueryBuilder('ai')
+          .leftJoinAndSelect('ai.job', 'aj')
+          .leftJoinAndSelect('ai.categoryItem', 'cat')
+          .where('ai.itemStatus = :risk', { risk: 3 })
+          .andWhere('aj.auditDate >= :startDate', { startDate })
+          .andWhere('ai.active = :active', { active: true })
+          .andWhere('aj.active = :active', { active: true })
+          .andWhere(notAA)
+          .andWhere('aj.branchId = :branchId', { branchId: row.branchId })
+          .andWhere(
+            '(:userId IS NULL OR aj.amUserId = :userId OR aj.createdBy = :userId)',
+            { userId },
+          )
+          .orderBy('ai.updatedAt', 'DESC')
+          .take(5)
+          .getMany();
+
+        itemsByBranch.set(
+          row.branchId,
+          riskItems
+            .filter((item) => item.job)
+            .map((item) => ({
+              id: item.itemId,
+              jobNo: item.job.jobNo || '',
+              branchName: item.job.branchName || '',
+              categoryName: item.categoryItem?.categoryName || null,
+              categoryCode: item.categoryItem?.categoryCode ?? null,
+              status: 'ผิดปกติ',
+              daysAgo: this.calculateDaysAgo(item.updatedAt),
+              statusColor: 'destructive',
+            })),
+        );
+      }),
+    );
+
+    return ranked.map((row) => ({
+      branchId: row.branchId,
+      branchName: row.branchName,
+      issueCount: row.riskCount,
+      totalCount: row.total,
+      failureRate: row.riskPercent,
+      rawRate: row.rawPercent,
+      isLowSample: row.isLowSample,
+      items: itemsByBranch.get(row.branchId) ?? [],
     }));
   }
 
@@ -1830,46 +2047,49 @@ export class DashboardService {
   ): Promise<BranchRanking[]> {
     const startDate = this.getStartDate(dateRange);
 
+    // ความเสี่ยง = item ที่ itemStatus = 3 (ผิดปกติ) เทียบเป็น % จาก item ทั้งหมด
+    // ใช้ Bayesian shrinkage ดึงสาขาที่ตรวจน้อยเข้าหาค่าเฉลี่ยรวมของบริษัท (RISK_SHRINKAGE_K)
+    // กัน false-positive จากสาขาที่มีตัวอย่างน้อย (เช่น ตรวจ 3 รายการ พลาด 2 = 67% ทั้งที่ข้อมูลน้อยเกินจะสรุป)
+    // กรองด้วย aj.auditDate (วันที่ตรวจของใบงาน) ไม่ใช่ ai.updatedAt (วันที่แก้ item ล่าสุด) —
+    // ไม่งั้น item ปกติที่ไม่มีใครแตะหลังสร้างจะหลุดตัวหารไปทั้งที่ยังอยู่ในใบงานเดียวกัน ทำให้ % เพี้ยนสูงเกินจริง
     const result = await this.auditItemRepo
       .createQueryBuilder('ai')
       .select([
         'aj.branchId as branchId',
         'aj.branchName as branchName',
         'COUNT(*) as totalCount',
-        'COUNT(CASE WHEN ai.amChecklistStatus = 2 THEN 1 END) as passedCount',
-        'COUNT(CASE WHEN ai.amChecklistStatus IN (3, 4) THEN 1 END) as issueCount',
+        'COUNT(CASE WHEN ai.itemStatus = 3 THEN 1 END) as riskCount',
       ])
       .innerJoin('ai.job', 'aj')
-      .where('ai.updatedAt >= :startDate', { startDate })
+      .where('aj.auditDate >= :startDate', { startDate })
       .andWhere('ai.active = :active', { active: true })
       .andWhere('aj.active = :active', { active: true })
-      .andWhere('ai.amChecklistStatus IS NOT NULL')
       .groupBy('aj.branchId')
       .addGroupBy('aj.branchName')
-      .orderBy('passedCount', 'DESC')
-      .addOrderBy('totalCount', 'DESC')
-      .limit(10)
       .getRawMany<{
         branchId: number;
         branchName: string;
         totalCount: string;
-        passedCount: string;
-        issueCount: string;
+        riskCount: string;
       }>();
 
-    return result.map((row, index) => {
-      const total = parseInt(row.totalCount, 10);
-      const passed = parseInt(row.passedCount, 10);
-      const score = total > 0 ? Math.round((passed / total) * 100) : 0;
+    const rows = result.map((row) => ({
+      branchId: row.branchId,
+      branchName: row.branchName,
+      total: parseInt(row.totalCount, 10),
+      riskCount: parseInt(row.riskCount, 10),
+    }));
 
-      return {
-        branchId: row.branchId,
-        branchName: row.branchName,
-        score,
-        issueCount: parseInt(row.issueCount, 10),
-        rank: index + 1,
-      };
-    });
+    return this.rankBranchesByRisk(rows, 10).map((row, index) => ({
+      branchId: row.branchId,
+      branchName: row.branchName,
+      score: row.riskPercent,
+      rawRate: row.rawPercent,
+      isLowSample: row.isLowSample,
+      issueCount: row.riskCount,
+      totalCount: row.total,
+      rank: index + 1,
+    }));
   }
 
   // ==========================================
@@ -2502,6 +2722,52 @@ export class DashboardService {
     const date = new Date();
     date.setDate(date.getDate() - dateRange);
     return date;
+  }
+
+  // น้ำหนักเสมือน "ของกลาง" ที่ถ่วงเข้าไปทุกสาขา (Bayesian shrinkage)
+  // กัน false-positive จากสาขาที่มีตัวอย่างน้อย (เช่น ตรวจ 3 รายการ พลาด 2 = 67% ทั้งที่ข้อมูลน้อยเกินจะสรุป)
+  private readonly RISK_SHRINKAGE_K = 10;
+
+  // สาขาที่ตรวจน้อยกว่านี้ถือว่า "ข้อมูลยังน้อย" — % ที่โชว์เป็นค่าปรับ (shrunk) ไม่ใช่ค่านับจริง
+  // ต้องบอก frontend ให้ทำเครื่องหมายกำกับ ป้องกันความสับสนเวลา % สูง/ต่ำผิดจากจำนวนรายการที่เห็น
+  private readonly LOW_SAMPLE_THRESHOLD = 5;
+
+  /**
+   * สูตรความเสี่ยงกลาง ใช้ร่วมกันทุก dashboard (Manager/Audit/AM/AA):
+   * risk% = item ที่ itemStatus=3 (ผิดปกติ) ÷ item ทั้งหมด ถ่วงเข้าหาค่าเฉลี่ยรวม
+   * เรียง: risk% มาก่อน → เท่ากันดูจำนวนผิดจริง → เท่ากันดูจำนวนตรวจทั้งหมด → เท่ากันดูชื่อสาขา
+   */
+  private rankBranchesByRisk<
+    T extends { branchId: number; branchName: string; total: number; riskCount: number },
+  >(
+    rows: T[],
+    limit: number,
+  ): (T & { riskPercent: number; rawPercent: number; isLowSample: boolean })[] {
+    const companyTotal = rows.reduce((sum, r) => sum + r.total, 0);
+    const companyRisk = rows.reduce((sum, r) => sum + r.riskCount, 0);
+    const companyAvgRisk = companyTotal > 0 ? companyRisk / companyTotal : 0;
+    const k = this.RISK_SHRINKAGE_K;
+
+    return rows
+      .map((row) => {
+        const adjustedRisk =
+          (row.riskCount + k * companyAvgRisk) / (row.total + k);
+        const rawPercent =
+          row.total > 0 ? Math.round((row.riskCount / row.total) * 100) : 0;
+        return {
+          ...row,
+          riskPercent: Math.round(adjustedRisk * 100),
+          rawPercent,
+          isLowSample: row.total < this.LOW_SAMPLE_THRESHOLD,
+        };
+      })
+      .sort((a, b) => {
+        if (b.riskPercent !== a.riskPercent) return b.riskPercent - a.riskPercent;
+        if (b.riskCount !== a.riskCount) return b.riskCount - a.riskCount;
+        if (b.total !== a.total) return b.total - a.total;
+        return a.branchName.localeCompare(b.branchName);
+      })
+      .slice(0, limit);
   }
 
   private calculateDaysAgo(date: Date): number {

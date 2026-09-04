@@ -7,7 +7,6 @@ import {
   TrendingUp,
   TrendingDown,
   BarChart3,
-  Trophy,
   AlertTriangle,
   CheckCircle2,
 } from "lucide-react";
@@ -33,6 +32,7 @@ interface BranchRanking {
   branchName: string;
   score: number;
   issueCount: number;
+  totalCount: number;
   rank: number;
 }
 
@@ -213,9 +213,9 @@ export function ManagerDashboard() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-yellow-600" />
+              <AlertTriangle className="h-4 w-4 text-red-600" />
               <CardTitle className="text-base font-semibold">
-                อันดับสาขา (Top 10)
+                อันดับสาขาความเสี่ยงสูงสุด (Top 10)
               </CardTitle>
             </div>
           </CardHeader>
@@ -234,12 +234,8 @@ export function ManagerDashboard() {
                     <div className="flex items-center gap-3">
                       <span
                         className={`font-bold text-lg ${
-                          branch.rank === 1
-                            ? "text-yellow-600"
-                            : branch.rank === 2
-                            ? "text-gray-500"
-                            : branch.rank === 3
-                            ? "text-amber-700"
+                          branch.rank <= 3
+                            ? "text-red-600"
                             : "text-muted-foreground"
                         }`}
                       >
@@ -250,20 +246,22 @@ export function ManagerDashboard() {
                           {branch.branchName}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {branch.issueCount} รายการมีปัญหา
+                          {branch.issueCount} รายการมีปัญหา จาก{" "}
+                          {branch.totalCount} รายการที่ตรวจ
                         </p>
                       </div>
                     </div>
                     <Badge
                       variant={
-                        branch.score >= 80
-                          ? "secondary"
-                          : branch.score >= 60
+                        branch.score >= 60
+                          ? "destructive"
+                          : branch.score >= 30
                           ? "default"
-                          : "destructive"
+                          : "secondary"
                       }
                     >
-                      {branch.score}%
+                      เสี่ยง {branch.score}% ({branch.issueCount}/
+                      {branch.totalCount})
                     </Badge>
                   </div>
                 ))

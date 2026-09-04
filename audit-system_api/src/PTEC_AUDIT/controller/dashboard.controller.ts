@@ -258,6 +258,48 @@ export class DashboardController {
     }
   }
 
+  /**
+   * GET /dashboard/branch-risk?module=audit|am|aa&dateRange=7|30|90|0
+   * การ์ด "สาขาความเสี่ยงสูงสุด" — filter ช่วงวันที่แยกเป็นของตัวเอง ไม่ผูกกับ KPI card อื่นในหน้า
+   * dateRange=0 หมายถึงไม่จำกัดช่วงเวลา (ทั้งหมด)
+   */
+  @Get('branch-risk')
+  async getBranchRisk(
+    @Query('module') moduleParam = 'audit',
+    @Query('dateRange') dateRange = '30',
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<Response> {
+    try {
+      const { userId, roleId } = await this.resolveUserAndRole(req);
+      const moduleType: 'audit' | 'am' | 'aa' = (
+        ['audit', 'am', 'aa'] as const
+      ).includes(moduleParam as 'audit' | 'am' | 'aa')
+        ? (moduleParam as 'audit' | 'am' | 'aa')
+        : 'audit';
+
+      const data = await this.dashboardService.getBranchRiskRanking(
+        moduleType,
+        parseInt(dateRange, 10),
+        userId ?? null,
+        roleId,
+      );
+
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        data,
+      });
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('❌ Error fetching branch risk ranking:', error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Failed to fetch branch risk ranking',
+        error: error.message,
+      });
+    }
+  }
+
   @Get('am/chart')
   async getAMChartData(
     @Query('dateRange') dateRange = '7',

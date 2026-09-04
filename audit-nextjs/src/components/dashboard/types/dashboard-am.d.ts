@@ -1,6 +1,7 @@
 // types/dashboard.ts
 
 import type { PendingChecklistJob } from "@/components/dashboard/pending-checklist-widget";
+import type { ActionItemData } from "@/components/dashboard/types/dashboard-common";
 
 export interface DashboardKPI {
   title: string;
@@ -93,10 +94,12 @@ export interface PaginatedActionItems {
 }
 
 export interface BranchIssue {
+  branchId: number;
   branchName: string;
   issueCount: number;
   totalCount: number;
   failureRate: number;
+  items: ActionItemData[]; // ตัวอย่างรายการที่ผิดปกติจริง กดดูย้อนไปที่เอกสารได้
 }
 
 export interface DashboardResponse {

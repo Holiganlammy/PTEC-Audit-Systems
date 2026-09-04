@@ -16,6 +16,7 @@ import { PendingChecklistWidget } from "@/components/dashboard/pending-checklist
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { AuditStatusChart } from "@/components/dashboard/audit-status-chart";
+import { BranchRiskRanking } from "@/components/dashboard/branch-risk-ranking";
 import { dashboardApi } from "@/lib/api/dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AuditDashboardResponse } from "@/components/dashboard/types/dashboard-audit";
@@ -179,6 +180,9 @@ export function AuditDashboard() {
         />
 
       </div>
+
+      {/* สาขาความเสี่ยงสูงสุด — filter ช่วงวันที่ของตัวเอง */}
+      <BranchRiskRanking module="audit" basePath="/audit/edit_document" />
 
       {/* รอ Checklist + Recent Activities */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

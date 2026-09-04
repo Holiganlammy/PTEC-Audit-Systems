@@ -64,6 +64,18 @@ export const dashboardApi = {
   },
 
   /**
+   * Fetch branch risk ranking — filter ช่วงวันที่แยกจาก KPI card อื่นๆ ในหน้าเดียวกัน
+   * dateRange: "7" | "30" | "90" | "0" (0 = ไม่จำกัดช่วงเวลา)
+   */
+  async getBranchRisk(moduleType: "audit" | "am" | "aa", dateRange: string = "30") {
+    const response = await client.get(`/dashboard/branch-risk`, {
+      headers: dataConfig().headers,
+      params: { module: moduleType, dateRange },
+    });
+    return response.data.data;
+  },
+
+  /**
    * Fetch Manager dashboard data
    */
   async getManagerDashboard(dateRange: string = "30") {

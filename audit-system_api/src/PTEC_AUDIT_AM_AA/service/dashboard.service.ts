@@ -78,6 +78,7 @@ interface BranchIssue {
   branchId: number;
   branchName: string;
   issueCount: number;
+  totalCount: number;
   failureRate: number;
 }
 
@@ -86,6 +87,7 @@ interface BranchRanking {
   branchName: string;
   score: number;
   issueCount: number;
+  totalCount: number;
   rank: number;
 }
 
@@ -113,13 +115,6 @@ interface AuditStatsResult {
 
 interface CountResult {
   count: string;
-}
-
-interface BranchIssueResult {
-  branchId: number;
-  branchName: string;
-  issueCount: string;
-  totalCount: string;
 }
 
 interface AMChartData {
@@ -424,15 +419,13 @@ export class DashboardService {
   ): Promise<BranchIssue[]> {
     const startDate = this.getStartDate(dateRange);
 
+    // ความเสี่ยง = item ที่ itemStatus = 3 (ผิดปกติ) เทียบเป็น % จาก item ทั้งหมด (สูตรเดียวกับ Manager/Audit/AA)
     const result = await this.amItemRepo
       .createQueryBuilder('ai')
       .select('aj.branchId', 'branchId')
       .addSelect('aj.branchName', 'branchName')
-      .addSelect(
-        `COUNT(CASE WHEN EXISTS (SELECT 1 FROM Branch_Am_Scores s WHERE s.item_id = ai.item_id AND s.score IN (0, -1) AND s.active = 1) THEN 1 END)`,
-        'issueCount',
-      )
-      .addSelect('COUNT(*)', 'totalCount')
+      .addSelect('COUNT(*) as totalCount')
+      .addSelect('COUNT(CASE WHEN ai.itemStatus = 3 THEN 1 END) as riskCount')
       .innerJoin('ai.job', 'aj')
       .where('ai.updatedAt >= :startDate', { startDate })
       .andWhere('ai.active = :active', { active: true })
@@ -443,22 +436,29 @@ export class DashboardService {
       .andWhere('(aj.amUserCode = :userCode OR aj.rmUserCode = :userCode)', {
         userCode,
       })
+      .andWhere('ai.itemStatus IS NOT NULL')
       .groupBy('aj.branchId')
       .addGroupBy('aj.branchName')
-      .having(
-        'COUNT(CASE WHEN EXISTS (SELECT 1 FROM Branch_Am_Scores s WHERE s.item_id = ai.item_id AND s.score IN (0, -1) AND s.active = 1) THEN 1 END) > 0',
-      )
-      .orderBy('issueCount', 'DESC')
-      .limit(5)
-      .getRawMany<BranchIssueResult>();
+      .getRawMany<{
+        branchId: number;
+        branchName: string;
+        totalCount: string;
+        riskCount: string;
+      }>();
 
-    return result.map((row) => ({
+    const rows = result.map((row) => ({
       branchId: row.branchId,
       branchName: row.branchName,
-      issueCount: parseInt(row.issueCount, 10),
-      failureRate: Math.round(
-        (parseInt(row.issueCount, 10) / parseInt(row.totalCount, 10)) * 100,
-      ),
+      total: parseInt(row.totalCount, 10),
+      riskCount: parseInt(row.riskCount, 10),
+    }));
+
+    return this.rankBranchesByRisk(rows, 5).map((row) => ({
+      branchId: row.branchId,
+      branchName: row.branchName,
+      issueCount: row.riskCount,
+      totalCount: row.total,
+      failureRate: row.riskPercent,
     }));
   }
 
@@ -1007,46 +1007,46 @@ export class DashboardService {
   ): Promise<BranchRanking[]> {
     const startDate = this.getStartDate(dateRange);
 
+    // ความเสี่ยง = item ที่ itemStatus = 3 (ผิดปกติ) เทียบเป็น % จาก item ทั้งหมด
+    // ใช้ Bayesian shrinkage ดึงสาขาที่ตรวจน้อยเข้าหาค่าเฉลี่ยรวมของบริษัท (RISK_SHRINKAGE_K)
+    // กัน false-positive จากสาขาที่มีตัวอย่างน้อย (เช่น ตรวจ 3 รายการ พลาด 2 = 67% ทั้งที่ข้อมูลน้อยเกินจะสรุป)
     const result = await this.amItemRepo
       .createQueryBuilder('ai')
       .select([
         'aj.branchId as branchId',
         'aj.branchName as branchName',
         'COUNT(*) as totalCount',
-        'COUNT(CASE WHEN ai.headerChecklistStatus = 2 THEN 1 END) as passedCount',
-        'COUNT(CASE WHEN ai.headerChecklistStatus IN (3, 4) THEN 1 END) as issueCount',
+        'COUNT(CASE WHEN ai.itemStatus = 3 THEN 1 END) as riskCount',
       ])
       .innerJoin('ai.job', 'aj')
       .where('ai.updatedAt >= :startDate', { startDate })
       .andWhere('ai.active = :active', { active: true })
       .andWhere('aj.active = :active', { active: true })
-      .andWhere('ai.headerChecklistStatus IS NOT NULL')
+      .andWhere('ai.itemStatus IS NOT NULL')
       .groupBy('aj.branchId')
       .addGroupBy('aj.branchName')
-      .orderBy('passedCount', 'DESC')
-      .addOrderBy('totalCount', 'DESC')
-      .limit(10)
       .getRawMany<{
         branchId: number;
         branchName: string;
         totalCount: string;
-        passedCount: string;
-        issueCount: string;
+        riskCount: string;
       }>();
 
-    return result.map((row, index) => {
-      const total = parseInt(row.totalCount, 10);
-      const passed = parseInt(row.passedCount, 10);
-      const score = total > 0 ? Math.round((passed / total) * 100) : 0;
+    const rows = result.map((row) => ({
+      branchId: row.branchId,
+      branchName: row.branchName,
+      total: parseInt(row.totalCount, 10),
+      riskCount: parseInt(row.riskCount, 10),
+    }));
 
-      return {
-        branchId: row.branchId,
-        branchName: row.branchName,
-        score,
-        issueCount: parseInt(row.issueCount, 10),
-        rank: index + 1,
-      };
-    });
+    return this.rankBranchesByRisk(rows, 10).map((row, index) => ({
+      branchId: row.branchId,
+      branchName: row.branchName,
+      score: row.riskPercent,
+      issueCount: row.riskCount,
+      totalCount: row.total,
+      rank: index + 1,
+    }));
   }
 
   // ==========================================
@@ -1457,6 +1457,37 @@ export class DashboardService {
     const date = new Date();
     date.setDate(date.getDate() - dateRange);
     return date;
+  }
+
+  // น้ำหนักเสมือน "ของกลาง" ที่ถ่วงเข้าไปทุกสาขา (Bayesian shrinkage) — กัน false-positive จากสาขาตัวอย่างน้อย
+  private readonly RISK_SHRINKAGE_K = 10;
+
+  /**
+   * สูตรความเสี่ยงกลาง ใช้ร่วมกันทุก dashboard (Manager/Audit/AM/AA):
+   * risk% = item ที่ itemStatus=3 (ผิดปกติ) ÷ item ทั้งหมด ถ่วงเข้าหาค่าเฉลี่ยรวม
+   * เรียง: risk% มาก่อน → เท่ากันดูจำนวนผิดจริง → เท่ากันดูจำนวนตรวจทั้งหมด → เท่ากันดูชื่อสาขา
+   */
+  private rankBranchesByRisk<
+    T extends { branchId: number; branchName: string; total: number; riskCount: number },
+  >(rows: T[], limit: number): (T & { riskPercent: number })[] {
+    const companyTotal = rows.reduce((sum, r) => sum + r.total, 0);
+    const companyRisk = rows.reduce((sum, r) => sum + r.riskCount, 0);
+    const companyAvgRisk = companyTotal > 0 ? companyRisk / companyTotal : 0;
+    const k = this.RISK_SHRINKAGE_K;
+
+    return rows
+      .map((row) => {
+        const adjustedRisk =
+          (row.riskCount + k * companyAvgRisk) / (row.total + k);
+        return { ...row, riskPercent: Math.round(adjustedRisk * 100) };
+      })
+      .sort((a, b) => {
+        if (b.riskPercent !== a.riskPercent) return b.riskPercent - a.riskPercent;
+        if (b.riskCount !== a.riskCount) return b.riskCount - a.riskCount;
+        if (b.total !== a.total) return b.total - a.total;
+        return a.branchName.localeCompare(b.branchName);
+      })
+      .slice(0, limit);
   }
 
   private calculateDaysAgo(date: Date): number {

@@ -2,6 +2,7 @@
 
 import type { PaginatedActionItems, ActivityData } from "./dashboard-common";
 import type { PendingChecklistJob } from "@/components/dashboard/pending-checklist-widget";
+import type { BranchIssue } from "@/components/dashboard/types/dashboard-am";
 
 export interface AuditStats {
   totalJobs: number;
@@ -21,4 +22,5 @@ export interface AuditDashboardResponse {
   overdueItems: PaginatedActionItems;
   recentActivities: ActivityData[];
   pendingChecklist?: PendingChecklistJob[];
+  branchIssues?: BranchIssue[];
 }

@@ -18,8 +18,7 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { AuditStatusChart } from "@/components/dashboard/audit-status-chart";
 import { dashboardApi } from "@/lib/api/dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { BranchRiskRanking } from "@/components/dashboard/branch-risk-ranking";
 import type { DashboardResponse } from "@/components/dashboard/types/dashboard-am";
 
 interface AMChartData {
@@ -199,59 +198,21 @@ export function AMDashboard() {
 
       </div>
 
-      {/* สาขาที่มีปัญหา + รอ Checklist + Recent Activities */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* สาขาที่มีปัญหา */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-red-600" />
-              <CardTitle className="text-base font-semibold">
-                สาขาที่มีปัญหามากที่สุด (Top 5)
-              </CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {dashboardData?.branchIssues?.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  ไม่มีสาขาที่มีปัญหา
-                </p>
-              ) : (
-                dashboardData?.branchIssues?.map((branch, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="font-bold text-lg text-red-600">
-                        {index + 1}
-                      </span>
-                      <div>
-                        <p className="font-medium text-sm">
-                          {branch.branchName}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {branch.issueCount} จาก {branch.totalCount} รายการมีปัญหา
-                        </p>
-                      </div>
-                    </div>
-                    <Badge variant="destructive">{branch.failureRate}%</Badge>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      {/* สาขาความเสี่ยงสูงสุด — filter ช่วงวันที่ของตัวเอง */}
+      <BranchRiskRanking
+        module="am"
+        basePath="/areamanage/edit_document"
+        formType="AM"
+      />
 
-        {/* รอ Checklist */}
+      {/* รอ Checklist + Recent Activities */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <PendingChecklistWidget
           jobs={dashboardData?.pendingChecklist || []}
           basePath="/areamanage/edit_document"
           formType="AM"
         />
 
-        {/* Recent Activities */}
         <RecentActivity
           activities={dashboardData?.recentActivities || []}
           maxItems={8}
