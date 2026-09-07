@@ -114,10 +114,10 @@ export default function EditItemModal({
     const fetchCategories = async () => {
       try {
         setIsLoadingCategories(true);
-        // แก้จาก hardcode "visit" (ค่า Type การตรวจของโมดูล Audit ทั่วไป คนละความหมายกับ
-        // positionType ของ AM/AA) — ต้องใช้ jobData.positionType จริง ไม่งั้น backend filter
-        // ด้วย cat.positionType = 'visit' ที่ไม่มีข้อมูลจริงตรงเงื่อนไข ทำให้ dropdown ว่างเปล่า
-        const filtered = await amCategoriesApi.getForSelect(jobData?.positionType);
+        // AM/AA ใช้ชุดหมวดหมู่เดียวกับ Audit ทั่วไป (positionType = "visit") ไม่มีหมวดหมู่แยกของตัวเอง
+        // ห้ามใช้ jobData.positionType (AM/AA) มา filter ตรงนี้ เพราะเป็นคนละความหมายกับ
+        // positionType ของหมวดหมู่ (visit/online/cctv)
+        const filtered = await amCategoriesApi.getForSelect("visit");
         setCategories(filtered);
       } catch (error) {
         console.error("Error fetching categories:", error);
