@@ -97,7 +97,8 @@ export class AAJobsController implements OnModuleInit {
       console.error('Error creating AA job:', error);
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'Error creating AA job',
+        message:
+          error instanceof Error ? error.message : 'Error creating AA job',
       });
     }
   }

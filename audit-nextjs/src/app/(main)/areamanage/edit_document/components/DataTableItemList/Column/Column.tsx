@@ -237,6 +237,7 @@ function ActionsCell({
   onDelete,
   onAttachment,
   isDraftMode,
+  isDocLocked,
   isRowClosed,
   positionType,
   isOwnJob,
@@ -246,6 +247,7 @@ function ActionsCell({
   onDelete: (item: AuditItem) => void;
   onAttachment: (item: AuditItem) => void;
   isDraftMode?: boolean;
+  isDocLocked?: boolean;
   isRowClosed?: boolean;
   positionType?: string;
   isOwnJob?: boolean;
@@ -254,6 +256,9 @@ function ActionsCell({
   const roleId = Number(session.data?.user.role_id ?? -1);
   const allowedRoles = positionType === "AA" ? [1, 8] : [1, 3, 4];
   const canAction = allowedRoles.includes(roleId) || (roleId === 10 && !!isOwnJob);
+  // ปิดงานทั้งเอกสาร (isDocLocked) หรือปิดเฉพาะรายการนี้ (isRowClosed) ก็ห้ามแก้ไข/ลบเหมือนกัน
+  // แต่ยังต้องเปิดให้ "ดูไฟล์แนบ" ได้เสมอ ไม่ใช่ซ่อนปุ่ม Actions ทั้งเมนูแบบเดิม
+  const isClosed = isDocLocked || isRowClosed;
   return (
     <div className="text-right">
       <DropdownMenu>
@@ -265,7 +270,7 @@ function ActionsCell({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-          {!isDraftMode && (
+          {!isDraftMode && !isDocLocked && (
             <DropdownMenuItem onClick={canAction ? () => onEdit(item) : undefined} disabled={!canAction}>
               <Pencil className="mr-2 h-4 w-4" />
               แก้ไข
@@ -274,10 +279,10 @@ function ActionsCell({
           {!isDraftMode && (
             <DropdownMenuItem onClick={() => onAttachment(item)}>
               <Paperclip className="mr-2 h-4 w-4" />
-              {isRowClosed ? "ดูไฟล์แนบ" : "เก็บไฟล์"}
+              {isClosed ? "ดูไฟล์แนบ" : "เก็บไฟล์"}
             </DropdownMenuItem>
           )}
-          {!isRowClosed && (
+          {!isClosed && (
             <DropdownMenuItem
               onClick={canAction ? () => onDelete(item) : undefined}
               disabled={!canAction}
@@ -687,19 +692,19 @@ export const createAuditItemsColumns = (
     },
     {
       id: "actions",
-      cell: ({ row }) =>
-        effectiveLocked && !isDraftMode ? null : (
-          <ActionsCell
-            item={row.original}
-            onEdit={isDraftMode ? () => {} : onEdit}
-            onDelete={onDelete}
-            onAttachment={onAttachmentClick ?? (() => {})}
-            isDraftMode={isDraftMode}
-            isRowClosed={row.original.item_status_edit === 4}
-            positionType={positionType}
-            isOwnJob={isOwnJob}
-          />
-        ),
+      cell: ({ row }) => (
+        <ActionsCell
+          item={row.original}
+          onEdit={isDraftMode ? () => {} : onEdit}
+          onDelete={onDelete}
+          onAttachment={onAttachmentClick ?? (() => {})}
+          isDraftMode={isDraftMode}
+          isDocLocked={isLocked}
+          isRowClosed={row.original.item_status_edit === 4}
+          positionType={positionType}
+          isOwnJob={isOwnJob}
+        />
+      ),
     },
   ];
 };

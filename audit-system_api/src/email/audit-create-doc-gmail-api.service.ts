@@ -5,6 +5,24 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Injectable } from '@nestjs/common';
 import { google } from 'googleapis';
+import { escapeHtml } from './html-escape.util';
+
+// ผู้ใช้พิมพ์ "รายละเอียดเพิ่มเติม"/"มอบหมายงานให้สาขา" เป็น textarea หลายบรรทัด
+// เดิมเอา string มาแปะตรง ๆ ทำให้ HTML รวบทุกบรรทัดเป็นข้อความยาวเรียงเดียวกัน
+// ฟังก์ชันนี้แตกเป็นรายข้อ 1. 2. 3. ... ให้อ่านง่ายขึ้นในเมล (ถ้ามีบรรทัดเดียวก็แสดงเป็นข้อความปกติ)
+function renderAsNumberedList(text: string): string {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/^(\d+[.)]|[-•*])\s*/, ''))
+    .filter((line) => line.length > 0);
+
+  if (lines.length === 0) return '';
+  if (lines.length === 1) return escapeHtml(lines[0]);
+
+  return `<ol style="margin: 0; padding-left: 20px;">${lines
+    .map((line) => `<li style="margin-bottom: 4px;">${escapeHtml(line)}</li>`)
+    .join('')}</ol>`;
+}
 
 interface GoogleCredentials {
   installed: {
@@ -284,7 +302,7 @@ export class AuditCreateDocGmailApiService {
                         additionalNotes
                           ? `<tr>
                         <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">รายละเอียดเพิ่มเติม:</td>
-                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${additionalNotes}</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${renderAsNumberedList(additionalNotes)}</td>
                       </tr>`
                           : ''
                       }
@@ -292,7 +310,7 @@ export class AuditCreateDocGmailApiService {
                         branchAssignment
                           ? `<tr>
                         <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">มอบหมายงานให้สาขา:</td>
-                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${branchAssignment}</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${renderAsNumberedList(branchAssignment)}</td>
                       </tr>`
                           : ''
                       }
@@ -515,7 +533,7 @@ export class AuditCreateDocGmailApiService {
                         additionalNotes
                           ? `<tr>
                         <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">รายละเอียดเพิ่มเติม:</td>
-                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${additionalNotes}</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${renderAsNumberedList(additionalNotes)}</td>
                       </tr>`
                           : ''
                       }
@@ -523,7 +541,7 @@ export class AuditCreateDocGmailApiService {
                         branchAssignment
                           ? `<tr>
                         <td style="padding: 8px 0; font-size: 14px; color: #6B7280;">มอบหมายงานให้สาขา:</td>
-                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${branchAssignment}</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1F2937;">${renderAsNumberedList(branchAssignment)}</td>
                       </tr>`
                           : ''
                       }

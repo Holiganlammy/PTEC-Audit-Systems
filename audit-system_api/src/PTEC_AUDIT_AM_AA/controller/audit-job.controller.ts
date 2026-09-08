@@ -100,7 +100,8 @@ export class AuditJobsController implements OnModuleInit {
       console.error('Error creating audit job:', error);
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'Error creating audit job',
+        message:
+          error instanceof Error ? error.message : 'Error creating audit job',
       });
     }
   }
