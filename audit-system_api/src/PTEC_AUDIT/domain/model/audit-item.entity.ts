@@ -73,6 +73,19 @@ export class AuditItem {
   @Column({ name: 'am_checklist_at', type: 'datetime', nullable: true })
   amChecklistAt!: Date | null;
 
+  // ปุ่ม "ส่งเมลสรุป" ของ item — เก็บสถานะแบบเดียวกับ jobCreatedEmailSentBy/At บน job header
+  // เพื่อกันส่งซ้ำจริง ๆ ที่ backend (ของเดิมเช็คแค่ local state ฝั่ง React หายเมื่อ refresh หน้า)
+  @Column({ name: 'summary_email_sent_by', type: 'int', nullable: true })
+  summaryEmailSentBy!: number | null;
+
+  @Column({
+    name: 'summary_email_sent_at',
+    type: 'datetime',
+    nullable: true,
+    default: null,
+  })
+  summaryEmailSentAt!: Date | null;
+
   // Relations
   @ManyToOne(() => AuditJobsHeader, (job) => job.items)
   @JoinColumn({ name: 'job_id' })

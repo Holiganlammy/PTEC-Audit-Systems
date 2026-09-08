@@ -69,6 +69,8 @@ interface AuditItem {
   amChecklistDetail?: string;
   amChecklistBy?: number;
   amChecklistAt?: string;
+  summaryEmailSentBy?: number | null;
+  summaryEmailSentAt?: string | null;
 }
 
 // ... rest of the code remains the same ...

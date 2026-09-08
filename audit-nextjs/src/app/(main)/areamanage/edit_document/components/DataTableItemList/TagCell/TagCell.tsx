@@ -34,6 +34,22 @@ interface ApiUser {
   Fullname: string;
 }
 
+// เอกสาร AA: จำกัดให้แท็กได้เฉพาะ PM ที่กำหนดไว้เท่านั้น ไม่ใช่ user ทั้งระบบ
+const AA_TAGGABLE_PM_CODES = [
+  "PM61000026", // วิศรุต ชลอเชิดตระกูล
+  "PM48000005", // พิทยา ศรีธิราช
+  "PM53000020", // ณัฐรช นริฐวรภาส
+  "PM59000001", // ราตรี สวัสดิรักษ์
+  "PM58000003", // วีระชัย ยามี
+  "PM61000014", // ศักดิ์ดา โสภา
+  "PM64000001", // กฤษดา โคตุเคน
+  "PM64000002", // จรินชญา อรุณจรัส
+  "PM65000010", // วรรณภา เอื้อปัชชา
+  "PM59000003", // รชต กุฏเพ็ชร์
+  "PM58000011", // ธีระพงษ์ กาหลง
+  "PM62000033", // อธิเชษฐ์ วสุธาวุฒิจารณ์
+];
+
 interface TagCellProps {
   itemId: number;
   users: ApiUser[];
@@ -80,18 +96,30 @@ export default function TagCell({
     }
   }, [forceRefresh, itemId]);
 
+  const updateDropdownPosition = useCallback(() => {
+    if (!inputRef.current) return;
+    const rect = inputRef.current.getBoundingClientRect();
+    setDropdownStyle({
+      position: "fixed",
+      top: rect.bottom + 4,
+      left: rect.left,
+      minWidth: Math.max(rect.width, 280), // ขยายให้กว้างขึ้น ไม่ต้องแคบตามช่อง input ในตาราง
+      zIndex: 9999,
+    });
+  }, []);
+
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      const rect = inputRef.current.getBoundingClientRect();
-      setDropdownStyle({
-        position: "fixed",
-        top: rect.bottom + 4,
-        left: rect.left,
-        width: rect.width,
-        zIndex: 9999,
-      });
-    }
-  }, [isOpen, search]);
+    if (!isOpen) return;
+    updateDropdownPosition();
+    // ตาราง item เลื่อน (scroll) ได้ทั้งแนวตั้ง/แนวนอน — ต้องคำนวณตำแหน่ง dropdown ใหม่ทุกครั้งที่เลื่อน
+    // ไม่งั้น dropdown จะค้างตำแหน่งเดิม ไม่ตามแถวที่เลื่อนไป (ใช้ capture: true เพื่อจับ scroll ของ container ที่อยู่ข้างในด้วย ไม่ใช่แค่ window)
+    window.addEventListener("scroll", updateDropdownPosition, true);
+    window.addEventListener("resize", updateDropdownPosition);
+    return () => {
+      window.removeEventListener("scroll", updateDropdownPosition, true);
+      window.removeEventListener("resize", updateDropdownPosition);
+    };
+  }, [isOpen, updateDropdownPosition]);
 
   const allowedTagRoles = positionType === "AA" ? [1, 4, 8] : [1, 3, 4];
   const tagRoleId = session?.user?.role_id ?? -1;
@@ -104,6 +132,8 @@ export default function TagCell({
           (u) =>
             // ตัด user สาขา (UserCode ขึ้นต้นด้วย PTEC) ออกจาก tag ทั้งหมด
             !u.UserCode.toUpperCase().startsWith("PTEC") &&
+            // เอกสาร AA: แท็กได้เฉพาะ PM ในลิสต์ที่กำหนดเท่านั้น
+            (positionType !== "AA" || AA_TAGGABLE_PM_CODES.includes(u.UserCode)) &&
             !tags.some((t) => String(t.userId) === String(u.UserID)) &&
             (u.UserCode.toLowerCase().includes(search.toLowerCase()) ||
               u.Fullname.toLowerCase().includes(search.toLowerCase()))
@@ -230,7 +260,7 @@ export default function TagCell({
         />
 
         {isOpen && filtered.length > 0 && createPortal(
-          <div style={dropdownStyle} className="rounded-md border border-border bg-popover shadow-md max-h-44 overflow-y-auto">
+          <div style={dropdownStyle} className="rounded-md border border-border bg-popover shadow-md max-h-60 overflow-y-auto">
             {filtered.map((u, idx) => (
               <button
                 key={u.UserID}
@@ -240,14 +270,14 @@ export default function TagCell({
                   setPendingUser(u);
                 }}
                 onMouseEnter={() => setHighlightedIndex(idx)}
-                className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left transition-colors ${
+                className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${
                   idx === highlightedIndex ? "bg-muted" : "hover:bg-muted"
                 }`}
               >
-                <span className="text-xs font-semibold text-foreground shrink-0">
+                <span className="text-sm font-semibold text-foreground shrink-0">
                   {u.UserCode}
                 </span>
-                <span className="text-[10px] text-muted-foreground truncate">
+                <span className="text-xs text-muted-foreground truncate">
                   {u.Fullname}
                 </span>
               </button>

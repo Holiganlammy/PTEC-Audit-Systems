@@ -140,6 +140,8 @@ interface AuditItemData {
     amChecklistDetail?: string;
     amChecklistBy?: number;
     amChecklistAt?: Date;
+    summaryEmailSentBy?: number | null;
+    summaryEmailSentAt?: string | null;
 }
 
 interface AuditCategoryItem {

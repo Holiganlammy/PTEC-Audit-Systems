@@ -484,6 +484,29 @@ export class AMItemsService {
     return await this.findOne(id);
   }
 
+  // เช็ค + mark ว่าเมลสรุปของ item นี้เคยส่งไปแล้วหรือยัง (เหมือน checkAndMarkJobCreatedEmail
+  // ของ job header) กันปุ่ม "ส่งเมลสรุป" ยิงซ้ำจากฝั่ง backend จริง ๆ ไม่ใช่แค่ local state ฝั่ง React
+  async checkAndMarkSummaryEmailSent(
+    itemId: number,
+    userby?: number,
+  ): Promise<{ alreadySent: boolean; sentAt: Date | null }> {
+    const item = await this.AMItemsRepository.findOne({ where: { itemId } });
+    if (!item) {
+      throw new NotFoundException(`Audit Item with ID ${itemId} not found`);
+    }
+
+    if (item.summaryEmailSentAt !== null) {
+      return { alreadySent: true, sentAt: item.summaryEmailSentAt };
+    }
+
+    await this.AMItemsRepository.update(itemId, {
+      summaryEmailSentAt: new Date(),
+      summaryEmailSentBy: userby ?? null,
+    });
+
+    return { alreadySent: false, sentAt: null };
+  }
+
   // async updateBranchScore(id: number, score: number): Promise<AMItem> {
   //   const AMItem = await this.findOne(id);
   //   AMItem.branchAuditScore = score;

@@ -302,6 +302,9 @@ function ActionsCell({
 
 function SendEmailCell({ item, isLocked }: { item: AuditItem; isLocked?: boolean }) {
   const [isSending, setIsSending] = useState(false);
+  // เริ่มจากสถานะที่บันทึกไว้ใน DB (summaryEmailSentAt) ไม่ใช่ false เสมอ — เดิมใช้แค่ local state
+  // (ที่จริงเดิมไม่มี state นี้เลยด้วยซ้ำ) ทำให้ refresh หน้าแล้วปุ่มกลับมากดส่งซ้ำได้ไม่จำกัด
+  const [hasSent, setHasSent] = useState(!!item.summaryEmailSentAt);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { data: session } = useSession();
 
@@ -344,6 +347,7 @@ function SendEmailCell({ item, isLocked }: { item: AuditItem; isLocked?: boolean
 
       const payload = {
         itemId: item.item_id,
+        userby: session?.user?.UserID ? Number(session.user.UserID) : undefined,
         jobNo: job?.jobNo || '-',
         branchName: job?.branchName || '-',
         branchEmails,
@@ -368,11 +372,20 @@ function SendEmailCell({ item, isLocked }: { item: AuditItem; isLocked?: boolean
 
       await client.post('/audit-email/send-summary', payload, { headers: dataConfig().headers });
       toast.success(`ส่งเมลสำเร็จ`);
+      setHasSent(true);
     } catch (error) {
-      console.error('❌ Failed to send summary email:', error);
-      toast.error('ส่งเมลไม่สำเร็จ', {
-        description: getErrorMessage(error, 'ส่งเมลไม่สำเร็จ'),
-      });
+      // 409 = backend เช็คแล้วว่ารายการนี้เคยส่งเมลสรุปไปแล้ว (กันซ้ำจริงที่ DB) — ไม่ใช่ error
+      // ที่ต้องแจ้งผู้ใช้ว่า "ส่งไม่สำเร็จ" แค่ sync ปุ่มให้ตรงกับสถานะจริงเฉยๆ
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      if (status === 409) {
+        toast.info('เมลสรุปถูกส่งไปแล้วสำหรับรายการนี้');
+        setHasSent(true);
+      } else {
+        console.error('❌ Failed to send summary email:', error);
+        toast.error('ส่งเมลไม่สำเร็จ', {
+          description: getErrorMessage(error, 'ส่งเมลไม่สำเร็จ'),
+        });
+      }
     } finally {
       setIsSending(false);
     }
@@ -382,14 +395,20 @@ function SendEmailCell({ item, isLocked }: { item: AuditItem; isLocked?: boolean
     <div className="flex justify-center">
       <Button
         size="sm"
-        variant="outline"
-        className="h-7 px-2 gap-1.5"
-        onClick={() => setConfirmOpen(true)}
-        disabled={isSending || isLocked}
-        title={isLocked ? "รายการถูกล็อก" : "ส่งเมลสรุปไปยังสาขา"}
+        variant={hasSent ? "default" : "outline"}
+        className={cn("h-7 px-2 gap-1.5", hasSent && "bg-green-600 hover:bg-green-600 text-white border-transparent cursor-not-allowed opacity-70")}
+        onClick={() => !(isSending || isLocked || hasSent) && setConfirmOpen(true)}
+        disabled={isSending || isLocked || hasSent}
+        title={isLocked ? "รายการถูกล็อก" : hasSent ? "ส่งเมลแล้ว" : "ส่งเมลสรุปไปยังสาขา"}
       >
-        {isSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
-        <span className="text-xs">ส่งเมล</span>
+        {isSending ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : hasSent ? (
+          <CheckCircle2 className="h-3.5 w-3.5" />
+        ) : (
+          <Mail className="h-3.5 w-3.5" />
+        )}
+        <span className="text-xs">{hasSent ? "ส่งแล้ว" : "ส่งเมล"}</span>
       </Button>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>

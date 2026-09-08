@@ -57,11 +57,13 @@ export class AuditEmailController implements OnModuleInit {
   @Post('send-job-created')
   @HttpCode(HttpStatus.OK)
   async sendJobCreatedEmail(@Body() body: SendAuditJobEmailDto) {
+    // jobId เป็นเลขรันแยกกันคนละตารางระหว่าง AM (AMJobs_Header) กับ AA (AAJobs_Header)
+    // เดิม hardcode เรียกแต่ auditJobsService (AM) ทำให้เอกสาร AA เช็ค/mark ผิดตาราง —
+    // ถ้า AM job id เดียวกันเคยส่งเมลไปแล้ว จะกลาย "เมลถูกส่งไปแล้ว" ผิด ๆ ทั้งที่เอกสาร AA นั้นยังไม่เคยส่ง
+    const jobsService =
+      body.formType === 'AA' ? this.aaJobsService : this.auditJobsService;
     const { alreadySent, sentAt } =
-      await this.auditJobsService.checkAndMarkJobCreatedEmail(
-        body.jobId,
-        body.userby,
-      );
+      await jobsService.checkAndMarkJobCreatedEmail(body.jobId, body.userby);
 
     if (alreadySent) {
       throw new ConflictException({
@@ -185,6 +187,22 @@ export class AuditEmailController implements OnModuleInit {
     @Res() res: express.Response,
   ) {
     try {
+      // กันปุ่ม "ส่งเมลสรุป" ของ item ยิงซ้ำจริง ๆ ที่ backend — เดิมเช็คแค่ local state
+      // ฝั่ง React (hasSent) ซึ่งหายไปทันทีที่ refresh หน้า ทำให้กดส่งซ้ำได้ไม่จำกัด
+      const { alreadySent, sentAt } =
+        await this.amItemsService.checkAndMarkSummaryEmailSent(
+          dto.itemId,
+          dto.userby,
+        );
+
+      if (alreadySent) {
+        return res.status(HttpStatus.CONFLICT).json({
+          success: false,
+          message: `เมลสรุปถูกส่งไปแล้วสำหรับรายการนี้ (jobNo: ${dto.jobNo})`,
+          sentAt,
+        });
+      }
+
       // Type helper
       type CombinedSummaryPayload = Parameters<
         AuditSummaryEmailService['sendCombinedSummaryEmail']
@@ -324,7 +342,8 @@ export class AuditEmailController implements OnModuleInit {
         cleanup();
         return res.status(HttpStatus.BAD_REQUEST).json({
           success: false,
-          message: 'ยังมีรายการตรวจสอบที่ยังไม่มีสถานะ ไม่สามารถส่งเมลสรุปผลได้',
+          message:
+            'ยังมีรายการตรวจสอบที่ยังไม่มีสถานะ ไม่สามารถส่งเมลสรุปผลได้',
         });
       }
 

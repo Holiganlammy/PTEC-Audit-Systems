@@ -314,7 +314,9 @@ function ActionsCell({
 
 function SendEmailCell({ item, isLocked, positionType, isOwnJob }: { item: AuditItem; isLocked?: boolean; positionType?: string; isOwnJob?: boolean }) {
   const [isSending, setIsSending] = useState(false);
-  const [hasSent, setHasSent] = useState(false);
+  // เริ่มจากสถานะที่บันทึกไว้ใน DB (summaryEmailSentAt) ไม่ใช่ false เสมอ — เดิมใช้แค่ local state
+  // ทำให้ refresh หน้าแล้วปุ่มกลับมากดส่งซ้ำได้ ทั้งที่ backend ส่งไปแล้ว
+  const [hasSent, setHasSent] = useState(!!item.summaryEmailSentAt);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { data: session } = useSession();
 
@@ -359,6 +361,7 @@ function SendEmailCell({ item, isLocked, positionType, isOwnJob }: { item: Audit
 
       const payload = {
         itemId: item.item_id,
+        userby: session?.user?.UserID ? Number(session.user.UserID) : undefined,
         jobNo: job?.jobNo || '-',
         branchName: job?.branchName || '-',
         branchEmails,
@@ -386,8 +389,16 @@ function SendEmailCell({ item, isLocked, positionType, isOwnJob }: { item: Audit
       toast.success(`ส่งเมลสำเร็จ`);
       setHasSent(true);
     } catch (error) {
-      console.error('❌ Failed to send summary email:', error);
-      toast.error('ส่งเมลไม่สำเร็จ', { description: getErrorMessage(error, 'กรุณาลองใหม่อีกครั้ง') });
+      // 409 = backend เช็คแล้วว่ารายการนี้เคยส่งเมลสรุปไปแล้ว (กันซ้ำจริงที่ DB) — ไม่ใช่ error
+      // ที่ต้องแจ้งผู้ใช้ว่า "ส่งไม่สำเร็จ" แค่ sync ปุ่มให้ตรงกับสถานะจริงเฉยๆ
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      if (status === 409) {
+        toast.info('เมลสรุปถูกส่งไปแล้วสำหรับรายการนี้');
+        setHasSent(true);
+      } else {
+        console.error('❌ Failed to send summary email:', error);
+        toast.error('ส่งเมลไม่สำเร็จ', { description: getErrorMessage(error, 'กรุณาลองใหม่อีกครั้ง') });
+      }
     } finally {
       setIsSending(false);
     }

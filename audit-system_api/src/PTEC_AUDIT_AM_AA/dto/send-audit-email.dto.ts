@@ -129,6 +129,10 @@ export class SendAuditSummaryEmailDto {
   @IsNumber()
   itemId!: number;
 
+  @IsNumber()
+  @IsOptional()
+  userby?: number;
+
   @IsString()
   jobNo!: string;
 

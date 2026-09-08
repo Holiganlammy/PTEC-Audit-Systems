@@ -75,20 +75,16 @@ export class AppController {
       UserID ? Number(UserID) : null,
     );
     const filterOutUsers = users
-      .filter(
-        (user) =>
-          user.PersonalCode?.toUpperCase().startsWith('PM') &&
-          user.Actived == true,
-      )
+      .filter((user) => user.UserCode?.toUpperCase().startsWith('PM'))
       .map(({ ...user }) => user);
 
-    // กัน PersonalCode ซ้ำ (เช่น user เดียวกันมีมากกว่า 1 record ใน stored procedure)
+    // กัน UserCode ซ้ำ (เช่น user เดียวกันมีมากกว่า 1 record ใน stored procedure)
     // ไม่งั้น dropdown เลือก PM Code ฝั่ง frontend จะเห็นชื่อเดียวกันขึ้นซ้ำสองอัน
-    const seenPersonalCodes = new Set<string>();
+    const seenUserCodes = new Set<string>();
     const dedupedUsers = filterOutUsers.filter((user) => {
-      const code = user.PersonalCode?.toUpperCase();
-      if (!code || seenPersonalCodes.has(code)) return false;
-      seenPersonalCodes.add(code);
+      const code = user.UserCode?.toUpperCase();
+      if (!code || seenUserCodes.has(code)) return false;
+      seenUserCodes.add(code);
       return true;
     });
 

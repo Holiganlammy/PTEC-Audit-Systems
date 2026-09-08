@@ -141,6 +141,8 @@ interface AuditItemData {
     headerChecklistDetail?: string;
     headerChecklistBy?: number;
     headerChecklistAt?: Date;
+    summaryEmailSentBy?: number | null;
+    summaryEmailSentAt?: string | null;
 }
 
 interface AuditCategoryItem {

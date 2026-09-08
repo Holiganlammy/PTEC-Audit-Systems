@@ -586,11 +586,13 @@ export default function EditAuditJobPage() {
             amChecklistDetail: item.amChecklistDetail,
             amChecklistBy: item.amChecklistBy,
             amChecklistAt: item.amChecklistAt,
+            summaryEmailSentBy: item.summaryEmailSentBy ?? null,
+            summaryEmailSentAt: item.summaryEmailSentAt ?? null,
             created_at: item.createdAt,
             updated_at: item.updatedAt,
             active: item.active,
           }));
- 
+
           setAuditItems(items);
         }
       } catch (error) {
@@ -675,6 +677,8 @@ export default function EditAuditJobPage() {
           amChecklistDetail: item.amChecklistDetail,
           amChecklistBy: item.amChecklistBy,
           amChecklistAt: item.amChecklistAt,
+          summaryEmailSentBy: item.summaryEmailSentBy ?? null,
+          summaryEmailSentAt: item.summaryEmailSentAt ?? null,
           created_at: item.createdAt,
           updated_at: item.updatedAt,
           active: item.active,

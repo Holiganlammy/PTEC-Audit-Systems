@@ -180,6 +180,23 @@ export class AuditEmailController implements OnModuleInit {
     @Res() res: express.Response,
   ) {
     try {
+      // กันปุ่ม "ส่งเมลสรุป" ของ item ยิงซ้ำจริง ๆ ที่ backend — เดิมเช็คแค่ local state
+      // ฝั่ง React (hasSent) ซึ่งหายไปทันทีที่ refresh หน้า ทำให้กดส่งซ้ำได้ไม่จำกัด
+      const summaryEmailStatus: { alreadySent: boolean; sentAt: Date | null } =
+        await this.auditItemsService.checkAndMarkSummaryEmailSent(
+          dto.itemId,
+          dto.userby,
+        );
+      const { alreadySent, sentAt } = summaryEmailStatus;
+
+      if (alreadySent) {
+        return res.status(HttpStatus.CONFLICT).json({
+          success: false,
+          message: `เมลสรุปถูกส่งไปแล้วสำหรับรายการนี้ (jobNo: ${dto.jobNo})`,
+          sentAt,
+        });
+      }
+
       // Type helper
       type CombinedSummaryPayload = Parameters<
         AuditSummaryEmailService['sendCombinedSummaryEmail']
@@ -314,7 +331,8 @@ export class AuditEmailController implements OnModuleInit {
         cleanup();
         return res.status(HttpStatus.BAD_REQUEST).json({
           success: false,
-          message: 'ยังมีรายการตรวจสอบที่ยังไม่มีสถานะ ไม่สามารถส่งเมลสรุปผลได้',
+          message:
+            'ยังมีรายการตรวจสอบที่ยังไม่มีสถานะ ไม่สามารถส่งเมลสรุปผลได้',
         });
       }
 

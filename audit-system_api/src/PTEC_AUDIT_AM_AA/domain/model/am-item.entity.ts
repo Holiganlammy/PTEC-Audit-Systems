@@ -83,6 +83,19 @@ export class AMItem {
   @Column({ name: 'header_checklist_at', type: 'datetime', nullable: true })
   headerChecklistAt!: Date | null;
 
+  // ปุ่ม "ส่งเมลสรุป" ของ item — เก็บสถานะแบบเดียวกับ jobCreatedEmailSentBy/At บน job header
+  // เพื่อกันส่งซ้ำจริง ๆ ที่ backend (ของเดิมเช็คแค่ local state ฝั่ง React หายเมื่อ refresh หน้า)
+  @Column({ name: 'summary_email_sent_by', type: 'int', nullable: true })
+  summaryEmailSentBy!: number | null;
+
+  @Column({
+    name: 'summary_email_sent_at',
+    type: 'datetime',
+    nullable: true,
+    default: null,
+  })
+  summaryEmailSentAt!: Date | null;
+
   // Relations
   // ⚠️ job และ aaJob ใช้คอลัมน์จริง 'job_id' ร่วมกัน (item หนึ่งแถวเป็นได้แค่ของ AM หรือ AA
   // อย่างใดอย่างหนึ่ง แยกด้วย job_source) — TypeORM ไม่รองรับ insert:false/update:false บน
