@@ -109,12 +109,12 @@ export default function NoteCell({
     }
   }, [autoOpen]);
   const [isLoading, setIsLoading] = useState(false);
-  const roleId = session?.user?.role_id;
+  const roleId = Number(session?.user?.role_id ?? -1);
   const allowedRoles = positionType === "AA" ? [1, 4, 8] : [1, 3, 4];
   // Master AM (role 10): เหมือน role 3 ได้ทุกอย่าง แต่เฉพาะ job ของตัวเองเท่านั้น
-  const hasRole = (roleId ?? -1) === 10
+  const hasRole = roleId === 10
     ? !!isOwnJob
-    : allowedRoles.includes(roleId ?? -1);
+    : allowedRoles.includes(roleId);
   // Permission logic: - Delete/Edit allowed for role 1, 3, 4 (AM) / 1, 4, 8 (AA) if not locked;
   const canDelete = hasRole && !isLocked;
   const canEdit = hasRole && !isLocked;

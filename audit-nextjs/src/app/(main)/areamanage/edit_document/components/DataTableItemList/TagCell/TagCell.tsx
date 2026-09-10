@@ -122,7 +122,7 @@ export default function TagCell({
   }, [isOpen, updateDropdownPosition]);
 
   const allowedTagRoles = positionType === "AA" ? [1, 4, 8] : [1, 3, 4];
-  const tagRoleId = session?.user?.role_id ?? -1;
+  const tagRoleId = Number(session?.user?.role_id ?? -1);
   const canTag =
     !isLocked &&
     (allowedTagRoles.includes(tagRoleId) || (tagRoleId === 10 && !!isOwnJob));

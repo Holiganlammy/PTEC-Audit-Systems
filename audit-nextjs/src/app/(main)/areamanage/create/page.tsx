@@ -89,10 +89,16 @@ export default function CreateAMJobPage() {
   useEffect(() => {
     if (!session?.user?.role_id) return;
     if (roleTabApplied.current) return;
-    if (searchParams.get("formType")) return;
     roleTabApplied.current = true;
-    if (Number(session.user.role_id) === 8) setRoleFormTab("AA");
-  }, [session?.user?.role_id, searchParams]);
+    const rid = Number(session.user.role_id);
+    // role ที่สร้างเอกสาร AA ไม่ได้ (เช่น Master AA role 10) → บังคับมาที่ AM เสมอ
+    if (![1, 8].includes(rid) && roleFormTab === "AA") {
+      setRoleFormTab("AM");
+      return;
+    }
+    if (searchParams.get("formType")) return;
+    if (rid === 8) setRoleFormTab("AA");
+  }, [session?.user?.role_id, searchParams, roleFormTab]);
 
   const [branches, setBranches] = useState<Branch[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -432,7 +438,7 @@ export default function CreateAMJobPage() {
                   >
                     <TabsList className="grid w-full grid-cols-2">
                       <TabsTrigger value="AM" disabled={![1, 3, 10].includes(Number(session?.user?.role_id ?? -1))}>AM Form</TabsTrigger>
-                      <TabsTrigger value="AA" disabled={![1, 8, 10].includes(Number(session?.user?.role_id ?? -1))}>AA Form</TabsTrigger>
+                      <TabsTrigger value="AA" disabled={![1, 8].includes(Number(session?.user?.role_id ?? -1))}>AA Form</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="AM" className="mt-4">

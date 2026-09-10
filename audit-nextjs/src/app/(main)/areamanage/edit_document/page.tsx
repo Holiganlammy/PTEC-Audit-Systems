@@ -490,7 +490,7 @@ export default function EditAuditJobPage() {
     const roleId = Number(session?.user?.role_id ?? -1);
 
     // AM: role 1,2,3,4 | AA: role 1,2,3,4,8 (AM ที่เป็นเขตของ AA job นี้ก็เห็นไฟล์ได้) → เห็นไฟล์เสมอ
-    const allowedRoles = formTypeParam === "AA" ? [1, 2, 3, 4, 8, 9] : [1, 2, 3, 4, 9];
+    const allowedRoles = formTypeParam === "AA" ? [1, 2, 3, 4, 8, 9] : [1, 2, 3, 4, 9, 10];
     if (allowedRoles.includes(roleId)) {
       setCanViewFiles(true);
       return;
@@ -890,13 +890,19 @@ export default function EditAuditJobPage() {
   const currentRoleId = Number(session?.user?.role_id ?? -1);
   // Master AM (role 10): แก้ไขได้เหมือน AM ปกติเฉพาะ job ของตัวเอง (เป็น auditor หรือคนสร้าง)
   // ส่วน job ของ AM คนอื่นที่เห็นเพิ่มมา (เพราะเห็นได้ไม่จำกัดสาขา) จะดูได้อย่างเดียว
+  // เทียบด้วย String กันปัญหา userId จาก backend เป็น string แต่ session.UserID เป็น number
+  const myUserId = String(session?.user?.UserID ?? "");
   const isOwnJob =
-    jobData?.auditor?.userId === session?.user?.UserID ||
-    jobData?.createdByUser?.userId === session?.user?.UserID;
+    !!myUserId &&
+    (String(jobData?.auditor?.userId ?? "") === myUserId ||
+      String(jobData?.createdByUser?.userId ?? "") === myUserId);
   const canEdit = roleFormTab === "AA"
     ? [1, 8].includes(currentRoleId)
     : [1, 3, 4].includes(currentRoleId) ||
       (currentRoleId === 10 && isOwnJob);
+  // Master AM ที่เปิดใบงานคนอื่น (ไม่ใช่ผู้ตรวจ/ผู้สร้าง) → ดูอย่างเดียว
+  // ห้ามแก้ header เพิ่มเติม: รายละเอียดเพิ่มเติม / มอบหมายงานให้สาขา / แนบไฟล์
+  const isReadOnlyMasterAM = currentRoleId === 10 && !isOwnJob;
 
   const canConfirm =
     !isLoadingItems &&
@@ -973,7 +979,7 @@ export default function EditAuditJobPage() {
         });
       }
 
-      if (newJobHeaderFiles.length > 0) {
+      if (!isReadOnlyMasterAM && newJobHeaderFiles.length > 0) {
         const formData = new FormData();
         newJobHeaderFiles.forEach((file) => {
           formData.append("files", file);
@@ -1360,7 +1366,7 @@ export default function EditAuditJobPage() {
                     variant="outline"
                     className="text-xs sm:text-sm"
                     onClick={form.handleSubmit(onSubmit, handleFormError)}
-                    disabled={isSubmitting || isLoadingData}
+                    disabled={isSubmitting || isLoadingData || isReadOnlyMasterAM}
                   >
                     {isSubmitting ? (
                       <>
@@ -1949,6 +1955,7 @@ export default function EditAuditJobPage() {
                         placeholder="กรอกรายละเอียดเพิ่มเติม..."
                         rows={4}
                         className="resize-none w-full"
+                        disabled={isReadOnlyMasterAM}
                       />
                     )}
                   </Field>
@@ -1968,6 +1975,7 @@ export default function EditAuditJobPage() {
                         placeholder="ระบุงานที่มอบหมายให้สาขาดำเนินการ..."
                         rows={4}
                         className="resize-none w-full"
+                        disabled={isReadOnlyMasterAM}
                       />
                     )}
                   </Field>
@@ -2042,7 +2050,7 @@ export default function EditAuditJobPage() {
                               type="button"
                               onClick={() => handleDeleteExistingFile(file.fileId)}
                               className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded"
-                              disabled={isSubmitting || isFormLocked}
+                              disabled={isSubmitting || isFormLocked || isReadOnlyMasterAM}
                               title="ลบ"
                             >
                               <X className="h-4 w-4" />
@@ -2061,13 +2069,13 @@ export default function EditAuditJobPage() {
                   accept=".jpg,.jpeg,.png,.gif,.pdf,.xlsx,.xls"
                   onChange={handleNewJobHeaderFilesChange}
                   className="hidden"
-                  disabled={isFormLocked}
+                  disabled={isFormLocked || isReadOnlyMasterAM}
                 />
 
                 <button
                   type="button"
                   onClick={() => jobHeaderFileInputRef.current?.click()}
-                  disabled={isFormLocked}
+                  disabled={isFormLocked || isReadOnlyMasterAM}
                   className="flex items-center gap-2 w-full border border-dashed border-muted-foreground/40 rounded-md px-4 py-3 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Upload className="h-4 w-4" />
@@ -2099,6 +2107,7 @@ export default function EditAuditJobPage() {
                             type="button"
                             onClick={() => removeNewJobHeaderFile(idx)}
                             className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded"
+                            disabled={isReadOnlyMasterAM}
                             title="ลบ"
                           >
                             <X className="h-4 w-4" />
@@ -2125,7 +2134,7 @@ export default function EditAuditJobPage() {
               >
                 ยกเลิก
               </Button>
-              <Button type="submit" className="flex-1" disabled={isSubmitting}>
+              <Button type="submit" className="flex-1" disabled={isSubmitting || isReadOnlyMasterAM}>
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

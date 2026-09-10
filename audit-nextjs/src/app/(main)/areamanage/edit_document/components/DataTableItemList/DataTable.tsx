@@ -367,9 +367,15 @@ export default function DataTableItemList({
 
   // Master AM (role 10): เห็นทุกสาขาของ AM แต่แก้ไข/ทำ action ได้เฉพาะงานที่ตัวเองเป็น
   // auditor หรือคนสร้างเท่านั้น (isOwnJob) — งานของ AM คนอื่นดูได้อย่างเดียว
+  // เทียบด้วย String กันปัญหา userId จาก backend เป็น string แต่ session.UserID เป็น number
+  const myUserId = String(session?.user?.UserID ?? "");
   const isOwnJob =
-    jobData?.auditor?.userId === session?.user?.UserID ||
-    jobData?.createdByUser?.userId === session?.user?.UserID;
+    !!myUserId &&
+    (String(jobData?.auditor?.userId ?? "") === myUserId ||
+      String(jobData?.createdByUser?.userId ?? "") === myUserId);
+  // Master AM (role 10) ที่เปิดใบงานคนอื่น → ดูอย่างเดียว (รวมไฟล์แนบราย item)
+  const isReadOnlyMasterAM =
+    Number(session?.user?.role_id ?? -1) === 10 && !isOwnJob;
 
   // AM: role 1, 4 can check; AA: role 1, 2, 3, 4 can check
   const isAMChecklistAllowed = (() => {
@@ -512,7 +518,8 @@ export default function DataTableItemList({
 
   const canShowAddButton = positionType === "AA"
     ? [1, 8].includes(Number(session?.user?.role_id ?? -1))
-    : [1, 3, 4].includes(Number(session?.user?.role_id ?? -1));
+    : [1, 3, 4].includes(Number(session?.user?.role_id ?? -1)) ||
+      (Number(session?.user?.role_id ?? -1) === 10 && isOwnJob);
 
   return (
     <div className="flex flex-col gap-4">
@@ -616,7 +623,7 @@ export default function DataTableItemList({
       <AddItemModal open={openAddModal} onOpenChange={setOpenAddModal} jobNo={jobNo} jobId={jobId} jobData={jobData || undefined} isDraftMode={isDraftMode} inspectionDate={inspectionDate} positionType={positionType} onDraftItemAdd={isDraftMode ? handleDraftItemAdd : undefined} onItemAdded={() => { setOpenAddModal(false); onItemsChange(); }} />
       <EditItemModal open={openEditModal} onOpenChange={setOpenEditModal} item={selectedItem} jobData={jobData} hasBranchScore={!!selectedItem && !!branchScoresMap[selectedItem.item_id]} onItemUpdated={() => { setOpenEditModal(false); onItemsChange(); }} />
       <AMChecklistModal open={openAMChecklistModal} onOpenChange={setOpenAMChecklistModal} item={selectedAMChecklistItem} onUpdated={() => { setOpenAMChecklistModal(false); onItemsChange(); }} />
-      <ItemAttachmentModal open={openAttachmentModal} onOpenChange={setOpenAttachmentModal} item={selectedAttachmentItem} readOnly={isLocked || selectedAttachmentItem?.item_status_edit === 4} onUpdated={() => { onItemsChange(); fetchAttachmentCounts().catch(() => {}); }} />
+      <ItemAttachmentModal open={openAttachmentModal} onOpenChange={setOpenAttachmentModal} item={selectedAttachmentItem} readOnly={isLocked || isReadOnlyMasterAM || selectedAttachmentItem?.item_status_edit === 4} onUpdated={() => { onItemsChange(); fetchAttachmentCounts().catch(() => {}); }} />
 
       <AlertDialog open={!!deleteItem} onOpenChange={(open) => { if (!open) setDeleteItem(null); }}>
         <AlertDialogContent>
