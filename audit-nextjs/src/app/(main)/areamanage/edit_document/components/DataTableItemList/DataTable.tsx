@@ -516,10 +516,11 @@ export default function DataTableItemList({
   const rows = table.getRowModel().rows;
   const noPermission = !isLoading && (accessDenied || (orderedItems.length > 0 && visibleItems.length === 0));
 
+  // ตอนสร้างเอกสาร (draft) คนที่อยู่หน้านี้คือผู้สร้าง → Master AM (role 10) เพิ่มรายการได้
   const canShowAddButton = positionType === "AA"
     ? [1, 8].includes(Number(session?.user?.role_id ?? -1))
     : [1, 3, 4].includes(Number(session?.user?.role_id ?? -1)) ||
-      (Number(session?.user?.role_id ?? -1) === 10 && isOwnJob);
+      (Number(session?.user?.role_id ?? -1) === 10 && (isDraftMode || isOwnJob));
 
   return (
     <div className="flex flex-col gap-4">
