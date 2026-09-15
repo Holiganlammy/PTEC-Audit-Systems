@@ -52,6 +52,7 @@ export default function PermissionsPage() {
   const [pageIndex, setPageIndex] = useState(0); // 0-based
   const [pageSize, setPageSize] = useState(20);
   const [total, setTotal] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [openAddModal, setOpenAddModal] = useState(false);
   const [openEditModal, setOpenEditModal] = useState(false);
@@ -83,13 +84,16 @@ export default function PermissionsPage() {
     if (!isAllowed) return;
     try {
       setIsLoading(true);
-      const params: { page: number; limit: number; active: string; roleId?: string } = {
+      const params: { page: number; limit: number; active: string; roleId?: string; search?: string } = {
         page: pageIndex + 1, // API is 1-based
         limit: pageSize,
         active: activeFilter,
       };
       if (roleFilter !== "all") {
         params.roleId = roleFilter;
+      }
+      if (searchQuery.trim()) {
+        params.search = searchQuery.trim();
       }
       const response = await client.get("/audit-user-roles", {
         params,
@@ -107,7 +111,7 @@ export default function PermissionsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, pageSize, roleFilter, activeFilter, isAllowed]);
+  }, [pageIndex, pageSize, roleFilter, activeFilter, searchQuery, isAllowed]);
 
   useEffect(() => {
     fetchUserRoles();
@@ -153,6 +157,11 @@ export default function PermissionsPage() {
       toast.error(getErrorMessage(error, "ไม่สามารถเปิดใช้งาน Permission ได้"));
     }
   };
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    setPageIndex(0);
+  }, []);
 
   const columns = createPermissionColumns(handleEdit, handleDelete, handleReactivate);
 
@@ -227,6 +236,8 @@ export default function PermissionsPage() {
         data={userRoles}
         searchKeys={["userCode", "fullname", "email"]}
         searchPlaceholder="ค้นหา User Code, ชื่อ, Email..."
+        onSearchChange={handleSearchChange}
+        searchValue={searchQuery}
         pagination={{ pageIndex, pageSize }}
         onPageChange={setPageIndex}
         onPageSizeChange={(size) => { setPageSize(size); setPageIndex(0); }}

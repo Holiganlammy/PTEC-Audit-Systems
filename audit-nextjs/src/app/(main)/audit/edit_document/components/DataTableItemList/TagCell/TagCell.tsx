@@ -77,18 +77,43 @@ export default function TagCell({
     }
   }, [forceRefresh, itemId]);
 
+  const DROPDOWN_MAX_HEIGHT = 240; // ต้องสอดคล้องกับ max-h-60 ที่ใช้แสดงผล dropdown
+
+  const updateDropdownPosition = useCallback(() => {
+    if (!inputRef.current) return;
+    const rect = inputRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    // ถ้าพื้นที่ด้านล่างไม่พอและด้านบนมีที่ว่างมากกว่า ให้เปิด dropdown ขึ้นด้านบนแทน (เหมือน shadcn Select ที่กัน collision กับขอบจอ)
+    const shouldFlip = spaceBelow < DROPDOWN_MAX_HEIGHT && spaceAbove > spaceBelow;
+    setDropdownStyle({
+      position: "fixed",
+      ...(shouldFlip
+        ? { bottom: window.innerHeight - rect.top + 4 }
+        : { top: rect.bottom + 4 }),
+      left: rect.left,
+      minWidth: Math.max(rect.width, 340), // ขยายให้กว้างขึ้น ไม่ต้องแคบตามช่อง input ในตาราง จะได้เห็นชื่อเต็มๆ
+      maxHeight: Math.max((shouldFlip ? spaceAbove : spaceBelow) - 8, 100),
+      zIndex: 9999,
+    });
+  }, []);
+
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      const rect = inputRef.current.getBoundingClientRect();
-      setDropdownStyle({
-        position: "fixed",
-        top: rect.bottom + 4,
-        left: rect.left,
-        width: rect.width,
-        zIndex: 9999,
-      });
-    }
-  }, [isOpen, search]);
+    if (isOpen) updateDropdownPosition();
+  }, [isOpen, search, updateDropdownPosition]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    // ปิด dropdown ทันทีเมื่อมีการ scroll (แทนที่จะคำนวณตำแหน่งใหม่ให้ลอยตาม) เหมือนพฤติกรรม popover ของ shadcn/Radix
+    // (ใช้ capture: true เพื่อจับ scroll ของ container ที่อยู่ข้างในตารางด้วย ไม่ใช่แค่ window)
+    const closeOnScroll = () => setIsOpen(false);
+    window.addEventListener("scroll", closeOnScroll, true);
+    window.addEventListener("resize", updateDropdownPosition);
+    return () => {
+      window.removeEventListener("scroll", closeOnScroll, true);
+      window.removeEventListener("resize", updateDropdownPosition);
+    };
+  }, [isOpen, updateDropdownPosition]);
 
   const canTag = !isLocked && [1, 2, 3, 4].includes(session?.user?.role_id ?? -1);
   const filtered = search.trim()
@@ -228,7 +253,7 @@ export default function TagCell({
         />
 
         {isOpen && filtered.length > 0 && createPortal(
-          <div style={dropdownStyle} className="rounded-md border border-border bg-popover shadow-md max-h-44 overflow-y-auto">
+          <div style={dropdownStyle} className="rounded-md border border-border bg-popover shadow-md max-h-60 overflow-y-auto">
             {filtered.map((u, idx) => (
               <button
                 key={u.UserID}
@@ -238,14 +263,14 @@ export default function TagCell({
                   setPendingUser(u);
                 }}
                 onMouseEnter={() => setHighlightedIndex(idx)}
-                className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left transition-colors ${
+                className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${
                   idx === highlightedIndex ? "bg-muted" : "hover:bg-muted"
                 }`}
               >
-                <span className="text-xs font-semibold text-foreground shrink-0">
+                <span className="text-sm font-semibold text-foreground shrink-0">
                   {u.UserCode}
                 </span>
-                <span className="text-[10px] text-muted-foreground truncate">
+                <span className="text-xs text-muted-foreground min-w-0 flex-1 wrap-break-word">
                   {u.Fullname}
                 </span>
               </button>

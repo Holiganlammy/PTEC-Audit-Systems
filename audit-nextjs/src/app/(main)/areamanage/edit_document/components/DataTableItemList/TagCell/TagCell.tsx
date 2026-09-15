@@ -96,14 +96,22 @@ export default function TagCell({
     }
   }, [forceRefresh, itemId]);
 
+  const DROPDOWN_MAX_HEIGHT = 240; // ต้องสอดคล้องกับ max-h-60 ที่ใช้แสดงผล dropdown
   const updateDropdownPosition = useCallback(() => {
     if (!inputRef.current) return;
     const rect = inputRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    // ถ้าพื้นที่ด้านล่างไม่พอและด้านบนมีที่ว่างมากกว่า ให้เปิด dropdown ขึ้นด้านบนแทน (เหมือน shadcn Select ที่กัน collision กับขอบจอ)
+    const shouldFlip = spaceBelow < DROPDOWN_MAX_HEIGHT && spaceAbove > spaceBelow;
     setDropdownStyle({
       position: "fixed",
-      top: rect.bottom + 4,
+      ...(shouldFlip
+        ? { bottom: window.innerHeight - rect.top + 4 }
+        : { top: rect.bottom + 4 }),
       left: rect.left,
-      minWidth: Math.max(rect.width, 280), // ขยายให้กว้างขึ้น ไม่ต้องแคบตามช่อง input ในตาราง
+      minWidth: Math.max(rect.width, 340), // ขยายให้กว้างขึ้น ไม่ต้องแคบตามช่อง input ในตาราง จะได้เห็นชื่อเต็มๆ
+      maxHeight: Math.max((shouldFlip ? spaceAbove : spaceBelow) - 8, 100),
       zIndex: 9999,
     });
   }, []);
@@ -111,12 +119,13 @@ export default function TagCell({
   useEffect(() => {
     if (!isOpen) return;
     updateDropdownPosition();
-    // ตาราง item เลื่อน (scroll) ได้ทั้งแนวตั้ง/แนวนอน — ต้องคำนวณตำแหน่ง dropdown ใหม่ทุกครั้งที่เลื่อน
-    // ไม่งั้น dropdown จะค้างตำแหน่งเดิม ไม่ตามแถวที่เลื่อนไป (ใช้ capture: true เพื่อจับ scroll ของ container ที่อยู่ข้างในด้วย ไม่ใช่แค่ window)
-    window.addEventListener("scroll", updateDropdownPosition, true);
+    // ปิด dropdown ทันทีเมื่อมีการ scroll (แทนที่จะคำนวณตำแหน่งใหม่ให้ลอยตาม) เหมือนพฤติกรรม popover ของ shadcn/Radix
+    // (ใช้ capture: true เพื่อจับ scroll ของ container ที่อยู่ข้างในตารางด้วย ไม่ใช่แค่ window)
+    const closeOnScroll = () => setIsOpen(false);
+    window.addEventListener("scroll", closeOnScroll, true);
     window.addEventListener("resize", updateDropdownPosition);
     return () => {
-      window.removeEventListener("scroll", updateDropdownPosition, true);
+      window.removeEventListener("scroll", closeOnScroll, true);
       window.removeEventListener("resize", updateDropdownPosition);
     };
   }, [isOpen, updateDropdownPosition]);
@@ -132,8 +141,10 @@ export default function TagCell({
           (u) =>
             // ตัด user สาขา (UserCode ขึ้นต้นด้วย PTEC) ออกจาก tag ทั้งหมด
             !u.UserCode.toUpperCase().startsWith("PTEC") &&
-            // เอกสาร AA: แท็กได้เฉพาะ PM ในลิสต์ที่กำหนดเท่านั้น
-            (positionType !== "AA" || AA_TAGGABLE_PM_CODES.includes(u.UserCode)) &&
+            // เอกสาร AA: ถ้าเป็น PM ให้แท็กได้เฉพาะ PM ในลิสต์ที่กำหนด ส่วน user อื่นๆ (ไม่ใช่ PM) แสดงได้ตามปกติ
+            (positionType !== "AA" ||
+              !u.UserCode.toUpperCase().startsWith("PM") ||
+              AA_TAGGABLE_PM_CODES.includes(u.UserCode.toUpperCase())) &&
             !tags.some((t) => String(t.userId) === String(u.UserID)) &&
             (u.UserCode.toLowerCase().includes(search.toLowerCase()) ||
               u.Fullname.toLowerCase().includes(search.toLowerCase()))
@@ -277,7 +288,7 @@ export default function TagCell({
                 <span className="text-sm font-semibold text-foreground shrink-0">
                   {u.UserCode}
                 </span>
-                <span className="text-xs text-muted-foreground truncate">
+                <span className="text-xs text-muted-foreground min-w-0 flex-1 wrap-break-word">
                   {u.Fullname}
                 </span>
               </button>
