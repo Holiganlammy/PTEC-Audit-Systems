@@ -65,20 +65,26 @@ export class AuditUserRolesController {
     @Query('active') active?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('search') search?: string,
   ) {
     await this.getUserFromJWT(req);
     try {
+      const searchTerm = search?.trim().toLowerCase();
       const filters = {
         roleId: roleId ? parseInt(roleId) : undefined,
         active: active ? parseInt(active) : 1, // Default: active only
         page: page ? parseInt(page) : 1,
         limit: limit ? parseInt(limit) : 20,
+        // มี search: ต้อง fetch มาทั้งหมด (ไม่ paginate ที่ DB) เพราะ fullname/email
+        // มาจาก procedure ภายนอก ไม่ได้อยู่ใน table นี้ ค้นแบบแบ่งหน้าที่ DB ตรงๆ ไม่ได้
+        // (ไม่งั้นจะเจอบัค: ค้นหาได้เฉพาะ record ที่อยู่ใน "หน้า" ที่ query มา ไม่ใช่ค้นทั้งหมดจริงๆ)
+        skipPaging: !!searchTerm,
       };
 
       const { data, total } = await this.auditUserRolesService.findAll(filters);
 
       // Enrich with user data
-      const enrichedData: UserRoleResponseDto[] = await Promise.all(
+      let enrichedData: UserRoleResponseDto[] = await Promise.all(
         data.map(async (userRole) => {
           const userData = await this.getUserData(userRole.userId);
           return {
@@ -101,10 +107,22 @@ export class AuditUserRolesController {
         }),
       );
 
+      let total2 = total;
+      if (searchTerm) {
+        enrichedData = enrichedData.filter((u) =>
+          [u.userCode, u.fullname, u.email].some((field) =>
+            field?.toLowerCase().includes(searchTerm),
+          ),
+        );
+        total2 = enrichedData.length;
+        const start = (filters.page - 1) * filters.limit;
+        enrichedData = enrichedData.slice(start, start + filters.limit);
+      }
+
       return {
         success: true,
         data: enrichedData,
-        total,
+        total: total2,
         page: filters.page,
         limit: filters.limit,
       };

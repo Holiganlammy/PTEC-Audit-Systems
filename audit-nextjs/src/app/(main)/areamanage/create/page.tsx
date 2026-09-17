@@ -339,7 +339,7 @@ export default function CreateAMJobPage() {
                           <Popover open={openPMCode} onOpenChange={setOpenPMCode}>
                             <PopoverTrigger asChild>
                               <Button variant="outline" role="combobox" className="w-full justify-between">
-                                {field.value ? (() => { const u = userPersonalCodes.find((u) => u.PersonalCode === field.value); return u ? `${u.PersonalCode} - ${u.fristName} ${u.lastName}` : field.value; })() : "เลือก PM Code"}
+                                {field.value ? (() => { const u = userPersonalCodes.find((u) => u.UserCode === field.value); return u ? `${u.UserCode} - ${u.fristName} ${u.lastName}` : field.value; })() : "เลือก PM Code"}
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
                             </PopoverTrigger>
@@ -349,10 +349,10 @@ export default function CreateAMJobPage() {
                                 <CommandList>
                                   <CommandEmpty>ไม่พบข้อมูล</CommandEmpty>
                                   <CommandGroup>
-                                    {userPersonalCodes.filter((u) => { if (!u.UserCode) return false; if (!pmSearch) return true; const s = pmSearch.toLowerCase(); return u.PersonalCode?.toLowerCase().includes(s) || u.fristName?.toLowerCase().includes(s) || u.lastName?.toLowerCase().includes(s) || u.BranchName?.toLowerCase().includes(s); }).map((u) => (
-                                      <CommandItem key={u.UserID} value={`${u.PersonalCode} ${u.fristName} ${u.lastName} ${u.BranchName}`} onSelect={() => { field.onChange(u.PersonalCode); form.setValue("Firstname", u.fristName || ""); form.setValue("Lastname", u.lastName || ""); setPmSearch(""); setOpenPMCode(false); }}>
-                                        <Check className={cn("mr-2 h-4 w-4", field.value === u.PersonalCode ? "opacity-100" : "opacity-0")} />
-                                        {u.PersonalCode} - {u.fristName} {u.lastName}
+                                    {userPersonalCodes.filter((u) => { if (!u.UserCode) return false; if (!pmSearch) return true; const s = pmSearch.toLowerCase(); return u.UserCode?.toLowerCase().includes(s) || u.fristName?.toLowerCase().includes(s) || u.lastName?.toLowerCase().includes(s) || u.BranchName?.toLowerCase().includes(s); }).map((u) => (
+                                      <CommandItem key={u.UserID} value={`${u.UserCode} ${u.fristName} ${u.lastName} ${u.BranchName}`} onSelect={() => { field.onChange(u.UserCode); form.setValue("Firstname", u.fristName || ""); form.setValue("Lastname", u.lastName || ""); setPmSearch(""); setOpenPMCode(false); }}>
+                                        <Check className={cn("mr-2 h-4 w-4", field.value === u.UserCode ? "opacity-100" : "opacity-0")} />
+                                        {u.UserCode} - {u.fristName} {u.lastName}
                                       </CommandItem>
                                     ))}
                                   </CommandGroup>

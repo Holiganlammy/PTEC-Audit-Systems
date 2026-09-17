@@ -82,6 +82,7 @@ export class AuditUserRolesService {
     active?: number;
     page?: number;
     limit?: number;
+    skipPaging?: boolean;
   }): Promise<{ data: AuditUserRoles[]; total: number }> {
     const query = this.auditUserRolesRepo
       .createQueryBuilder('ur')
@@ -96,11 +97,14 @@ export class AuditUserRolesService {
       query.andWhere('ur.active = :active', { active: filters.active });
     }
 
-    const page = filters?.page || 1;
-    const limit = filters?.limit || 20;
-    const skip = (page - 1) * limit;
-
-    query.skip(skip).take(limit);
+    // เมื่อค้นหาด้วยคำค้น (search) ต้อง fetch ทั้งหมดมาก่อน เพราะ fullname/email ไม่ได้อยู่ใน
+    // ตารางนี้ (มาจาก procedure ภายนอก) เลย filter/paginate ที่ DB ตรงๆ ไม่ได้ ต้องไป filter หลัง enrich แล้ว
+    if (!filters?.skipPaging) {
+      const page = filters?.page || 1;
+      const limit = filters?.limit || 20;
+      const skip = (page - 1) * limit;
+      query.skip(skip).take(limit);
+    }
 
     const [data, total] = await query.getManyAndCount();
     return { data, total };
