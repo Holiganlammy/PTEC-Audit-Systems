@@ -846,7 +846,7 @@ export default function EditAuditJobPage() {
   // Sync Firstname/Lastname จาก PM Code เท่านั้น — ไม่เกี่ยวกับสาขาที่เลือก
   useEffect(() => {
     if (!jobData?.pmCode || userPersonalCodes.length === 0) return;
-    const pmUser = userPersonalCodes.find((u) => u.PersonalCode === jobData.pmCode);
+    const pmUser = userPersonalCodes.find((u) => u.UserCode === jobData.pmCode);
     if (pmUser) {
       form.setValue("Firstname", pmUser.fristName || "");
       form.setValue("Lastname", pmUser.lastName || "");
@@ -1596,11 +1596,11 @@ export default function EditAuditJobPage() {
                                     <CommandGroup>
                                       {userPersonalCodes
                                         .filter((u) => {
-                                          if (!u.PersonalCode) return false;
+                                          if (!u.UserCode) return false;
                                           if (!pmSearch) return true;
                                           const s = pmSearch.toLowerCase();
                                           return (
-                                            u.PersonalCode?.toLowerCase().includes(s) ||
+                                            u.UserCode?.toLowerCase().includes(s) ||
                                             u.fristName?.toLowerCase().includes(s) ||
                                             u.lastName?.toLowerCase().includes(s) ||
                                             u.BranchName?.toLowerCase().includes(s)
@@ -1609,9 +1609,9 @@ export default function EditAuditJobPage() {
                                         .map((u) => (
                                           <CommandItem
                                             key={u.UserID}
-                                            value={`${u.PersonalCode} ${u.fristName} ${u.lastName} ${u.BranchName}`}
+                                            value={`${u.UserCode} ${u.fristName} ${u.lastName} ${u.BranchName}`}
                                             onSelect={() => {
-                                              // field.onChange(u.PersonalCode);
+                                              // field.onChange(u.UserCode);
                                               // const matchedBranch = branches.find((b) => b.branchid === u.BranchID);
                                               // if (matchedBranch) {
                                               //   form.setValue("Branch", matchedBranch.branchid.toString());
@@ -1631,10 +1631,10 @@ export default function EditAuditJobPage() {
                                             <Check
                                               className={cn(
                                                 "mr-2 h-4 w-4",
-                                                field.value === u.PersonalCode ? "opacity-100" : "opacity-0"
+                                                field.value === u.UserCode ? "opacity-100" : "opacity-0"
                                               )}
                                             />
-                                            {u.PersonalCode} - {u.fristName} {u.lastName}
+                                            {u.UserCode} - {u.fristName} {u.lastName}
                                           </CommandItem>
                                         ))}
                                     </CommandGroup>
