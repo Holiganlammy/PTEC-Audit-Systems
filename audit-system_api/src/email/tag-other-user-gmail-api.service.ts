@@ -1,72 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Injectable } from '@nestjs/common';
-import { google } from 'googleapis';
 import { escapeHtml } from './html-escape.util';
-
-interface GoogleCredentials {
-  installed: {
-    client_id: string;
-    client_secret: string;
-    redirect_uris: string[];
-  };
-}
-
-interface GoogleToken {
-  access_token: string;
-  refresh_token: string;
-  scope: string;
-  token_type: string;
-  expiry_date?: number;
-}
+import { sendMailViaGraph } from './microsoft-graph-mail.service';
 
 @Injectable()
 export class TagOtherUserGmailApiService {
-  private buildBasePaths() {
-    const credentialsPath =
-      process.env.GOOGLE_GMAIL_CREDENTIALS_PATH ||
-      path.resolve(process.cwd(), 'credentials.json');
-    const tokenPath =
-      process.env.GOOGLE_GMAIL_TOKEN_PATH ||
-      path.resolve(process.cwd(), 'token.json');
-
-    return { credentialsPath, tokenPath };
-  }
-
-  private getGmailClient() {
-    const { credentialsPath, tokenPath } = this.buildBasePaths();
-
-    const credentials: GoogleCredentials = JSON.parse(
-      fs.readFileSync(credentialsPath, 'utf8'),
-    ) as GoogleCredentials;
-    const token: GoogleToken = JSON.parse(
-      fs.readFileSync(tokenPath, 'utf8'),
-    ) as GoogleToken;
-
-    const { client_secret, client_id, redirect_uris } = credentials.installed;
-    const oAuth2Client = new google.auth.OAuth2(
-      client_id,
-      client_secret,
-      redirect_uris?.[0],
-    );
-
-    oAuth2Client.setCredentials(token);
-
-    return google.gmail({ version: 'v1', auth: oAuth2Client });
-  }
-
-  private encodeSubjectUtf8Base64(subject: string) {
-    return `=?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`;
-  }
-
-  private toBase64Url(rawMessage: string) {
-    return Buffer.from(rawMessage)
-      .toString('base64')
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
-  }
-
   async sendHtmlMail(params: {
     to: string;
     subject: string;
@@ -77,52 +16,28 @@ export class TagOtherUserGmailApiService {
       cid: string;
     }>;
   }) {
-    const gmail = this.getGmailClient();
-
-    const fromEmail =
-      process.env.Email || process.env.EMAIL_FROM || 'no-reply@example.com';
-
-    const boundary = '----=_Part_' + Date.now();
-
-    let rawMessage = [
-      `From: PTEC Audit System <${fromEmail}>`,
-      `To: ${params.to}`,
-      `Subject: ${this.encodeSubjectUtf8Base64(params.subject)}`,
-      'MIME-Version: 1.0',
-      `Content-Type: multipart/related; boundary="${boundary}"`,
-      '',
-      `--${boundary}`,
-      'Content-Type: text/html; charset="UTF-8"',
-      'Content-Transfer-Encoding: 7bit',
-      '',
-      params.html,
-    ].join('\n');
-
-    // Add inline attachments
-    if (params.attachments && params.attachments.length > 0) {
-      for (const attachment of params.attachments) {
-        try {
-          const fileContent = fs.readFileSync(attachment.path);
-          const base64Content = fileContent.toString('base64');
-
-          rawMessage += `\n--${boundary}\n`;
-          rawMessage += `Content-Type: image/png; name="${attachment.filename}"\n`;
-          rawMessage += `Content-Transfer-Encoding: base64\n`;
-          rawMessage += `Content-ID: <${attachment.cid}>\n`;
-          rawMessage += `Content-Disposition: inline; filename="${attachment.filename}"\n`;
-          rawMessage += '\n';
-          rawMessage += base64Content;
-        } catch (error) {
-          console.error(`Error reading attachment ${attachment.path}:`, error);
-        }
+    const attachments = (params.attachments ?? []).flatMap((attachment) => {
+      try {
+        return [
+          {
+            cid: attachment.cid,
+            filename: attachment.filename,
+            contentType: 'image/png',
+            base64Content: fs.readFileSync(attachment.path).toString('base64'),
+            isInline: true,
+          },
+        ];
+      } catch (error) {
+        console.error(`Error reading attachment ${attachment.path}:`, error);
+        return [];
       }
-    }
+    });
 
-    rawMessage += `\n--${boundary}--`;
-
-    await gmail.users.messages.send({
-      userId: 'me',
-      requestBody: { raw: this.toBase64Url(rawMessage) },
+    await sendMailViaGraph({
+      to: params.to,
+      subject: params.subject,
+      html: params.html,
+      attachments,
     });
   }
 

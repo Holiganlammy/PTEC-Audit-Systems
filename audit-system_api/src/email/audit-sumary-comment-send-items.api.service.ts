@@ -1,12 +1,10 @@
 // email/audit-summary-gmail-api.service.ts
 
 import { Injectable } from '@nestjs/common';
-import { google } from 'googleapis';
-import * as fs from 'fs';
-import * as path from 'path';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { escapeHtml } from './html-escape.util';
+import { sendMailViaGraph } from './microsoft-graph-mail.service';
 
 interface CommentData {
   author: string;
@@ -29,58 +27,8 @@ interface CombinedSummaryEmailParams {
   formType?: string; // 'AM' | 'AA' | 'Audit'
 }
 
-interface GoogleCredentials {
-  web?: {
-    client_id: string;
-    client_secret: string;
-    redirect_uris: string[];
-  };
-  installed?: {
-    client_id: string;
-    client_secret: string;
-    redirect_uris: string[];
-  };
-}
-
-interface GoogleToken {
-  access_token?: string;
-  refresh_token?: string;
-  expiry_date?: number;
-}
-
 @Injectable()
 export class AuditSummaryEmailService {
-  private oauth2Client!: InstanceType<typeof google.auth.OAuth2>;
-
-  constructor() {
-    this.initializeOAuth();
-  }
-
-  private initializeOAuth(): void {
-    const credentialsPath =
-      process.env.GOOGLE_GMAIL_CREDENTIALS_PATH || 'credentials.json';
-    const tokenPath = process.env.GOOGLE_GMAIL_TOKEN_PATH || 'token.json';
-
-    const credentials = JSON.parse(
-      fs.readFileSync(path.resolve(credentialsPath), 'utf-8'),
-    ) as GoogleCredentials;
-
-    const { client_secret, client_id, redirect_uris } =
-      credentials.web ?? credentials.installed!;
-
-    const oAuth2Client = new google.auth.OAuth2(
-      client_id,
-      client_secret,
-      redirect_uris?.[0],
-    );
-
-    const token = JSON.parse(
-      fs.readFileSync(path.resolve(tokenPath), 'utf-8'),
-    ) as GoogleToken;
-    oAuth2Client.setCredentials(token);
-    this.oauth2Client = oAuth2Client;
-  }
-
   /**
    * ส่งเมลสรุปรวม (Audit + Other ในเมลเดียว)
    */
@@ -108,9 +56,6 @@ export class AuditSummaryEmailService {
       console.log('⚠️ No comments to send');
       return;
     }
-
-    const gmail = google.gmail({ version: 'v1', auth: this.oauth2Client });
-    const from = process.env.Email || 'no-reply@ptec.co.th';
 
     const itemStatusBadge = this.getItemStatusBadge(itemStatus);
     const amChecklistBadge = this.getAMChecklistBadge(amChecklistStatus);
@@ -280,26 +225,7 @@ ${escapeHtml(comment.text)}
 
     // Send to all recipients
     for (const email of recipientEmails) {
-      const message = [
-        `From: PTEC Audit System <${from}>`,
-        `To: ${email}`,
-        'Content-Type: text/html; charset=utf-8',
-        'MIME-Version: 1.0',
-        `Subject: =?utf-8?B?${Buffer.from(subject).toString('base64')}?=`,
-        '',
-        htmlContent,
-      ].join('\n');
-
-      const encodedMessage = Buffer.from(message)
-        .toString('base64')
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
-
-      await gmail.users.messages.send({
-        userId: 'me',
-        requestBody: { raw: encodedMessage },
-      });
+      await sendMailViaGraph({ to: email, subject, html: htmlContent });
 
       console.log(`✓ Summary email sent to: ${email}`);
     }

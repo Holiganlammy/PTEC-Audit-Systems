@@ -1,51 +1,16 @@
-// Version: 1.1.0 | Date: 2025-05-19 | Updated: Fixed layout to match Audit Comment Email style
+// Version: 2.0.0 | Updated: ย้ายจาก Gmail API ไปใช้ Microsoft Graph API ส่งเมลแทน
 import * as fs from 'fs';
 import * as path from 'path';
-import { google } from 'googleapis';
-
-interface GoogleCredentials {
-  installed: {
-    client_id: string;
-    client_secret: string;
-    redirect_uris: string[];
-  };
-}
-
-interface GoogleToken {
-  access_token: string;
-  refresh_token: string;
-  scope: string;
-  token_type: string;
-  expiry_date?: number;
-}
+import {
+  sendMailViaGraph,
+  GraphInlineAttachment,
+} from './microsoft-graph-mail.service';
 
 export async function sendResetPasswordWithGmailAPI(
   to: string,
   fullname: string,
   resetLink: string,
 ) {
-  const credentialsPath =
-    process.env.GOOGLE_GMAIL_CREDENTIALS_PATH ||
-    path.resolve(process.cwd(), 'credentials.json');
-  const tokenPath =
-    process.env.GOOGLE_GMAIL_TOKEN_PATH ||
-    path.resolve(process.cwd(), 'token.json');
-
-  const credentials: GoogleCredentials = JSON.parse(
-    fs.readFileSync(credentialsPath, 'utf8'),
-  ) as GoogleCredentials;
-  const token = JSON.parse(fs.readFileSync(tokenPath, 'utf8')) as GoogleToken;
-
-  const { client_secret, client_id, redirect_uris } = credentials.installed;
-  const oAuth2Client = new google.auth.OAuth2(
-    client_id,
-    client_secret,
-    redirect_uris?.[0],
-  );
-
-  oAuth2Client.setCredentials(token);
-  const gmail = google.gmail({ version: 'v1', auth: oAuth2Client });
-
   const logoPath = path.resolve(process.cwd(), 'src/images/Header_Mail.png');
   const userName = fullname?.trim() || 'ผู้ใช้งาน';
 
@@ -167,40 +132,18 @@ export async function sendResetPasswordWithGmailAPI(
 </body>
 </html>`;
 
-  const subject = Buffer.from(
-    'คำขอรีเซ็ตรหัสผ่าน - Audit Management System',
-  ).toString('base64');
+  const subject = 'คำขอรีเซ็ตรหัสผ่าน - Audit Management System';
 
-  // MIME multipart (เหมือน Audit Comment Email ทุกอย่าง)
-  const boundary = '----=_Part_' + Date.now();
-
-  let rawMessage = [
-    `From: "PTEC Audit System" <${process.env.Email}>`,
-    `To: ${to}`,
-    `Subject: =?UTF-8?B?${subject}?=`,
-    'MIME-Version: 1.0',
-    `Content-Type: multipart/related; boundary="${boundary}"`,
-    '',
-    `--${boundary}`,
-    'Content-Type: text/html; charset="UTF-8"',
-    'Content-Transfer-Encoding: 7bit',
-    '',
-    html,
-  ].join('\n');
-
-  // Attach Header Logo (เหมือน Audit Comment)
+  const attachments: GraphInlineAttachment[] = [];
   try {
     if (fs.existsSync(logoPath)) {
-      const fileContent = fs.readFileSync(logoPath);
-      const base64Content = fileContent.toString('base64');
-
-      rawMessage += `\n--${boundary}\n`;
-      rawMessage += `Content-Type: image/png; name="Header_Mail.png"\n`;
-      rawMessage += `Content-Transfer-Encoding: base64\n`;
-      rawMessage += `Content-ID: <header_logo>\n`;
-      rawMessage += `Content-Disposition: inline; filename="Header_Mail.png"\n`;
-      rawMessage += '\n';
-      rawMessage += base64Content;
+      attachments.push({
+        cid: 'header_logo',
+        filename: 'Header_Mail.png',
+        contentType: 'image/png',
+        base64Content: fs.readFileSync(logoPath).toString('base64'),
+        isInline: true,
+      });
     } else {
       console.warn(`Logo not found at: ${logoPath}`);
     }
@@ -208,18 +151,7 @@ export async function sendResetPasswordWithGmailAPI(
     console.error('Error reading logo file:', error);
   }
 
-  rawMessage += `\n--${boundary}--`;
-
-  const encodedMessage = Buffer.from(rawMessage)
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-
-  await gmail.users.messages.send({
-    userId: 'me',
-    requestBody: { raw: encodedMessage },
-  });
+  await sendMailViaGraph({ to, subject, html, attachments });
 
   console.log(`ส่ง Reset Password ไปยัง ${to} สำเร็จ`);
 }
