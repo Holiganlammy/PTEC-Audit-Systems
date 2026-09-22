@@ -48,5 +48,6 @@ declare module "next-auth" {
     role_name?: string;
     accessTokenExpires?: number;
     lastRefresh?: number;
+    error?: string;
   }
 }

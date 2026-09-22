@@ -591,12 +591,14 @@ function ReplyComposer({
         autoFocus
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        placeholder="ตอบกลับความเห็นนี้..."
+        placeholder="ตอบกลับความเห็นนี้... (Ctrl+Enter เพื่อส่ง)"
         rows={2}
         disabled={isSending}
         className="resize-none text-sm flex-1"
         onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
+          // Enter เฉยๆ ให้ขึ้นบรรทัดใหม่ตามปกติ (ไม่งั้นพิมพ์ยาวๆ กด Enter ขึ้นบรรทัดใหม่
+          // จะกลายเป็นส่งคอมเมนต์ทันทีและเคลียร์ข้อความที่พิมพ์ค้างอยู่ทิ้งไปโดยไม่ตั้งใจ)
+          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();
             handleSend();
           }
@@ -872,7 +874,7 @@ export default function ThreadModal({
                 textareaRef={textareaRef}
                 value={draft}
                 onChange={handleDraftChange}
-                placeholder={canMention ? "พิมพ์ความเห็น... (พิมพ์ @ เพื่อ tag ผู้ใช้)" : "พิมพ์ความเห็น..."}
+                placeholder={canMention ? "พิมพ์ความเห็น... (พิมพ์ @ เพื่อ tag ผู้ใช้, Ctrl+Enter เพื่อส่ง)" : "พิมพ์ความเห็น... (Ctrl+Enter เพื่อส่ง)"}
                 rows={2}
                 disabled={isSending}
                 onKeyDown={(e) => {
@@ -898,7 +900,9 @@ export default function ThreadModal({
                       return;
                     }
                   }
-                  if (e.key === "Enter" && !e.shiftKey) {
+                  // Enter เฉยๆ ให้ขึ้นบรรทัดใหม่ตามปกติ ไม่ใช่ส่งทันที (กัน bug พิมพ์ยาวๆ
+                  // แล้วกด Enter ขึ้นบรรทัดใหม่ กลายเป็นส่งคอมเมนต์และเคลียร์ข้อความทิ้งไปโดยไม่ตั้งใจ)
+                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                     e.preventDefault();
                     handleSend();
                   }

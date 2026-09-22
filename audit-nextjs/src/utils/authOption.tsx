@@ -6,8 +6,6 @@ import AzureADProvider from "next-auth/providers/azure-ad";
 import type { User } from "next-auth";
 import { randomUUID } from "crypto";
 
-let isTokenExpired = false;
-
 const SESSION_MAX_AGE = 240 * 60; // 4 ชั่วโมง (วินาที)
 export const authOptions: AuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
@@ -59,8 +57,6 @@ export const authOptions: AuthOptions = {
             const user = parsedResponse.user;
             const token = parsedResponse.access_token;
 
-            isTokenExpired = false;
-
             return {
               id: user.userid?.toString() ?? "",
               UserID: parseInt(user.UserID),
@@ -100,7 +96,6 @@ export const authOptions: AuthOptions = {
             const parsedResponse = JSON.parse(credentials.responseLogin) as ResponseLogin;
             const user = parsedResponse.user;
             const token = parsedResponse.access_token;
-            isTokenExpired = false;
 
             return {
               id: user.userid?.toString() ?? "",
@@ -179,7 +174,6 @@ export const authOptions: AuthOptions = {
           user.loginMethod = 'microsoft';
           user.accessTokenExpires = Date.now() + (SESSION_MAX_AGE * 1000);
 
-          isTokenExpired = false;
           return true;
 
         } catch (error) {
@@ -206,7 +200,7 @@ export const authOptions: AuthOptions = {
         token.loginMethod = 'sso';
         token.role_name = user.role_name;
         token.accessTokenExpires = Date.now() + SESSION_MAX_AGE * 1000;
-        isTokenExpired = false;
+        delete token.error;
       }
 
       // Credentials Login
@@ -224,18 +218,19 @@ export const authOptions: AuthOptions = {
         token.loginMethod = user.loginMethod;
         token.role_name = user.role_name;
         token.accessTokenExpires = Date.now() + SESSION_MAX_AGE * 1000;
+        delete token.error;
       }
 
+      // เช็ค token หมดอายุจากค่า accessTokenExpires ของ "token นี้เอง" เท่านั้น
+      // (ห้ามใช้ตัวแปร module-level เก็บสถานะ "หมดอายุ" แบบ global เด็ดขาด — server process
+      // เดียวรองรับหลาย user พร้อมกัน ตัวแปร global แบบนั้นจะเป็นค่าที่ใช้ร่วมกันข้ามคน พอ user
+      // คนใดคนหนึ่ง token หมดอายุ จะไปเตะทุกคนบน process เดียวกันให้หลุด/session หลุดแบบสุ่มไปด้วย)
       if (token.accessTokenExpires && Date.now() > (token.accessTokenExpires as number)) {
-        if (!isTokenExpired) {
-          console.log("⚠️ Token expired in JWT callback");
-          isTokenExpired = true;
-        }
-        return { error: "TokenExpired" };
+        return { ...token, error: "TokenExpired" };
       }
 
-      if (isTokenExpired) {
-        return { error: "TokenExpired" };
+      if (token.error === "TokenExpired") {
+        return token;
       }
 
       // Refresh user data
@@ -267,8 +262,7 @@ export const authOptions: AuthOptions = {
           clearTimeout(timeoutId);
           
           if (response.status === 401) {
-            isTokenExpired = true;
-            return {};
+            return { ...token, error: "TokenExpired" };
           }
           
           if (response.ok) {
@@ -331,7 +325,6 @@ export const authOptions: AuthOptions = {
   events: {
     async signOut(message) {
       console.log("User signed out:", message);
-      isTokenExpired = false;
     },
   },
 
