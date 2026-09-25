@@ -214,6 +214,21 @@ function FilePreviewModal({
   );
 }
 
+// fallback whitelist สำหรับคนที่ต้องโชว์เป็น Area Assistant แต่ PositionCode ยังไม่ถูกตั้งเป็น "AA"
+const AA_USER_CODE_WHITELIST = [
+  "PM48000005",
+  "PM64000001",
+  "PM58000003",
+  "PM61000014",
+  "PM59000001",
+  "PM63000012",
+  "PM65000010",
+  "PM58000011",
+  "PM64000002",
+  "PM62000033",
+  "PM59000003",
+];
+
 const formSchema = z.object({
   Branch: z.string().nonempty("กรุณาเลือกสาขา"),
   Firstname: z.string().optional(),
@@ -862,21 +877,14 @@ export default function EditAuditJobPage() {
     ["TNM", "PRT"].includes(u.UserCode)
   );
 
-  const aaUsers = users.filter((u) =>
-    ["PM48000005",
-      "PM64000001",
-      "PM58000003",
-      "PM48000005",
-      "PM61000014",
-      "PM59000001",
-      "PM63000012",
-      "PM65000010",
-      "PM58000011",
-      "PM64000002",
-      "PM62000033",
-      "PM59000003",
-      "PM53000020",
-    ].includes(u.UserCode)
+  // AA Users = Area Assistant — เอาจาก PositionCode "AA" ของจริงในระบบเป็นหลัก
+  // (ไม่ต้องมาคอยเติม UserCode เข้า list มือทุกครั้งที่มี AA คนใหม่)
+  // ส่วน AA_USER_CODE_WHITELIST คือ fallback สำหรับคนที่ต้องโชว์เป็น AA
+  // แต่ PositionCode ในระบบยังไม่ได้ตั้งเป็น "AA"
+  const aaUsers = users.filter(
+    (u) =>
+      (u.PositionCode === "AA" && u.Actived) ||
+      AA_USER_CODE_WHITELIST.includes(u.UserCode)
   );
 
   const branchManagers = users.filter(
