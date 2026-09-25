@@ -349,7 +349,7 @@ export default function CreateAMJobPage() {
                                 <CommandList>
                                   <CommandEmpty>ไม่พบข้อมูล</CommandEmpty>
                                   <CommandGroup>
-                                    {userPersonalCodes.filter((u) => { if (!u.UserCode) return false; if (!pmSearch) return true; const s = pmSearch.toLowerCase(); return u.UserCode?.toLowerCase().includes(s) || u.fristName?.toLowerCase().includes(s) || u.lastName?.toLowerCase().includes(s) || u.BranchName?.toLowerCase().includes(s); }).map((u) => (
+                                    {userPersonalCodes.filter((u) => { if (!u.UserCode) return false; if (!u.Actived) return false; if (!pmSearch) return true; const s = pmSearch.toLowerCase(); return u.UserCode?.toLowerCase().includes(s) || u.fristName?.toLowerCase().includes(s) || u.lastName?.toLowerCase().includes(s) || u.BranchName?.toLowerCase().includes(s); }).map((u) => (
                                       <CommandItem key={u.UserID} value={`${u.UserCode} ${u.fristName} ${u.lastName} ${u.BranchName}`} onSelect={() => { field.onChange(u.UserCode); form.setValue("Firstname", u.fristName || ""); form.setValue("Lastname", u.lastName || ""); setPmSearch(""); setOpenPMCode(false); }}>
                                         <Check className={cn("mr-2 h-4 w-4", field.value === u.UserCode ? "opacity-100" : "opacity-0")} />
                                         {u.UserCode} - {u.fristName} {u.lastName}

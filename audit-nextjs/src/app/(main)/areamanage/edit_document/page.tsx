@@ -875,6 +875,7 @@ export default function EditAuditJobPage() {
       "PM64000002",
       "PM62000033",
       "PM59000003",
+      "PM53000020",
     ].includes(u.UserCode)
   );
 
@@ -1597,6 +1598,7 @@ export default function EditAuditJobPage() {
                                       {userPersonalCodes
                                         .filter((u) => {
                                           if (!u.UserCode) return false;
+                                          if (!u.Actived) return false;
                                           if (!pmSearch) return true;
                                           const s = pmSearch.toLowerCase();
                                           return (

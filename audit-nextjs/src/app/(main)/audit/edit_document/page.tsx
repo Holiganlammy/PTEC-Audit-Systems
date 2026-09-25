@@ -1518,6 +1518,7 @@ export default function EditAuditJobPage() {
                                       {userPersonalCodes
                                         .filter((u) => {
                                           if (!u.PersonalCode) return false;
+                                          if (!u.Actived) return false;
                                           if (!pmSearch) return true;
                                           const s = pmSearch.toLowerCase();
                                           return (

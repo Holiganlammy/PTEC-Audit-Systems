@@ -595,6 +595,7 @@ export default function CreateAuditJobPage() {
                                       {userPersonalCodes
                                         .filter((u) => {
                                           if (!u.UserCode) return false;
+                                          if (!u.Actived) return false;
                                           if (!pmSearch) return true;
                                           const s = pmSearch.toLowerCase();
                                           return (
