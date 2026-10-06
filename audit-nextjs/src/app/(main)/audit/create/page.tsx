@@ -569,10 +569,10 @@ export default function CreateAuditJobPage() {
                                   {field.value
                                     ? (() => {
                                         const u = userPersonalCodes.find(
-                                          (u) => u.PersonalCode === field.value
+                                          (u) => u.UserCode === field.value
                                         );
                                         return u
-                                          ? `${u.PersonalCode} - ${u.fristName} ${u.lastName}`
+                                          ? `${u.UserCode} - ${u.fristName} ${u.lastName}`
                                           : field.value;
                                       })()
                                     : "เลือก PM Code"}
@@ -599,7 +599,7 @@ export default function CreateAuditJobPage() {
                                           if (!pmSearch) return true;
                                           const s = pmSearch.toLowerCase();
                                           return (
-                                            u.PersonalCode?.toLowerCase().includes(
+                                            u.UserCode?.toLowerCase().includes(
                                               s
                                             ) ||
                                             u.fristName
@@ -616,9 +616,9 @@ export default function CreateAuditJobPage() {
                                         .map((u) => (
                                           <CommandItem
                                             key={u.UserID}
-                                            value={`${u.PersonalCode} ${u.fristName} ${u.lastName} ${u.BranchName}`}
+                                            value={`${u.UserCode} ${u.fristName} ${u.lastName} ${u.BranchName}`}
                                             onSelect={() => {
-                                              field.onChange(u.PersonalCode);
+                                              field.onChange(u.UserCode);
                                               // Auto-fill Firstname and Lastname
                                               form.setValue(
                                                 "Firstname",
@@ -635,12 +635,12 @@ export default function CreateAuditJobPage() {
                                             <Check
                                               className={cn(
                                                 "mr-2 h-4 w-4",
-                                                field.value === u.PersonalCode
+                                                field.value === u.UserCode
                                                   ? "opacity-100"
                                                   : "opacity-0"
                                               )}
                                             />
-                                            {u.PersonalCode} - {u.fristName}{" "}
+                                            {u.UserCode} - {u.fristName}{" "}
                                             {u.lastName}
                                           </CommandItem>
                                         ))}
