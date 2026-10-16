@@ -242,6 +242,7 @@ export class DashboardService {
   /**
    * รายการใบงาน AM ที่งานเสร็จแล้ว (item_status_edit = 4) แต่ยังไม่ผ่าน checklist
    * (header_checklist_status ยังว่าง/ยังไม่ทำ) — จัดอันดับตามจำนวนที่ค้างมากสุด
+   * นับเฉพาะ item ที่ผิดปกติ (item_status = 3) เท่านั้น item ที่ปกติไม่ต้องเช็ค checklist
    */
   private async getAMPendingChecklist(
     userId: number | null,
@@ -262,6 +263,7 @@ export class DashboardService {
       .addSelect('COUNT(DISTINCT ai.itemId)', 'totalCount')
       .innerJoin('ai.job', 'aj')
       .where('ai.itemStatusEdit = :closedStatus', { closedStatus: 4 })
+      .andWhere('ai.itemStatus = :abnormalStatus', { abnormalStatus: 3 })
       .andWhere('ai.active = :active', { active: true })
       .andWhere('aj.active = :active', { active: true })
       .andWhere(notAA)
@@ -331,6 +333,7 @@ export class DashboardService {
   /**
    * รายการใบงาน AA ที่งานเสร็จแล้ว (item_status_edit = 4) แต่ยังไม่ผ่าน checklist
    * (header_checklist_status ยังว่าง/ยังไม่ทำ) — จัดอันดับตามจำนวนที่ค้างมากสุด
+   * นับเฉพาะ item ที่ผิดปกติ (item_status = 3) เท่านั้น item ที่ปกติไม่ต้องเช็ค checklist
    */
   private async getAAPendingChecklist(
     userId: number | null,
@@ -351,6 +354,7 @@ export class DashboardService {
       .addSelect('COUNT(DISTINCT ai.itemId)', 'totalCount')
       .innerJoin('ai.aaJob', 'aj')
       .where('ai.itemStatusEdit = :closedStatus', { closedStatus: 4 })
+      .andWhere('ai.itemStatus = :abnormalStatus', { abnormalStatus: 3 })
       .andWhere('ai.active = :active', { active: true })
       .andWhere('aj.active = :active', { active: true })
       .andWhere(isAA)
@@ -860,6 +864,7 @@ export class DashboardService {
   /**
    * รายการใบงาน Audit ที่งานเสร็จแล้ว (item_status_edit = 4) แต่ยังไม่ผ่าน checklist
    * (am_checklist_status ยังว่าง/ยังไม่ทำ) — จัดอันดับตามจำนวนที่ค้างมากสุด
+   * นับเฉพาะ item ที่ผิดปกติ (item_status = 3) เท่านั้น item ที่ปกติไม่ต้องเช็ค checklist
    */
   private async getAuditPendingChecklist(): Promise<PendingChecklistJob[]> {
     const pendingCase = `CASE WHEN (ai.amChecklistStatus IS NULL OR ai.amChecklistStatus = 0) THEN ai.itemId END`;
@@ -873,6 +878,7 @@ export class DashboardService {
       .addSelect('COUNT(DISTINCT ai.itemId)', 'totalCount')
       .innerJoin('ai.job', 'aj')
       .where('ai.itemStatusEdit = :closedStatus', { closedStatus: 4 })
+      .andWhere('ai.itemStatus = :abnormalStatus', { abnormalStatus: 3 })
       .andWhere('ai.active = :active', { active: true })
       .andWhere('aj.active = :active', { active: true })
       .groupBy('aj.jobId')
@@ -2738,7 +2744,12 @@ export class DashboardService {
    * เรียง: risk% มาก่อน → เท่ากันดูจำนวนผิดจริง → เท่ากันดูจำนวนตรวจทั้งหมด → เท่ากันดูชื่อสาขา
    */
   private rankBranchesByRisk<
-    T extends { branchId: number; branchName: string; total: number; riskCount: number },
+    T extends {
+      branchId: number;
+      branchName: string;
+      total: number;
+      riskCount: number;
+    },
   >(
     rows: T[],
     limit: number,
@@ -2762,7 +2773,8 @@ export class DashboardService {
         };
       })
       .sort((a, b) => {
-        if (b.riskPercent !== a.riskPercent) return b.riskPercent - a.riskPercent;
+        if (b.riskPercent !== a.riskPercent)
+          return b.riskPercent - a.riskPercent;
         if (b.riskCount !== a.riskCount) return b.riskCount - a.riskCount;
         if (b.total !== a.total) return b.total - a.total;
         return a.branchName.localeCompare(b.branchName);
