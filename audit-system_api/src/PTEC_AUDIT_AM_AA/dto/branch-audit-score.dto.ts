@@ -68,4 +68,8 @@ export class CreateScoreBatchDto {
     score: number;
     remarks?: string;
   }>;
+
+  @IsOptional()
+  @IsString()
+  source?: string;
 }
