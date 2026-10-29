@@ -63,7 +63,7 @@ function ActionsCell({ row, onDelete }: { row: Row<AuditList>; onDelete: (jobId:
 }
 
 type PMPersonalCode = {
-  PersonalCode?: string | null;
+  UserCode?: string | null;
   fristName?: string;
   lastName?: string;
 };
@@ -263,7 +263,7 @@ export const createAuditListColumns = (
     cell: ({ row }) => {
       const branchManager = row.original.branchManager;
       // ชื่อที่แสดงมาจาก PM Code ของ job นี้ (ไม่ใช่ตัวผู้จัดการสาขาจริง เพราะแยกกันแล้ว)
-      const pmUser = userPersonalCodes.find((u) => u.PersonalCode === row.original.pmCode);
+      const pmUser = userPersonalCodes.find((u) => u.UserCode === row.original.pmCode);
       const pmFullname = pmUser
         ? [pmUser.fristName, pmUser.lastName].filter(Boolean).join(" ")
         : "";

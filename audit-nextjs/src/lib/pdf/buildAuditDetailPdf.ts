@@ -25,8 +25,10 @@ function getStatusText(status?: number) {
 export async function buildAuditDetailPdf(
   jobData: AuditJobData,
   itemsToExport: AuditItem[],
-  formType: "AM" | "AA" | "Audit" = "Audit"
+  formType: "AM" | "AA" | "Audit" = "Audit",
+  pmFullname?: string
 ): Promise<{ doc: jsPDF; filename: string }> {
+  const branchManagerName = pmFullname || jobData.branchManager?.fullname || "-";
   const isAMorAA = formType === "AM" || formType === "AA";
   const reportTitle = formType === "AM" ? "รายงาน Area Manager" : formType === "AA" ? "รายงาน Area Assistant" : "รายงานการตรวจสอบ";
   const filePrefix = formType === "AM" ? "AM" : formType === "AA" ? "AA" : "Audit";
@@ -80,14 +82,14 @@ export async function buildAuditDetailPdf(
         ? [
             ["ผู้สร้างเอกสาร", jobData.createdByUser?.fullname || "-"],
             ["ผู้จัดการเขต", jobData.districtManager?.fullname || "-"],
-            ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
+            ["ผู้จัดการสาขา", branchManagerName],
             ["หมายเหตุเพิ่มเติม", jobData.additionalNotes || "-"],
             ["มอบหมายงานให้สาขา", jobData.branchAssignment || "-"],
           ]
         : [
             ["ผู้ตรวจสอบ", jobData.auditor?.fullname || "-"],
             ["ผู้จัดการเขต", jobData.districtManager?.fullname || "-"],
-            ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
+            ["ผู้จัดการสาขา", branchManagerName],
             ["ผู้ทำรายการ", jobData.createdByUser?.fullname || "-"],
             ["หมายเหตุเพิ่มเติม", jobData.additionalNotes || "-"],
             ["มอบหมายงานให้สาขา", jobData.branchAssignment || "-"],
@@ -161,7 +163,7 @@ export async function buildAuditDetailPdf(
   doc.setFont("Sarabun", "bold"); doc.text(leftSignerTitle, 52.5, sigTitleY, { align: "center" });
   // Right: Branch Manager
   doc.line(125, sigLineY, 190, sigLineY);
-  doc.setFont("Sarabun", "normal"); doc.text(jobData.branchManager?.fullname || "-", 157.5, sigNameY, { align: "center" });
+  doc.setFont("Sarabun", "normal"); doc.text(branchManagerName, 157.5, sigNameY, { align: "center" });
   doc.setFont("Sarabun", "bold"); doc.text("ผู้จัดการสถานีบริการ", 157.5, sigNameY + 5, { align: "center" });
   yPos = sigTitleY + 10;
 

@@ -792,6 +792,12 @@ export default function EditAuditJobPage() {
     }
   }, [jobData?.pmCode, userPersonalCodes, form]);
 
+  // ชื่อผู้จัดการสาขาที่แสดงใน export ต้องมาจาก PM Code ของ job นี้ (ไม่ใช่ branchManager เดิม เพราะแยกกันแล้ว)
+  const pmFullnameForExport = (() => {
+    const pmUser = userPersonalCodes.find((u) => u.UserCode === jobData?.pmCode);
+    return pmUser ? [pmUser.fristName, pmUser.lastName].filter(Boolean).join(" ") : undefined;
+  })();
+
   // Filter users by position/role
   const auditors = users.filter((u) => ["KKJ", "PWW", "WSR"].includes(u.UserCode));
 
@@ -1186,6 +1192,7 @@ export default function EditAuditJobPage() {
                 auditItems={auditItems}
                 selectedItems={selectedAuditItems}
                 disabled={isLoadingData || isLoadingItems}
+                pmFullname={pmFullnameForExport}
               />
               {canEdit && (
               <TooltipProvider>

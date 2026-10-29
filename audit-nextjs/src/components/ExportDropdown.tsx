@@ -42,6 +42,7 @@ interface ExportDropdownProps {
   selectedItems?: AuditItem[];
   disabled?: boolean;
   formType?: "AM" | "AA" | "Audit";
+  pmFullname?: string;
 }
 
 function getStatusText(status?: number) {
@@ -65,9 +66,11 @@ export default function ExportDropdown({
   selectedItems,
   disabled = false,
   formType = "Audit",
+  pmFullname,
 }: ExportDropdownProps) {
   const itemsToExport = selectedItems && selectedItems.length > 0 ? selectedItems : auditItems;
   const canExport = !!jobData && auditItems.length > 0 && !disabled;
+  const branchManagerName = pmFullname || jobData?.branchManager?.fullname || "-";
 
   const isAMorAA = formType === "AM" || formType === "AA";
   const reportTitle = formType === "AM" ? "รายงาน Area Manager" : formType === "AA" ? "รายงาน Area Assistant" : "รายงานการตรวจสอบ";
@@ -103,7 +106,7 @@ export default function ExportDropdown({
     }
     setIsPdfExporting(true);
     try {
-      const { doc, filename } = await buildAuditDetailPdf(jobData, itemsToExport, formType);
+      const { doc, filename } = await buildAuditDetailPdf(jobData, itemsToExport, formType, pmFullname);
       const blob = doc.output("blob");
       const url = URL.createObjectURL(blob);
       setPdfPreview({ url, filename });
@@ -176,14 +179,14 @@ export default function ExportDropdown({
           ? [
               ["ผู้สร้างเอกสาร", jobData.createdByUser?.fullname || "-"],
               ["ผู้จัดการเขต", jobData.districtManager?.fullname || "-"],
-              ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
+              ["ผู้จัดการสาขา", branchManagerName],
               ["หมายเหตุเพิ่มเติม", jobData.additionalNotes || "-"],
               ["มอบหมายงานให้สาขา", jobData.branchAssignment || "-"],
             ]
           : [
               ["ผู้ตรวจสอบ", jobData.auditor?.fullname || "-"],
               ["ผู้จัดการเขต", jobData.districtManager?.fullname || "-"],
-              ["ผู้จัดการสาขา", jobData.branchManager?.fullname || "-"],
+              ["ผู้จัดการสาขา", branchManagerName],
               ["ผู้ทำรายการ", jobData.createdByUser?.fullname || "-"],
               ["หมายเหตุเพิ่มเติม", jobData.additionalNotes || "-"],
               ["มอบหมายงานให้สาขา", jobData.branchAssignment || "-"],
@@ -228,7 +231,7 @@ export default function ExportDropdown({
       Object.assign(worksheet.getCell(`D${currentRow}`), { value: "____________________", alignment: { horizontal: "center" } });
       currentRow++;
       Object.assign(worksheet.getCell(`B${currentRow}`), { value: isAMorAA ? (jobData.createdByUser?.fullname || "-") : (jobData.auditor?.fullname || "-"), alignment: { horizontal: "center" } });
-      Object.assign(worksheet.getCell(`D${currentRow}`), { value: jobData.branchManager?.fullname || "-", alignment: { horizontal: "center" } });
+      Object.assign(worksheet.getCell(`D${currentRow}`), { value: branchManagerName, alignment: { horizontal: "center" } });
       currentRow++;
       Object.assign(worksheet.getCell(`B${currentRow}`), { value: formType === "AM" ? "Area Manager" : formType === "AA" ? "Area Assistant" : "Audit", font: { bold: true }, alignment: { horizontal: "center" } });
       Object.assign(worksheet.getCell(`D${currentRow}`), { value: "ผู้จัดการสถานีบริการ", font: { bold: true }, alignment: { horizontal: "center" } });
