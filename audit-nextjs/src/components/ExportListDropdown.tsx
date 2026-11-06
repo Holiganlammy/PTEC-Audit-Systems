@@ -38,6 +38,16 @@ import ExcelJS from "exceljs";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { loadSarabunFont } from "@/lib/font/THSarabunPSK";
+import client from "@/lib/axios/interceptors";
+import { dataConfig } from "@/config/config";
+
+interface AuditItemFull {
+  categoryName: string;
+  status: number;
+  auditComment: string;
+  amComment: string;
+  otherComment: string;
+}
 
 interface AuditList {
   jobId: number;
@@ -65,6 +75,32 @@ interface ExportListDropdownProps {
 
 function getStatusText(status: number): string {
   return { 1: "อยู่ระหว่างดำเนินการ", 2: "ดำเนินการเสร็จสิ้น" }[status] || "-";
+}
+
+function getItemStatusText(status?: number): string {
+  return { 1: "ปกติ", 2: "อยู่ระหว่างดำเนินการ", 3: "ผิดปกติ", 4: "ปิดเคส" }[status || 0] || "ไม่ทราบ";
+}
+
+function joinComments(comments?: { OwnerCommentUser?: { fullname?: string }; note: string }[]): string {
+  if (!comments || comments.length === 0) return "-";
+  return comments.map((c) => `${c.OwnerCommentUser?.fullname || "Unknown"}\n- ${c.note}`).join("\n\n");
+}
+
+async function fetchJobItemsFull(jobId: number): Promise<AuditItemFull[]> {
+  try {
+    const response = await client.get(`/audit-items/job/${jobId}`, { headers: dataConfig().headers });
+    const items: AuditItemData[] = response.data?.success ? response.data.data : [];
+    return items.map((item) => ({
+      categoryName: item.categoryItem?.categoryName || "ไม่ระบุ",
+      status: item.itemStatus,
+      auditComment: joinComments(item.auditComments),
+      amComment: joinComments(item.amComments),
+      otherComment: joinComments(item.otherComments),
+    }));
+  } catch (error) {
+    console.error(`Error fetching audit items for job ${jobId}:`, error);
+    return [];
+  }
 }
 
 export default function ExportListDropdown({
@@ -180,6 +216,48 @@ export default function ExportListDropdown({
         },
       });
 
+      // ── รายละเอียดแต่ละรายการ (เต็ม) ──────────────────────────────
+      const itemsByJob = await Promise.all(exportData.map((job) => fetchJobItemsFull(job.jobId)));
+
+      exportData.forEach((job, idx) => {
+        const items = itemsByJob[idx];
+        if (items.length === 0) return;
+
+        doc.addPage();
+        let detailY = 15;
+
+        doc.setFontSize(13);
+        doc.setFont("Sarabun", "bold");
+        doc.setTextColor(PDF_COLORS.primary.r, PDF_COLORS.primary.g, PDF_COLORS.primary.b);
+        doc.text(`รายละเอียด: ${job.jobNo || "-"} - ${job.branchName || "-"}`, 10, detailY);
+        detailY += 6;
+
+        autoTable(doc, {
+          startY: detailY,
+          head: [["หัวข้อ", "สถานะ", "สิ่งที่ตรวจพบ\n(Audit Comment)", "รายละเอียดจาก\n(AM Comment)", "รายละเอียดจากผู้อื่น\n(Other Comment)"]],
+          body: items.map((item) => [item.categoryName, getItemStatusText(item.status), item.auditComment, item.amComment, item.otherComment]),
+          theme: "grid",
+          headStyles: { fillColor: [PDF_COLORS.primary.r, PDF_COLORS.primary.g, PDF_COLORS.primary.b], textColor: [255, 255, 255], fontStyle: "bold", font: "Sarabun", fontSize: 9, halign: "center", valign: "middle", lineColor: PDF_COLORS.border, lineWidth: 0.1, cellPadding: 2 },
+          bodyStyles: { font: "Sarabun", fontSize: 8, cellPadding: 3, valign: "top", textColor: [PDF_COLORS.text.r, PDF_COLORS.text.g, PDF_COLORS.text.b], lineColor: PDF_COLORS.border, lineWidth: 0.1, overflow: "linebreak" },
+          alternateRowStyles: { fillColor: PDF_COLORS.rowAlt },
+          columnStyles: {
+            0: { cellWidth: 35, halign: "left" },
+            1: { cellWidth: 22, halign: "center" },
+            2: { cellWidth: 75, halign: "left" },
+            3: { cellWidth: 70, halign: "left" },
+            4: { cellWidth: 65, halign: "left" },
+          },
+          margin: { left: 10, right: 10 },
+          didParseCell: (d) => {
+            if (d.section === "body" && d.column.index === 1) {
+              const item = items[d.row.index];
+              if (item?.status === 3) { d.cell.styles.textColor = [185, 28, 28]; d.cell.styles.fontStyle = "bold"; }
+              else if (item?.status === 4) { d.cell.styles.textColor = [6, 95, 70]; d.cell.styles.fontStyle = "bold"; }
+            }
+          },
+        });
+      });
+
       const pageCount = doc.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
@@ -268,6 +346,56 @@ export default function ExportListDropdown({
 
       worksheet.views = [{ state: "frozen", ySplit: 1 }];
       worksheet.autoFilter = { from: "A1", to: "J1" };
+
+      // ── Sheet 2: รายละเอียดแต่ละรายการ (เต็ม, จัดกลุ่มตาม Job) ──────
+      const detailSheet = workbook.addWorksheet("รายละเอียด");
+      detailSheet.columns = [
+        { key: "category", width: 28 }, { key: "status", width: 16 },
+        { key: "auditComment", width: 45 }, { key: "amComment", width: 40 }, { key: "otherComment", width: 40 },
+      ];
+
+      const DETAIL_COLS = 5;
+      const itemsByJob = await Promise.all(exportData.map((job) => fetchJobItemsFull(job.jobId)));
+
+      exportData.forEach((job, jobIndex) => {
+        if (itemsByJob[jobIndex].length === 0) return;
+
+        // แถว header ของ job: รวมเซลล์ Job No / สาขา / วันที่ / สถานะ ไว้แถวเดียว ให้ดูเป็นหัวเรื่องของแต่ละกลุ่ม
+        const jobTitle = `${job.jobNo || "-"}  |  สาขา: ${job.branchName || "-"}  |  วันที่ตรวจ: ${job.auditDate ? format(new Date(job.auditDate), "dd/MM/yyyy", { locale: th }) : "-"}  |  สถานะ: ${getStatusText(job.status)}`;
+        const titleRow = detailSheet.addRow([jobTitle]);
+        detailSheet.mergeCells(titleRow.number, 1, titleRow.number, DETAIL_COLS);
+        titleRow.height = 24;
+        const titleCell = titleRow.getCell(1);
+        titleCell.font = { bold: true, size: 12, color: { argb: `FF${COLORS.headerText}` } };
+        titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: `FF${COLORS.headerBg}` } };
+        titleCell.alignment = { horizontal: "left", vertical: "middle", indent: 1 };
+
+        // แถว header คอลัมน์ของรายละเอียด
+        const subHeaderRow = detailSheet.addRow(["หัวข้อ", "สถานะ", "Audit Comment", "AM Comment", "Other Comment"]);
+        subHeaderRow.eachCell((cell) => {
+          cell.font = { bold: true, size: 10, color: { argb: "FF1E293B" } };
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: `FF${COLORS.labelBg}` } };
+          cell.alignment = { horizontal: "center", vertical: "middle" };
+          cell.border = { top: { style: "thin", color: { argb: `FF${COLORS.border}` } }, bottom: { style: "thin", color: { argb: `FF${COLORS.border}` } }, left: { style: "thin", color: { argb: `FF${COLORS.border}` } }, right: { style: "thin", color: { argb: `FF${COLORS.border}` } } };
+        });
+        subHeaderRow.height = 20;
+
+        itemsByJob[jobIndex].forEach((item, itemIndex) => {
+          const isEvenItem = itemIndex % 2 === 0;
+          const row = detailSheet.addRow([item.categoryName, getItemStatusText(item.status), item.auditComment, item.amComment, item.otherComment]);
+          row.eachCell((cell, colNumber) => {
+            cell.font = { size: 10 };
+            cell.alignment = { horizontal: colNumber === 2 ? "center" : "left", vertical: "top", wrapText: true };
+            if (colNumber === 2 && item.status === 3) cell.font = { size: 10, bold: true, color: { argb: "FFB91C1C" } };
+            else if (colNumber === 2 && item.status === 4) cell.font = { size: 10, bold: true, color: { argb: "FF065F46" } };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: `FF${isEvenItem ? COLORS.evenRow : COLORS.oddRow}` } };
+            cell.border = { top: { style: "thin", color: { argb: `FF${COLORS.border}` } }, bottom: { style: "thin", color: { argb: `FF${COLORS.border}` } }, left: { style: "thin", color: { argb: `FF${COLORS.border}` } }, right: { style: "thin", color: { argb: `FF${COLORS.border}` } } };
+          });
+        });
+
+        // แถวเว้นระหว่าง job
+        detailSheet.addRow([]);
+      });
 
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
